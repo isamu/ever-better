@@ -145,6 +145,16 @@ Keep the three-platform matrix. It is the only thing that sees this class of bug
   declares support for `typescript <6.1.0`, so TS 7 breaks the linter this tool exists to
   configure.
 
+## Settled: no framework migration
+
+Vanilla JS -> Vue migration was raised and **declined** (2026-08-08). Do not re-propose it. It is a
+rewrite rather than a ratchet — there is no count that only goes down, and the success criterion is
+different in kind from everything else here.
+
+JS -> TS migration is NOT covered by that decision and stays in scope: types are what make the
+type-aware tier possible, so the ceiling means more once they are in. It is already reported as a
+gap and belongs to the P3 `ever-better-migrate` skill.
+
 ## Open questions for isamu
 
 - Publish as `ever-better` unscoped, or under a scope?
