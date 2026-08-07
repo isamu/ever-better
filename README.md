@@ -1,5 +1,7 @@
 # ever-better
 
+English | [日本語](README.ja.md)
+
 Make an existing codebase one that can **only get better**.
 
 Point it at a repository. It reports what quality tooling is missing, installs it, and records
