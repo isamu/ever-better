@@ -5,6 +5,7 @@ import {
   eslintPackagesFor,
   renderEslintConfig,
 } from "./generate/eslintConfig.ts";
+import { renderGitattributes } from "./generate/gitattributes.ts";
 import { renderWorkflow } from "./generate/workflow.ts";
 import type { Diagnosis, PackageJson, ScriptCoverage } from "./types.ts";
 
@@ -86,6 +87,10 @@ const filesToWrite = (options: BootstrapPlanOptions): BootstrapAction[] => {
       path: ".prettierrc.json",
       contents: `${JSON.stringify({ printWidth: 100, trailingComma: "all" }, null, 2)}\n`,
     });
+  }
+
+  if (!rootEntries.includes(".gitattributes")) {
+    actions.push({ kind: "writeFile", path: ".gitattributes", contents: renderGitattributes() });
   }
 
   if (!diagnosis.ci.present) {
