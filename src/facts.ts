@@ -15,6 +15,7 @@ const SOURCE_EXTENSIONS = new Set([
   "cjs",
   "vue",
   "svelte",
+  "astro",
 ]);
 
 const IGNORED_SEGMENTS = new Set(["node_modules", "dist", "build", "out", "coverage", ".git"]);

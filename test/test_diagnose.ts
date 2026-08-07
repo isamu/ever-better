@@ -96,9 +96,28 @@ describe("planBootstrap", () => {
     assert.ok(!install.packages.includes("prettier"));
   });
 
+  it("writes .gitattributes, without which Windows CI reports every file as unformatted", () => {
+    const written = planFor(facts())
+      .filter((action) => action.kind === "writeFile")
+      .map((action) => action.path);
+    assert.ok(written.includes(".gitattributes"));
+  });
+
+  it("leaves an existing .gitattributes alone", () => {
+    const plan = planFor(facts({ rootEntries: ["package.json", ".gitattributes"] }));
+    const written = plan.filter((action) => action.kind === "writeFile").map((a) => a.path);
+    assert.ok(!written.includes(".gitattributes"));
+  });
+
   it("proposes no work at all for a repo that already has everything", () => {
     const complete = facts({
-      rootEntries: ["package.json", "tsconfig.json", "eslint.config.js", ".prettierrc.json"],
+      rootEntries: [
+        "package.json",
+        "tsconfig.json",
+        "eslint.config.js",
+        ".prettierrc.json",
+        ".gitattributes",
+      ],
       packageJson: {
         scripts: {
           lint: "eslint .",

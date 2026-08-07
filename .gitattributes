@@ -1,0 +1,8 @@
+# Windows checks out CRLF by default, and Prettier's `endOfLine: "lf"` then reports every file in
+# the repository as unformatted — a CI failure that only ever appears on the Windows runner.
+* text=auto eol=lf
+
+*.png binary
+*.jpg binary
+*.gif binary
+*.ico binary

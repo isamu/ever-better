@@ -1,5 +1,7 @@
 # ever-better
 
+English | [日本語](README.ja.md)
+
 Make an existing codebase one that can **only get better**.
 
 Point it at a repository. It reports what quality tooling is missing, installs it, and records
@@ -37,6 +39,35 @@ npm install -g ever-better     # or run it with npx, or yarn add --dev ever-bett
 
 Node 20.11 or later. Works with yarn, npm, pnpm and bun — the package manager is detected from the
 lockfile.
+
+## Frameworks
+
+The generated config is shaped by what the repo actually is. Detection is by dependency, most
+specific first, so a Next app is not filed as plain React.
+
+| Detected | What you get |
+| --- | --- |
+| **Vue** / **Nuxt** | `eslint-plugin-vue` flat config, `.vue` wired into the type program, `vue-tsc` as the typecheck script, and the unsafe-any family switched off for SFCs |
+| **React** | `eslint-plugin-react-hooks` — rules of hooks and exhaustive deps, the ones that catch real bugs |
+| **Next** | the React set plus `@next/eslint-plugin-next` core-web-vitals, and `.next/` ignored |
+| **Svelte** / **Astro** | detected and reported as a gap; their file types are not configured yet |
+| none | plain TypeScript / JavaScript |
+
+Frontend repos get browser **and** node globals, because their config files, scripts and tests run
+under Node — browser-only globals produce a wall of false `no-undef` that says nothing.
+
+Two deliberate choices worth knowing about:
+
+- **`eslint-plugin-react` is not installed.** Its peer range stops at ESLint `^9.7`, so installing
+  it next to the ESLint 10 this tool sets up fails outright and would leave the repo with no
+  linter at all. `eslint-plugin-react-hooks` supports 10 and covers the bug-finding rules; the
+  rest of that plugin is mostly JSX style, which Prettier settles.
+- **`vue-tsc`, not `tsc`, for Vue.** `tsc` cannot read an SFC at all, so `tsc --noEmit` in a Vue
+  repo exits 0 while silently skipping every component.
+
+The config is written as `eslint.config.mjs` unless `package.json` declares `"type": "module"` —
+it is ESM either way, and in a CommonJS package a `.js` file makes Node reparse and warn on every
+lint run.
 
 ## What each command does
 

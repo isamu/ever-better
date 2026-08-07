@@ -1,6 +1,14 @@
-import { runRuleCounts } from "../eslintRunner.ts";
+import { runRuleCounts, totalOf } from "../eslintRunner.ts";
 import { writeQualityFile } from "../qualityFile.ts";
-import { applyRuleCounts, findRegressions, readState, writeState } from "../state.ts";
+import {
+  applyRuleCounts,
+  findRegressions,
+  readState,
+  setCounter,
+  totalViolations,
+  WARNINGS_COUNTER,
+  writeState,
+} from "../state.ts";
 
 export type CheckOptions = {
   cwd: string;
@@ -13,6 +21,14 @@ export type CheckResult = {
   message: string;
 };
 
+const WORST_SAMPLE = 5;
+
+const worst = (counts: Readonly<Record<string, number>>): string[] =>
+  Object.entries(counts)
+    .sort(([, a], [, b]) => b - a)
+    .slice(0, WORST_SAMPLE)
+    .map(([rule, count]) => `  ${count}  ${rule}`);
+
 export const runCheck = async (options: CheckOptions): Promise<CheckResult> => {
   const counts = await runRuleCounts(options.cwd);
   const previous = await readState(options.cwd);
@@ -20,34 +36,39 @@ export const runCheck = async (options: CheckOptions): Promise<CheckResult> => {
     return { ok: false, message: "No baseline. Run `ever-better freeze` and commit the result." };
   }
 
-  const state = applyRuleCounts(previous, counts.suppressed, "observe");
+  const state = setCounter(
+    applyRuleCounts(previous, counts.suppressed, "observe"),
+    WARNINGS_COUNTER,
+    totalOf(counts.warnings),
+    "observe",
+  );
   if (options.write) {
     await writeState(options.cwd, state);
     await writeQualityFile(options.cwd, state);
   }
 
-  const regressions = findRegressions(state);
-  const activeTotal = Object.values(counts.active).reduce((sum, count) => sum + count, 0);
-
-  if (activeTotal > 0) {
-    const worst = Object.entries(counts.active)
-      .sort(([, a], [, b]) => b - a)
-      .slice(0, 5)
-      .map(([rule, count]) => `  ${count}  ${rule}`);
+  const errorTotal = totalOf(counts.errors);
+  if (errorTotal > 0) {
     return {
       ok: false,
-      message: [`${activeTotal} unsuppressed violations:`, ...worst].join("\n"),
+      message: [
+        `${errorTotal} unsuppressed error(s) — these are new since the baseline:`,
+        ...worst(counts.errors),
+      ].join("\n"),
     };
   }
 
+  const regressions = findRegressions(state);
   if (regressions.length > 0) {
     const lines = regressions.map(
       (item) =>
         `  ${item.name}: ${item.baseline} -> ${item.current} (+${item.current - item.baseline})`,
     );
-    return { ok: false, message: ["Backlog grew:", ...lines].join("\n") };
+    return { ok: false, message: ["Counts grew past their ceiling:", ...lines].join("\n") };
   }
 
-  const remaining = Object.values(state.rules).reduce((sum, rule) => sum + rule.current, 0);
-  return { ok: true, message: `Clean. ${remaining} grandfathered violations left to drain.` };
+  return {
+    ok: true,
+    message: `Clean. ${totalViolations(state)} grandfathered violations left to drain.`,
+  };
 };

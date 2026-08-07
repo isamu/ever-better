@@ -17,13 +17,19 @@ const collect = (chunks: Buffer[], chunk: Buffer, label: string): void => {
   chunks.push(chunk);
 };
 
+export type ExecOptions = {
+  /** Needed only for Windows `.cmd` shims, which Node refuses to spawn directly. */
+  shell?: boolean;
+};
+
 export const exec = async (
   command: string,
   args: readonly string[],
   cwd: string,
+  options: ExecOptions = {},
 ): Promise<ExecResult> =>
   new Promise((resolve, reject) => {
-    const child = spawn(command, [...args], { cwd, shell: false });
+    const child = spawn(command, [...args], { cwd, shell: options.shell ?? false });
     const out: Buffer[] = [];
     const err: Buffer[] = [];
     child.stdout.on("data", (chunk: Buffer) => collect(out, chunk, `${command} stdout`));

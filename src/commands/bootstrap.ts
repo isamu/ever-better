@@ -43,7 +43,9 @@ const runInstall = async (
   const command = installCommand(manager, packages).split(" ");
   const [binary, ...args] = command;
   if (!binary) throw new Error("empty install command");
-  const result = await exec(binary, args, cwd);
+  // Every package manager is a `.cmd` shim on Windows, which Node refuses to spawn directly.
+  // Package names and flags contain nothing a shell would reinterpret, so this is safe here.
+  const result = await exec(binary, args, cwd, { shell: process.platform === "win32" });
   if (result.code !== 0) {
     throw new Error(`install failed (${result.code}):\n${result.stderr.slice(0, 4000)}`);
   }

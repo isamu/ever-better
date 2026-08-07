@@ -70,6 +70,38 @@ Repo gate is green: `format`, `lint`, `typecheck`, `build`, and 67 `node:test` c
 Two bugs found by dogfooding, both fixed and pinned by tests — see CLAUDE.md, "Anything that ships
 to users needs the generator tested".
 
+## Framework support (added the same day, on `feat/framework-support`)
+
+Vue, Nuxt, React and Next are detected and get a config shaped for them; Svelte and Astro are
+detected and reported as a gap rather than silently handed a config that skips their files.
+
+Verified by building fixtures with real dependencies under the scratchpad and running the actual
+ESLint against them — `fx-vue` (Vue 3 SFC + `<script setup lang="ts">`) and `fx-next` (Next 16 App
+Router, client components). Both went through the whole lifecycle: bootstrap, freeze, a new
+violation rejected, a warning-only file rejected by the warnings ratchet, then green again.
+
+Four things that reading documentation would have got wrong, all now pinned by tests:
+
+1. `eslint-plugin-react` peers at eslint `^9.7` — it cannot be installed alongside ESLint 10, so
+   it is deliberately left out.
+2. `eslint-plugin-react-hooks` flat configs live under `configs.flat[...]`; the top-level entries
+   are eslintrc shape and make flat config refuse the whole file.
+3. `.vue` needs `extraFileExtensions` and correct block ordering, or every SFC is a parse error.
+4. `--suppress-all` records errors only, so warnings needed their own ratchet.
+
+## Two Windows-only bugs the matrix caught
+
+Neither reproduces on macOS, and both passed Linux and macOS CI before failing on Windows:
+
+1. `format:check` reported **every file** as unformatted — Git checks out CRLF on Windows,
+   Prettier normalises to LF. Fixed with `.gitattributes` (`* text=auto eol=lf`), and `bootstrap`
+   now writes one into every repo it sets up, since it also writes a three-platform workflow.
+2. `ever-better check` failed with ENOENT spawning `node_modules/.bin/eslint`. On Windows that
+   directory holds both an extensionless shell script and an `eslint.cmd`; Node can spawn neither
+   directly. Now resolves `node_modules/eslint/bin/eslint.js` and runs it with `process.execPath`.
+
+Keep the three-platform matrix. It is the only thing that sees this class of bug.
+
 ## What is NOT built
 
 - **P3 drain, P4 tighten, P5 split & DRY.** No skills yet. This is the next and most valuable work.
@@ -112,6 +144,16 @@ to users needs the generator tested".
 - Version constraint worth remembering: **TypeScript stays on `^6.0.3`**. `typescript-eslint@8`
   declares support for `typescript <6.1.0`, so TS 7 breaks the linter this tool exists to
   configure.
+
+## Settled: no framework migration
+
+Vanilla JS -> Vue migration was raised and **declined** (2026-08-08). Do not re-propose it. It is a
+rewrite rather than a ratchet — there is no count that only goes down, and the success criterion is
+different in kind from everything else here.
+
+JS -> TS migration is NOT covered by that decision and stays in scope: types are what make the
+type-aware tier possible, so the ceiling means more once they are in. It is already reported as a
+gap and belongs to the P3 `ever-better-migrate` skill.
 
 ## Open questions for isamu
 

@@ -6,33 +6,35 @@
  * and a first run on an untouched repository is exactly when it is largest. Counting inside the
  * formatter keeps what crosses the process boundary constant no matter how bad the repo is.
  *
- * `suppressed` is the interesting half. After `eslint --suppress-all` the active count is zero by
- * construction and the suppressed count IS the backlog — the number that has to fall.
+ * Three buckets, because they mean three different things:
+ *   suppressed  — recorded by `--suppress-all`; the backlog, which has to fall
+ *   errors      — nothing recorded them, so they are new; the build gate
+ *   warnings    — NOT suppressible by ESLint at all, so they are permanently visible and are
+ *                 ratcheted by ever-better's own counter instead
  *
  * Plain JavaScript on purpose — it must load identically whether the CLI runs from `dist/` or
  * straight from TypeScript source, so it is never part of a build.
  */
+const ERROR_SEVERITY = 2;
+
 const tally = (target, ruleId) => {
   const key = ruleId ?? "(parse error)";
   target[key] = (target[key] ?? 0) + 1;
 };
 
 export default function ruleCounts(results) {
-  const active = {};
+  const errors = {};
+  const warnings = {};
   const suppressed = {};
-  let errors = 0;
-  let warnings = 0;
 
   for (const result of results) {
     for (const message of result.messages) {
-      tally(active, message.ruleId);
-      if (message.severity === 2) errors += 1;
-      else warnings += 1;
+      tally(message.severity === ERROR_SEVERITY ? errors : warnings, message.ruleId);
     }
     for (const message of result.suppressedMessages ?? []) {
       tally(suppressed, message.ruleId);
     }
   }
 
-  return JSON.stringify({ active, suppressed, errors, warnings, files: results.length });
+  return JSON.stringify({ errors, warnings, suppressed, files: results.length });
 }

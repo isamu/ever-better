@@ -77,6 +77,20 @@ that is largest.
 It is **plain JavaScript and never compiled** — it must load identically whether the CLI runs from
 `dist/` or from source. `formatterPath()` resolves it relative to the package root.
 
+## Windows is not a formality
+
+Both Windows failures here passed on Linux and macOS first, and neither is reproducible locally on
+a Mac. The three-platform matrix is the only thing that sees them.
+
+- **Never spawn a `node_modules/.bin` shim.** On Windows that directory holds an extensionless
+  shell script *and* a `.cmd`; Node cannot spawn the first, and refuses the second without a
+  shell. Resolve the package's own entry script and run it with `process.execPath`. The same
+  applies to every package manager — `yarn`, `npm` and `pnpm` are all `.cmd` there.
+- **`.gitattributes` with `eol=lf` is not optional.** Git checks out CRLF on Windows while
+  Prettier normalises to LF, so without it `format:check` reports every file in the repository as
+  wrong — on one runner only. `bootstrap` generates one for the same reason: it writes a
+  three-platform workflow, so omitting it would hand the user a red build they did not have.
+
 ## Reading files
 
 `countLines` streams and counts newline bytes. It does not `readFile(…, "utf8")`, because a
@@ -92,6 +106,26 @@ large. Any new file read needs the same question asked: who writes this, and is 
 The lifecycle itself — bootstrap, freeze, reject a new violation, fix, prune — has been verified by
 hand against real ESLint on a scratch repo. There is no automated end-to-end test yet; adding one
 is the highest-value test work outstanding.
+
+## Framework support is verified against real ESLint, not by reading docs
+
+`src/detect/framework.ts` decides what a repo is; `src/generate/frameworkBlocks.ts` decides what
+that means for the config. Every rule in there cost a failure on a fixture that runs the actual
+linter, and reading a plugin's README would have produced the wrong answer in each case:
+
+- **A plugin's flat config may not be where its docs say.** `eslint-plugin-react-hooks` exposes
+  `configs["recommended-latest"]` in eslintrc shape (`plugins` is an ARRAY) and the flat one under
+  `configs.flat[...]`. Using the wrong one makes ESLint refuse to load the file at all.
+- **Peer ranges decide what can be installed.** `eslint-plugin-react` stops at eslint `^9.7`, so
+  it is deliberately absent — npm's strict resolution would fail the install and leave the repo
+  with no linter. Before adding any plugin, check `npm view <pkg> peerDependencies` against the
+  ESLint we install.
+- **`.vue` needs `extraFileExtensions`** or the type program rejects every SFC with a parse error
+  nothing can suppress, and the `**/*.vue` block must come AFTER `pluginVue.configs["flat/recommended"]`
+  or vue-eslint-parser is replaced.
+
+When adding a framework, build a fixture under the scratchpad with real dependencies, run
+`bootstrap` then `eslint .` against it, and only then write the test.
 
 ## Anything that ships to users needs the generator tested
 
