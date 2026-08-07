@@ -31,6 +31,12 @@ human, and both are easy to miss:
   found, and they cannot run without TypeScript. If the repo is `.js`, say plainly that migrating
   unlocks the valuable half, and ask whether to do that first. Do not migrate silently.
 
+The framework is detected, not asked about, so check the `framework` line in `diagnose` matches
+what the repo actually is before applying. Vue and Nuxt get `eslint-plugin-vue` and a `vue-tsc`
+typecheck script; React gets `eslint-plugin-react-hooks`; Next adds the Next plugin on top. If it
+reports **svelte** or **astro**, those file types are not configured yet — say so, because
+freezing then records a baseline that ignores them.
+
 ### 2. Apply
 
 ```bash
