@@ -1,0 +1,13 @@
+{
+  "name": "ever-better",
+  "description": "Diagnose a repository, install the quality tooling it is missing, and pin a baseline that can only get better",
+  "version": "0.1.0",
+  "author": {
+    "name": "isamu",
+    "url": "https://github.com/isamu"
+  },
+  "homepage": "https://github.com/isamu/ever-better",
+  "repository": "https://github.com/isamu/ever-better",
+  "license": "MIT",
+  "keywords": ["eslint", "code-quality", "refactoring", "technical-debt", "ratchet", "baseline"]
+}

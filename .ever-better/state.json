@@ -1,0 +1,56 @@
+{
+  "version": 1,
+  "tool": "ever-better",
+  "phase": "drain",
+  "updatedAt": "2026-08-07T23:05:09.294Z",
+  "frozenAt": "2026-08-07T23:05:09.293Z",
+  "diagnosis": {
+    "packageManager": "yarn",
+    "language": "typescript",
+    "typescriptFileRatio": 0.9696969696969697,
+    "tooling": {
+      "eslint": "flat",
+      "prettier": true,
+      "testRunner": "node:test",
+      "knip": false,
+      "jscpd": false,
+      "agentInstructions": ["CLAUDE.md"]
+    },
+    "scripts": {
+      "lint": true,
+      "format": true,
+      "build": true,
+      "typecheck": true,
+      "test": true
+    },
+    "ci": {
+      "present": true,
+      "runners": ["macos-latest", "ubuntu-latest", "windows-latest"],
+      "runsLint": true,
+      "runsTest": true,
+      "runsBuild": true,
+      "runsTypecheck": true
+    },
+    "sizes": {
+      "total": 33,
+      "overFileLimit": 0,
+      "largest": []
+    },
+    "gaps": [
+      {
+        "id": "knip",
+        "title": "No dead-code detection",
+        "detail": "knip reports unused exports and files. Report-only at first; a counter later.",
+        "phase": "tighten"
+      },
+      {
+        "id": "jscpd",
+        "title": "No duplication detection",
+        "detail": "jscpd is what turns 'this feels repetitive' into a number that can only go down.",
+        "phase": "split"
+      }
+    ]
+  },
+  "rules": {},
+  "counters": {}
+}

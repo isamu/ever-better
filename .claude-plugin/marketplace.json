@@ -1,0 +1,25 @@
+{
+  "name": "ever-better",
+  "owner": {
+    "name": "isamu"
+  },
+  "metadata": {
+    "description": "Make an existing codebase one that can only get better",
+    "version": "0.1.0"
+  },
+  "plugins": [
+    {
+      "name": "ever-better",
+      "source": {
+        "source": "github",
+        "repo": "isamu/ever-better"
+      },
+      "description": "Diagnose a repository, install the quality tooling it is missing, and pin a baseline that can only get better",
+      "version": "0.1.0",
+      "author": { "name": "isamu" },
+      "category": "development",
+      "license": "MIT",
+      "keywords": ["eslint", "code-quality", "refactoring", "technical-debt", "ratchet"]
+    }
+  ]
+}

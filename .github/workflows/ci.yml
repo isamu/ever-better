@@ -1,0 +1,49 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "24"
+
+      - run: yarn install --frozen-lockfile
+
+      - name: format:check
+        run: yarn format:check
+
+      - name: lint
+        run: yarn lint
+
+      - name: typecheck
+        run: yarn typecheck
+
+      - name: build
+        run: yarn build
+
+      - name: test
+        run: yarn test
+
+      # Dogfooding: the gate this tool installs elsewhere runs on this repo too. Invoked through
+      # the freshly built dist rather than npx, so the CI never tests a published version instead
+      # of the commit under review.
+      - name: ever-better check
+        run: node dist/cli.js check --no-write

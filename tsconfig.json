@@ -1,0 +1,28 @@
+{
+  "compilerOptions": {
+    "target": "ES2023",
+    "lib": ["ES2023"],
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    "types": ["node"],
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    "verbatimModuleSyntax": true,
+    "isolatedModules": true,
+    // Imports are written with `.ts` extensions so `node --test test/*.ts` runs the sources
+    // directly under Node's native type stripping; tsc rewrites them to `.js` on emit.
+    "allowImportingTsExtensions": true,
+    "rewriteRelativeImportExtensions": true,
+    // Node can only strip syntax that erases to nothing. Enums, namespaces and parameter
+    // properties would compile but crash the test runner, so the compiler rejects them here.
+    "erasableSyntaxOnly": true,
+    "declaration": true,
+    "sourceMap": true,
+    "outDir": "dist",
+    "rootDir": ".",
+    "skipLibCheck": true
+  },
+  "include": ["src/**/*.ts", "test/**/*.ts", "eslint.config.js"]
+}
