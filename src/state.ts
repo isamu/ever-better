@@ -6,6 +6,12 @@ export const STATE_DIR = ".ever-better";
 export const STATE_FILE = "state.json";
 
 /**
+ * ESLint's bulk suppressions cover errors only. Warnings therefore stay visible forever and would
+ * be free to accumulate, so their total gets the same ratchet through a plain counter.
+ */
+export const WARNINGS_COUNTER = "eslint:warnings";
+
+/**
  * `observe` records today's number without touching the ceiling — what `diagnose` and `check` do.
  * `freeze` lowers the ceiling to today's number if it improved, and never raises it: running
  * `freeze` twice after a bad week must not legalise the damage. `rebaseline` is the explicit

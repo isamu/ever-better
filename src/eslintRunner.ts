@@ -4,14 +4,20 @@ import { fileURLToPath } from "node:url";
 import { exec } from "./util/exec.ts";
 
 export type RuleCounts = {
-  /** Violations ESLint is reporting right now. After a freeze this must stay at zero. */
-  active: Record<string, number>;
+  /** Unsuppressed errors. After a freeze these are new by definition, so any is a failure. */
+  errors: Record<string, number>;
+  /**
+   * ESLint's suppressions cover errors only, so warnings stay visible forever and would otherwise
+   * be free to accumulate. ever-better ratchets their total instead.
+   */
+  warnings: Record<string, number>;
   /** Violations held by `eslint-suppressions.json` — the backlog that has to fall. */
   suppressed: Record<string, number>;
-  errors: number;
-  warnings: number;
   files: number;
 };
+
+export const totalOf = (counts: Readonly<Record<string, number>>): number =>
+  Object.values(counts).reduce((sum, count) => sum + count, 0);
 
 /** ESLint reserves 2 for "I could not run at all"; 1 merely means it found problems. */
 const FATAL_EXIT_CODE = 2;
@@ -42,7 +48,7 @@ export const findEslint = async (cwd: string): Promise<string | null> => {
 };
 
 const isRuleCounts = (value: unknown): value is RuleCounts =>
-  typeof value === "object" && value !== null && "active" in value && "suppressed" in value;
+  typeof value === "object" && value !== null && "errors" in value && "suppressed" in value;
 
 const parseCounts = (stdout: string, stderr: string): RuleCounts => {
   const trimmed = stdout.trim();
