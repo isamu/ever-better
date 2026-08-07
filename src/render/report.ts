@@ -6,6 +6,7 @@ const check = (value: boolean): string => (value ? "yes" : "no");
 const toolingLines = (diagnosis: Diagnosis): string[] => [
   `  package manager   ${diagnosis.packageManager}`,
   `  language          ${diagnosis.language} (${Math.round(diagnosis.typescriptFileRatio * 100)}% TypeScript)`,
+  `  framework         ${diagnosis.framework} (globals: ${diagnosis.runtime})`,
   `  eslint            ${diagnosis.tooling.eslint}`,
   `  prettier          ${check(diagnosis.tooling.prettier)}`,
   `  test runner       ${diagnosis.tooling.testRunner}`,

@@ -1,4 +1,5 @@
 import { detectCi, missingRunners } from "./detect/ci.ts";
+import { detectFramework, detectRuntime, hasUncoveredFileType } from "./detect/framework.ts";
 import { detectLanguageMode, typescriptFileRatio } from "./detect/language.ts";
 import { detectPackageManager } from "./detect/packageManager.ts";
 import { summarizeSizes, DEFAULT_FILE_LINE_LIMIT } from "./detect/sizes.ts";
@@ -164,6 +165,21 @@ const sizeGaps = (diagnosis: Omit<Diagnosis, "gaps">): Gap[] => {
   ];
 };
 
+const frameworkGaps = (diagnosis: Omit<Diagnosis, "gaps">, facts: RepoFacts): Gap[] => {
+  if (!hasUncoveredFileType(diagnosis.framework, facts.sourceFiles)) return [];
+  return [
+    {
+      id: "framework-files",
+      title: `.${diagnosis.framework} files are not linted`,
+      detail:
+        "The generated config covers .ts and .js only for this framework, so those files pass " +
+        "by being skipped. Add the framework's ESLint plugin before freezing, or the baseline " +
+        "records a number that ignores half the repo.",
+      phase: "bootstrap",
+    },
+  ];
+};
+
 const GAP_DETECTORS = [eslintGaps, languageGaps, toolingGaps, scriptGaps, ciGaps, sizeGaps];
 
 /**
@@ -173,14 +189,21 @@ const GAP_DETECTORS = [eslintGaps, languageGaps, toolingGaps, scriptGaps, ciGaps
 export const diagnose = (facts: RepoFacts): Diagnosis => {
   const hasTsconfig = facts.rootEntries.includes("tsconfig.json");
   const workflowText = facts.workflows.map((workflow) => workflow.content).join("\n");
+  const framework = detectFramework(facts.packageJson);
   const partial: Omit<Diagnosis, "gaps"> = {
     packageManager: detectPackageManager(facts.rootEntries, facts.packageJson),
     language: detectLanguageMode(hasTsconfig, facts.sourceFiles),
+    framework,
+    runtime: detectRuntime(framework, facts.packageJson),
     typescriptFileRatio: typescriptFileRatio(facts.sourceFiles),
     tooling: detectTooling(facts.rootEntries, facts.packageJson, workflowText),
     scripts: detectScripts(facts.packageJson),
     ci: detectCi(facts.workflows),
     sizes: summarizeSizes(facts.sourceFiles),
   };
-  return { ...partial, gaps: GAP_DETECTORS.flatMap((detect) => detect(partial)) };
+  const gaps = [
+    ...GAP_DETECTORS.flatMap((detect) => detect(partial)),
+    ...frameworkGaps(partial, facts),
+  ];
+  return { ...partial, gaps };
 };

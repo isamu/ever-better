@@ -1,5 +1,10 @@
 export type PackageManager = "yarn" | "npm" | "pnpm" | "bun";
 
+export type Framework = "next" | "nuxt" | "vue" | "react" | "svelte" | "astro" | "none";
+
+/** Which globals the source files may use. Frontend code with a server half is `both`. */
+export type Runtime = "browser" | "node" | "both";
+
 export type EslintSetup = "flat" | "legacy" | "none";
 
 export type TestRunner = "vitest" | "jest" | "node:test" | "none";
@@ -13,6 +18,7 @@ export type RuleStatus = "off" | "draining" | "enforced";
 
 export type PackageJson = {
   name?: string;
+  type?: string;
   packageManager?: string;
   scripts?: Record<string, string>;
   dependencies?: Record<string, string>;
@@ -87,6 +93,8 @@ export type Gap = {
 export type Diagnosis = {
   packageManager: PackageManager;
   language: LanguageMode;
+  framework: Framework;
+  runtime: Runtime;
   typescriptFileRatio: number;
   tooling: ToolingPresence;
   scripts: ScriptCoverage;

@@ -4,8 +4,11 @@ import { renderEslintConfig } from "../src/generate/eslintConfig.ts";
 import { renderWorkflow } from "../src/generate/workflow.ts";
 import { extractNotes, NOTES_END, NOTES_START, renderQuality } from "../src/render/quality.ts";
 import { applyRuleCounts, emptyState } from "../src/state.ts";
+import type { Framework } from "../src/types.ts";
 
 const configOptions = {
+  framework: "none" as const,
+  runtime: "node" as const,
   typed: true,
   fileLineLimit: 600,
   testGlob: "test/**",
@@ -45,6 +48,63 @@ describe("renderEslintConfig", () => {
 
   it("does not add that exemption for a runner that does not need it", () => {
     assert.ok(!renderEslintConfig(configOptions).includes("no-floating-promises"));
+  });
+});
+
+describe("renderEslintConfig — frameworks", () => {
+  const forFramework = (framework: Framework, overrides: Partial<typeof configOptions> = {}) =>
+    renderEslintConfig({ ...configOptions, framework, runtime: "both", ...overrides });
+
+  it("spreads eslint-plugin-vue's flat config and parses SFCs afterwards", () => {
+    const config = forFramework("vue");
+    assert.match(config, /\.\.\.pluginVue\.configs\["flat\/recommended"\]/);
+    // The .vue block must come after the plugin's own config, or vue-eslint-parser is replaced
+    // and every component fails to parse.
+    assert.ok(config.indexOf("flat/recommended") < config.indexOf('files: ["**/*.vue"]'));
+  });
+
+  it("tells the type program about .vue, without which every SFC is a parse error", () => {
+    assert.match(forFramework("vue"), /extraFileExtensions: \[".vue"\]/);
+  });
+
+  it("turns off the unsafe-any family for SFCs, which the type program cannot resolve", () => {
+    const config = forFramework("vue");
+    assert.match(config, /"@typescript-eslint\/no-unsafe-member-access": "off"/);
+  });
+
+  it("does not emit the SFC exemption for an untyped Vue repo", () => {
+    assert.ok(!forFramework("vue", { typed: false }).includes("no-unsafe-member-access"));
+  });
+
+  it("reaches react-hooks through configs.flat, not the eslintrc-shaped top level", () => {
+    // `configs["recommended-latest"]` has `plugins: ["react-hooks"]` as an ARRAY, which makes
+    // flat config refuse to load the whole file.
+    assert.match(forFramework("react"), /reactHooks\.configs\.flat\["recommended-latest"\]/);
+  });
+
+  it("adds the Next plugin on top of the React one", () => {
+    const config = forFramework("next");
+    assert.match(config, /reactHooks\.configs\.flat/);
+    assert.match(config, /next\.configs\["core-web-vitals"\]/);
+  });
+
+  it("ignores each framework's build output", () => {
+    assert.match(forFramework("next"), /"\.next\/\*\*"/);
+    assert.match(forFramework("nuxt"), /"\.output\/\*\*"/);
+  });
+
+  it("gives a frontend repo both global sets", () => {
+    assert.match(forFramework("react"), /\{ \.\.\.globals\.browser, \.\.\.globals\.node \}/);
+  });
+
+  it("says so in the config when a framework's files go unlinted", () => {
+    const config = forFramework("svelte");
+    assert.match(config, /does not configure \.svelte files yet/);
+  });
+
+  it("puts prettier last so it can switch off the plugins' formatting rules", () => {
+    const config = forFramework("vue");
+    assert.ok(config.indexOf("flat/recommended") < config.indexOf("  prettier,"));
   });
 });
 

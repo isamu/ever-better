@@ -1,5 +1,10 @@
+import { typecheckCommand } from "./detect/framework.ts";
 import { DEFAULT_FILE_LINE_LIMIT } from "./detect/sizes.ts";
-import { ESLINT_PACKAGES, renderEslintConfig } from "./generate/eslintConfig.ts";
+import {
+  eslintConfigFileName,
+  eslintPackagesFor,
+  renderEslintConfig,
+} from "./generate/eslintConfig.ts";
 import { renderWorkflow } from "./generate/workflow.ts";
 import type { Diagnosis, PackageJson, ScriptCoverage } from "./types.ts";
 
@@ -25,9 +30,15 @@ const installed = (packageJson: PackageJson | null): Set<string> =>
 
 const missingPackages = (options: BootstrapPlanOptions): string[] => {
   const have = installed(options.packageJson);
-  const wanted = [...ESLINT_PACKAGES, "prettier"];
-  if (options.diagnosis.language !== "javascript") wanted.push("typescript", "@types/node");
-  if (options.diagnosis.tooling.testRunner === "none") wanted.push("vitest");
+  const { framework, language, tooling } = options.diagnosis;
+  const wanted = [...eslintPackagesFor(framework), "prettier"];
+  if (language !== "javascript") {
+    wanted.push("typescript", "@types/node");
+    // `tsc` cannot read an SFC at all, so a Vue repo typechecking with it silently skips every
+    // component. vue-tsc is what the typecheck script will call.
+    if (typecheckCommand(framework).startsWith("vue-tsc")) wanted.push("vue-tsc");
+  }
+  if (tooling.testRunner === "none") wanted.push("vitest");
   return wanted.filter((name) => !have.has(name));
 };
 
@@ -36,7 +47,9 @@ const scriptsToAdd = (options: BootstrapPlanOptions): Record<string, string> => 
   const additions: Record<string, string> = {};
   if (!scripts.lint) additions.lint = "eslint .";
   if (!scripts.format) additions.format = "prettier --write .";
-  if (!scripts.typecheck && language !== "javascript") additions.typecheck = "tsc --noEmit";
+  if (!scripts.typecheck && language !== "javascript") {
+    additions.typecheck = typecheckCommand(options.diagnosis.framework);
+  }
   if (!scripts.test && tooling.testRunner === "none") additions.test = "vitest run";
   return additions;
 };
@@ -52,7 +65,7 @@ const filesToWrite = (options: BootstrapPlanOptions): BootstrapAction[] => {
   if (diagnosis.tooling.eslint === "none") {
     actions.push({
       kind: "writeFile",
-      path: "eslint.config.js",
+      path: eslintConfigFileName(options.packageJson),
       contents: renderEslintConfig({
         typed: diagnosis.language !== "javascript",
         fileLineLimit: DEFAULT_FILE_LINE_LIMIT,
@@ -61,6 +74,8 @@ const filesToWrite = (options: BootstrapPlanOptions): BootstrapAction[] => {
         // runner it will have, not the absence it has now.
         testRunner:
           diagnosis.tooling.testRunner === "none" ? "vitest" : diagnosis.tooling.testRunner,
+        framework: diagnosis.framework,
+        runtime: diagnosis.runtime,
       }),
     });
   }
