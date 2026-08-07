@@ -89,6 +89,19 @@ Four things that reading documentation would have got wrong, all now pinned by t
 3. `.vue` needs `extraFileExtensions` and correct block ordering, or every SFC is a parse error.
 4. `--suppress-all` records errors only, so warnings needed their own ratchet.
 
+## Two Windows-only bugs the matrix caught
+
+Neither reproduces on macOS, and both passed Linux and macOS CI before failing on Windows:
+
+1. `format:check` reported **every file** as unformatted — Git checks out CRLF on Windows,
+   Prettier normalises to LF. Fixed with `.gitattributes` (`* text=auto eol=lf`), and `bootstrap`
+   now writes one into every repo it sets up, since it also writes a three-platform workflow.
+2. `ever-better check` failed with ENOENT spawning `node_modules/.bin/eslint`. On Windows that
+   directory holds both an extensionless shell script and an `eslint.cmd`; Node can spawn neither
+   directly. Now resolves `node_modules/eslint/bin/eslint.js` and runs it with `process.execPath`.
+
+Keep the three-platform matrix. It is the only thing that sees this class of bug.
+
 ## What is NOT built
 
 - **P3 drain, P4 tighten, P5 split & DRY.** No skills yet. This is the next and most valuable work.

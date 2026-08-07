@@ -77,6 +77,20 @@ that is largest.
 It is **plain JavaScript and never compiled** — it must load identically whether the CLI runs from
 `dist/` or from source. `formatterPath()` resolves it relative to the package root.
 
+## Windows is not a formality
+
+Both Windows failures here passed on Linux and macOS first, and neither is reproducible locally on
+a Mac. The three-platform matrix is the only thing that sees them.
+
+- **Never spawn a `node_modules/.bin` shim.** On Windows that directory holds an extensionless
+  shell script *and* a `.cmd`; Node cannot spawn the first, and refuses the second without a
+  shell. Resolve the package's own entry script and run it with `process.execPath`. The same
+  applies to every package manager — `yarn`, `npm` and `pnpm` are all `.cmd` there.
+- **`.gitattributes` with `eol=lf` is not optional.** Git checks out CRLF on Windows while
+  Prettier normalises to LF, so without it `format:check` reports every file in the repository as
+  wrong — on one runner only. `bootstrap` generates one for the same reason: it writes a
+  three-platform workflow, so omitting it would hand the user a red build they did not have.
+
 ## Reading files
 
 `countLines` streams and counts newline bytes. It does not `readFile(…, "utf8")`, because a
