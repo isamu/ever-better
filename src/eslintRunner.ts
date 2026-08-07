@@ -26,10 +26,12 @@ const packageRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "
 
 export const formatterPath = (): string => path.join(packageRoot, "formatters", "rule-counts.js");
 
-const binaryCandidates = (cwd: string): string[] => [
-  path.join(cwd, "node_modules", ".bin", "eslint"),
-  path.join(cwd, "node_modules", ".bin", "eslint.cmd"),
-];
+export type EslintInvocation = {
+  command: string;
+  /** Arguments that come before ours — the entry script when going through Node. */
+  prefixArgs: string[];
+  shell: boolean;
+};
 
 const exists = async (candidate: string): Promise<boolean> => {
   try {
@@ -40,9 +42,22 @@ const exists = async (candidate: string): Promise<boolean> => {
   }
 };
 
-export const findEslint = async (cwd: string): Promise<string | null> => {
-  for (const candidate of binaryCandidates(cwd)) {
-    if (await exists(candidate)) return candidate;
+/**
+ * Runs ESLint's entry script through the Node we are already running, rather than the
+ * `node_modules/.bin` shim. On Windows that directory holds BOTH an extensionless shell script and
+ * an `eslint.cmd`; spawning the former fails with ENOENT, and spawning the latter needs a shell,
+ * which then has to quote paths that may contain spaces. Going straight to the `.js` sidesteps
+ * both and behaves identically on every platform.
+ */
+export const findEslint = async (cwd: string): Promise<EslintInvocation | null> => {
+  const entry = path.join(cwd, "node_modules", "eslint", "bin", "eslint.js");
+  if (await exists(entry)) {
+    return { command: process.execPath, prefixArgs: [entry], shell: false };
+  }
+  const shimName = process.platform === "win32" ? "eslint.cmd" : "eslint";
+  const shim = path.join(cwd, "node_modules", ".bin", shimName);
+  if (await exists(shim)) {
+    return { command: shim, prefixArgs: [], shell: process.platform === "win32" };
   }
   return null;
 };
@@ -60,28 +75,34 @@ const parseCounts = (stdout: string, stderr: string): RuleCounts => {
   return parsed;
 };
 
-const requireEslint = async (cwd: string): Promise<string> => {
-  const binary = await findEslint(cwd);
-  if (binary) return binary;
-  throw new Error("eslint is not installed in this repository. Run `ever-better bootstrap` first.");
-};
-
 /**
  * Runs the target repo's own ESLint — not ours. A repo's rules, plugins and version are part of
  * what is being measured, so borrowing a different ESLint would produce a baseline that no
  * developer in that repo can reproduce.
  */
-export const runRuleCounts = async (cwd: string): Promise<RuleCounts> => {
-  const binary = await requireEslint(cwd);
-  // Without this, ESLint exits fatally the moment a suppressed violation is FIXED, because the
-  // suppression it left behind is now unused. That would turn every act of draining into a red
-  // build — the exact opposite of the incentive this tool exists to create. `ever-better prune`
-  // is how the stale entries are reclaimed, deliberately and on purpose.
-  const args = [".", "--format", formatterPath(), "--pass-on-unpruned-suppressions"];
-  const result = await exec(binary, args, cwd);
-  if (result.code >= FATAL_EXIT_CODE) {
-    throw new Error(`eslint failed to run:\n${result.stderr.slice(0, 4000)}`);
+const runEslint = async (cwd: string, args: readonly string[], label: string) => {
+  const eslint = await findEslint(cwd);
+  if (!eslint) {
+    throw new Error(
+      "eslint is not installed in this repository. Run `ever-better bootstrap` first.",
+    );
   }
+  const result = await exec(eslint.command, [...eslint.prefixArgs, ...args], cwd, {
+    shell: eslint.shell,
+  });
+  if (result.code >= FATAL_EXIT_CODE) {
+    throw new Error(`${label} failed:\n${result.stderr.slice(0, 4000)}`);
+  }
+  return result;
+};
+
+export const runRuleCounts = async (cwd: string): Promise<RuleCounts> => {
+  // Without `--pass-on-unpruned-suppressions`, ESLint exits fatally the moment a suppressed
+  // violation is FIXED, because the suppression it left behind is now unused. That would turn
+  // every act of draining into a red build — the exact opposite of the incentive this tool exists
+  // to create. `ever-better prune` is how stale entries are reclaimed, deliberately.
+  const args = [".", "--format", formatterPath(), "--pass-on-unpruned-suppressions"];
+  const result = await runEslint(cwd, args, "eslint");
   return parseCounts(result.stdout, result.stderr);
 };
 
@@ -90,18 +111,10 @@ export const runRuleCounts = async (cwd: string): Promise<RuleCounts> => {
  * violations per file and per rule, stays silent about them, and reports anything new as an error.
  */
 export const suppressAll = async (cwd: string): Promise<void> => {
-  const binary = await requireEslint(cwd);
-  const result = await exec(binary, [".", "--suppress-all"], cwd);
-  if (result.code >= FATAL_EXIT_CODE) {
-    throw new Error(`eslint --suppress-all failed:\n${result.stderr.slice(0, 4000)}`);
-  }
+  await runEslint(cwd, [".", "--suppress-all"], "eslint --suppress-all");
 };
 
 /** Drops suppressions for violations that no longer exist, which is how the ceiling comes down. */
 export const pruneSuppressions = async (cwd: string): Promise<void> => {
-  const binary = await requireEslint(cwd);
-  const result = await exec(binary, [".", "--prune-suppressions"], cwd);
-  if (result.code >= FATAL_EXIT_CODE) {
-    throw new Error(`eslint --prune-suppressions failed:\n${result.stderr.slice(0, 4000)}`);
-  }
+  await runEslint(cwd, [".", "--prune-suppressions"], "eslint --prune-suppressions");
 };
