@@ -140,7 +140,8 @@ bug, how to split a function.
 /plugin install ever-better
 ```
 
-Skills: `ever-better` (entry point and routing), `ever-better-bootstrap`, `ever-better-freeze`.
+Skills: `ever-better` (entry point and routing), `ever-better-bootstrap`, `ever-better-freeze`,
+`ever-better-drain` (P3), `ever-better-dry` (P5).
 
 ## The phases
 
@@ -149,12 +150,14 @@ Skills: `ever-better` (entry point and routing), `ever-better-bootstrap`, `ever-
 | P0 diagnose | survey, name every gap | shipped |
 | P1 bootstrap | install, generate configs | shipped |
 | P2 freeze | pin the ceiling, gate CI | shipped |
-| P3 drain | fix one rule at a time; bugs found get tests | planned |
-| P4 tighten | add the next rule tier, repeat | planned |
-| P5 split & DRY | break up big files, remove duplication | planned |
+| P3 drain | fix one rule at a time; bugs found get tests | shipped |
+| P4 tighten | add the next rule tier, repeat | shipped |
+| P5 split & DRY | remove duplication and dead code | shipped |
 
-P3–P5 are where the value compounds. Until they ship, `QUALITY.md` lists the backlog
-smallest-first and an ordinary agent session can work it.
+P3 and P5 are where the value is, and they **automate by default**: a fix, an extracted function,
+a new test, a deleted orphan — done, not asked about. Only a refactor needing the owner's judgment
+becomes a GitHub issue, and that issue says what the options are and which one the agent would
+pick.
 
 ## Design
 
