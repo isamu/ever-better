@@ -1,4 +1,4 @@
-export type CompilerOptions = Record<string, unknown>;
+type CompilerOptions = Record<string, unknown>;
 
 export type ShownConfig = {
   compilerOptions?: CompilerOptions;
@@ -17,7 +17,7 @@ export type StrictnessFlag = {
  * strictFunctionTypes, strictBindCallApply, strictPropertyInitialization, alwaysStrict,
  * useUnknownInCatchVariables.
  */
-export const STRICTNESS_FLAGS: readonly StrictnessFlag[] = [
+const STRICTNESS_FLAGS: readonly StrictnessFlag[] = [
   {
     name: "noUncheckedIndexedAccess",
     why: "without it `array[i]` is typed as present even when the array is empty",

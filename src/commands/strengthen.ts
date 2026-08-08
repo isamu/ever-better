@@ -6,7 +6,7 @@ import { findWeakRules, type RuleVerdict } from "../probe/effectiveRules.ts";
 import { sampleSourceFile } from "../probe/gather.ts";
 import type { SourceFile } from "../types.ts";
 
-export const BACKUP_SUFFIX = ".ever-better-backup";
+const BACKUP_SUFFIX = ".ever-better-backup";
 
 const CONFIG_NAMES = [
   "eslint.config.js",

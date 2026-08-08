@@ -1,7 +1,6 @@
 import { rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { exec } from "../util/exec.ts";
-import { STRICTNESS_FLAGS } from "./effectiveTsconfig.ts";
 
 export type FlagCost = {
   flag: string;
@@ -19,7 +18,7 @@ const countErrors = (output: string): number =>
  * between "error" and "TS1234" — so counting them without it silently returns zero, and a flag
  * with six errors is reported as free. That happened here before it was caught.
  */
-export const measureFlagCost = async (cwd: string, flag: string): Promise<number | null> => {
+const measureFlagCost = async (cwd: string, flag: string): Promise<number | null> => {
   const configPath = path.join(cwd, PROBE_CONFIG);
   const tsc = path.join(cwd, "node_modules", "typescript", "bin", "tsc");
   try {
@@ -54,8 +53,6 @@ export const measureStrictnessCosts = async (
   }
   return costs;
 };
-
-export const allStrictnessFlags = (): string[] => STRICTNESS_FLAGS.map((flag) => flag.name);
 
 /**
  * Only the free ones are applied. A strictness flag that costs anything breaks `typecheck` the
