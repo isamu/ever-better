@@ -46,11 +46,13 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@types/js-yaml": "^4.0.9",
     "@types/node": "^26.2.0",
     "eslint": "^10.8.1",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-sonarjs": "^4.2.0",
     "globals": "^17.9.0",
+    "js-yaml": "^5.2.3",
     "knip": "^6.32.0",
     "prettier": "^3.9.6",
     "typescript": "^6.0.3",

@@ -26,7 +26,6 @@ const HEADER = [
   "",
   "permissions:",
   "  contents: read",
-  "  pull-requests: write",
   "",
   "concurrency:",
   "  group: codex-review-${{ github.event.pull_request.number || github.ref }}",
@@ -42,6 +41,9 @@ const HEADER = [
   "    if: github.actor != 'dependabot[bot]'",
   "    runs-on: ubuntu-latest",
   "    timeout-minutes: 15",
+  "    permissions:",
+  "      contents: read",
+  "      pull-requests: write # to post the review as a comment",
   "    steps:",
 ];
 
