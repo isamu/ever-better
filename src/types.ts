@@ -43,6 +43,8 @@ export type WorkflowFile = {
  */
 export type RepoFacts = {
   cwd: string;
+  /** What ESLint and tsc report as EFFECTIVE, which is not what the config files say. */
+  probes: import("./probe/gather.ts").Probes;
   /** Repo-relative paths of files in the repository root (not recursive). */
   rootEntries: string[];
   packageJson: PackageJson | null;

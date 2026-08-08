@@ -51,12 +51,12 @@ const missingPackages = (options: BootstrapPlanOptions): string[] => {
 const scriptsToAdd = (options: BootstrapPlanOptions): Record<string, string> => {
   const { scripts, language, tooling } = options.diagnosis;
   const additions: Record<string, string> = {};
-  if (!scripts.lint) additions.lint = "eslint .";
-  if (!scripts.format) additions.format = "prettier --write .";
+  if (!scripts.lint) additions["lint"] = "eslint .";
+  if (!scripts.format) additions["format"] = "prettier --write .";
   if (!scripts.typecheck && language !== "javascript") {
-    additions.typecheck = typecheckCommand(options.diagnosis.framework);
+    additions["typecheck"] = typecheckCommand(options.diagnosis.framework);
   }
-  if (!scripts.test && tooling.testRunner === "none") additions.test = "vitest run";
+  if (!scripts.test && tooling.testRunner === "none") additions["test"] = "vitest run";
   return additions;
 };
 

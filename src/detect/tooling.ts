@@ -37,7 +37,7 @@ export const detectEslintSetup = (rootEntries: readonly string[]): EslintSetup =
 export const detectTestRunner = (packageJson: PackageJson | null): TestRunner => {
   if (hasDependency(packageJson, "vitest")) return "vitest";
   if (hasDependency(packageJson, "jest")) return "jest";
-  const testScript = packageJson?.scripts?.test ?? "";
+  const testScript = packageJson?.scripts?.["test"] ?? "";
   if (testScript.includes("node --test") || testScript.includes("node:test")) return "node:test";
   return "none";
 };
