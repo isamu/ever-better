@@ -104,39 +104,36 @@ Keep the three-platform matrix. It is the only thing that sees this class of bug
 
 ## What is NOT built
 
-- **P3 drain, P4 tighten, P5 split & DRY.** No skills yet. This is the next and most valuable work.
-- **No end-to-end test.** The lifecycle above was verified by hand. Automating it — a fixture repo,
-  bootstrap, freeze, assert `check` rejects an added violation — is the highest-value test left.
-- **knip and jscpd are diagnosed but not installed.** `bootstrap` reports them as gaps and stops
-  there. Their counters have a place in `state.json` (`counters`) and nothing writes it yet.
-- **No monorepo support.** One baseline per repository. The state shape leaves room for more.
-Published and verified on 2026-08-08:
+- **JS → TS migration.** It is DIAGNOSED — `diagnose` reports a JavaScript repo and says the
+  type-aware tier cannot run without types — and the bootstrap skill says to ask before migrating.
+  Nothing performs the migration. This was in scope from the first decision and is the largest
+  remaining gap.
+- **No monorepo support.** One baseline per repository; the state shape leaves room for more.
+- **Python.** Assessed and deferred — see the section above.
 
-- **`ever-better@0.1.0` is on npm.** `npx ever-better@0.1.0 check` was run against the Vue fixture
-  from a clean fetch and behaved correctly, so the `npx ever-better check` step in every generated
-  workflow now resolves.
-- **The plugin installs.** `claude plugin validate . --strict` passes, and
-  `claude plugin marketplace add isamu/ever-better` followed by
-  `claude plugin install ever-better@ever-better` registers all three skills (~419 always-on tokens).
+## The target state
 
-Before the next release, run `npm pack --dry-run` and check the file list. The first publish
-attempt would have shipped without `formatters/rule-counts.js` — every counting command broken for
-installed users, and nothing in the test suite could see it.
+What a repository looks like when the process has run to completion, so it is clear what all of
+this is for:
+
+- **CI locked down.** Lint, typecheck, build, tests on three platforms; the gate rejecting any new
+  violation; duplication and dead code reported per pull request; a second model reviewing the diff.
+- **Complexity gone.** SonarJS cognitive complexity, function length, nesting and branch counts all
+  enforced, with the backlog drained to zero rather than grandfathered forever.
+- **Types complete.** `strict` plus every flag it does not include, and the type-aware lint tier
+  enforcing rather than warning.
+- **Tests that have been seen to fail**, covering the pure functions the drain phase extracted.
+
+The point of the whole thing: **whoever writes the next line cannot break it quietly.**
 
 ## Suggested next steps, in order
 
-1. **Publish 0.1.0 to npm.** Nothing else can be tried by another person until `npx ever-better`
-   resolves.
-2. **Verify the plugin installs.** `/plugin marketplace add isamu/ever-better`, then check the
-   three skills appear and the entry-point skill routes correctly.
-3. **Run it on a real repo that is not this one.** `~/tne/orion` is the obvious candidate, and the
-   one the process was designed against. Expect the diagnosis to be right and the generated config
-   to need one or two adjustments — capture those as generator changes, not local edits.
-4. **Write the `ever-better-drain` skill (P3).** Read `QUALITY.md`, take the smallest backlog, fix
-   it rule by rule, extract pure functions where a fix needs a test, `prune`, commit. This is where
-   the original process actually lives.
-5. **Add the end-to-end test.**
-6. **Then P4 / P5.**
+1. **JS → TS migration.** The one thing from the original scope with no implementation.
+2. **Run it on a repository that is not this one.** `~/tne/orion` is the obvious candidate. Expect
+   the diagnosis to be right and the generated config to need one or two adjustments — capture
+   those as generator changes, not local edits.
+3. **Monorepo support**, if a target needs it.
+4. **Python**, after the above.
 
 ## Reference material
 
