@@ -101,6 +101,28 @@ describe("planBootstrap", () => {
     assert.ok(!install.packages.includes("prettier"));
   });
 
+  it("writes a gate workflow even when the repo already has CI", () => {
+    // Its own file, never a step spliced into a pipeline this tool did not write. A repo with
+    // thorough CI that never runs `check` enforces nothing at all.
+    const withCi = facts({
+      workflows: [{ path: ".github/workflows/ci.yml", content: "run: yarn lint" }],
+    });
+    const written = planFor(withCi)
+      .filter((action) => action.kind === "writeFile")
+      .map((action) => action.path);
+    assert.ok(written.includes(".github/workflows/ever-better.yml"));
+  });
+
+  it("does not add the gate twice when CI already runs it", () => {
+    const wired = facts({
+      workflows: [{ path: ".github/workflows/x.yml", content: "run: npx ever-better check" }],
+    });
+    const written = planFor(wired)
+      .filter((action) => action.kind === "writeFile")
+      .map((action) => action.path);
+    assert.ok(!written.includes(".github/workflows/ever-better.yml"));
+  });
+
   it("writes .gitattributes, without which Windows CI reports every file as unformatted", () => {
     const written = planFor(facts())
       .filter((action) => action.kind === "writeFile")
@@ -158,7 +180,10 @@ describe("planBootstrap", () => {
         },
       },
       workflows: [
-        { path: ".github/workflows/ci.yml", content: "run: yarn lint\nrun: npx jscpd ." },
+        {
+          path: ".github/workflows/ci.yml",
+          content: "run: yarn lint\nrun: npx jscpd .\nrun: npx ever-better check",
+        },
       ],
     });
     assert.deepEqual(

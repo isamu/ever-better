@@ -125,6 +125,13 @@ describe("detectCi", () => {
     assert.equal(ci.runsBuild, false);
   });
 
+  it("sees whether the gate itself is wired, which thorough CI can still miss", () => {
+    const without = detectCi(workflow("run: yarn lint\nrun: yarn test"));
+    assert.equal(without.runsEverBetterCheck, false);
+    const with_ = detectCi(workflow("run: npx --yes ever-better check --no-write"));
+    assert.equal(with_.runsEverBetterCheck, true);
+  });
+
   it("reports absent CI without throwing", () => {
     const ci = detectCi([]);
     assert.equal(ci.present, false);

@@ -40,7 +40,8 @@ const languageGaps = (diagnosis: Omit<Diagnosis, "gaps">): Gap[] => {
         title: "No TypeScript",
         detail:
           "Types are the cheapest rule set there is, and the type-aware lint tier cannot run " +
-          "without them. Migrating is a phase of its own, driven by the ever-better-migrate skill.",
+          "without them. Migrating is a phase of its own — the ever-better-bootstrap skill covers " +
+          "when to do it and what it unlocks.",
         phase: "bootstrap",
       },
     ];
@@ -147,7 +148,17 @@ const ciGaps = (diagnosis: Omit<Diagnosis, "gaps">): Gap[] => {
     gaps.push({
       id: "ci-lint",
       title: "CI does not run lint",
-      detail: "Nothing enforces the baseline on a pull request.",
+      detail: "The rules are configured but nothing runs them on a pull request.",
+      phase: "review",
+    });
+  }
+  if (!diagnosis.ci.runsEverBetterCheck) {
+    gaps.push({
+      id: "ci-gate",
+      title: "CI does not run `ever-better check`",
+      detail:
+        "A baseline is only a ratchet if something rejects a regression. Thorough CI that never " +
+        "runs the gate enforces nothing, and looks identical from the outside.",
       phase: "review",
     });
   }
