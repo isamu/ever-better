@@ -7,6 +7,7 @@ import type { RepoFacts } from "../src/types.ts";
 const facts = (overrides: Partial<RepoFacts> = {}): RepoFacts => ({
   cwd: "/repo",
   rootEntries: ["package.json"],
+  allFiles: ["package.json"],
   packageJson: { name: "demo" },
   sourceFiles: [],
   workflows: [],
@@ -72,6 +73,8 @@ describe("planBootstrap", () => {
       diagnosis: diagnose(input),
       packageJson: input.packageJson,
       rootEntries: input.rootEntries,
+      allFiles: input.allFiles,
+      sourceFiles: input.sourceFiles,
       nodeVersion: "24",
       prettierIgnore,
     });
@@ -131,12 +134,14 @@ describe("planBootstrap", () => {
         ".prettierrc.json",
         ".gitattributes",
       ],
+      allFiles: [".github/dependabot.yml", ".github/workflows/ci.yml", "knip.json"],
       packageJson: {
         scripts: {
           lint: "eslint .",
           format: "prettier -w .",
           typecheck: "tsc",
           test: "vitest run",
+          knip: "knip",
         },
         devDependencies: {
           eslint: "^10",
@@ -145,13 +150,16 @@ describe("planBootstrap", () => {
           "typescript-eslint": "^8",
           "eslint-plugin-sonarjs": "^4",
           "eslint-config-prettier": "^10",
+          knip: "^6",
           prettier: "^3",
           vitest: "^4",
           typescript: "^6",
           "@types/node": "^24",
         },
       },
-      workflows: [{ path: ".github/workflows/ci.yml", content: "run: yarn lint" }],
+      workflows: [
+        { path: ".github/workflows/ci.yml", content: "run: yarn lint\nrun: npx jscpd ." },
+      ],
     });
     assert.deepEqual(
       planFor(complete, ".ever-better/\nQUALITY.md\neslint-suppressions.json\n"),

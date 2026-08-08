@@ -108,6 +108,7 @@ export const gatherFacts = async (cwd: string): Promise<RepoFacts> => {
   return {
     cwd,
     rootEntries: rootEntriesOf(files),
+    allFiles: files,
     packageJson: await readPackageJson(cwd),
     sourceFiles,
     workflows: await readWorkflows(cwd, files),
