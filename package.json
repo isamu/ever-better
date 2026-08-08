@@ -40,7 +40,9 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "test": "node --test \"test/*.ts\"",
-    "prepack": "yarn build"
+    "prepack": "yarn build",
+    "knip": "knip",
+    "duplication": "npx --yes jscpd@4 . --format typescript,javascript --ignore \"**/node_modules/**,**/dist/**,**/*.d.ts\" --reporters console"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
@@ -49,6 +51,7 @@
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-sonarjs": "^4.2.0",
     "globals": "^17.9.0",
+    "knip": "^6.32.0",
     "prettier": "^3.9.6",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.66.0"

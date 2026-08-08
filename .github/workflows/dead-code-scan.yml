@@ -1,0 +1,54 @@
+# Unused-export and unused-file detection (knip), reported to the job summary. Never fails.
+#
+# The gap it fills: ESLint's `no-unused-vars` only sees within one file, and the duplication scan
+# only sees copy-paste. Neither catches an export nobody imports, or a helper whose last caller was
+# deleted in another module — the exact orphan a refactor leaves behind while typecheck, tests and
+# the build all stay green.
+#
+# Report-only, for the same reason as the duplication scan: knip reports the whole inventory and
+# has no base-branch diffing, so it cannot say what THIS pull request orphaned. Every rule in
+# knip.json is therefore `warn`, which also keeps the exit code at zero.
+name: dead-code-scan
+
+on:
+  pull_request:
+    paths:
+      - "**/*.ts"
+      - "**/*.js"
+      - "knip.json"
+      - "package.json"
+      - "yarn.lock"
+      - ".github/workflows/dead-code-scan.yml"
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  dead-code-scan:
+    name: Dead Code Scan (knip)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "24"
+
+      - run: yarn install --frozen-lockfile
+
+      - name: Run knip
+        run: |
+          set -euo pipefail
+          {
+            echo '## knip'
+            echo
+            echo '```'
+            yarn --silent knip || true
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

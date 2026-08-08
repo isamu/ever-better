@@ -1,0 +1,55 @@
+# Copy-paste detection (jscpd), reported to GitHub Code Scanning. Never fails the build.
+#
+# A global duplication percentage cannot stop new duplication: adding twenty copied lines to a
+# codebase of a hundred thousand moves the number by a hundredth of a point, so any threshold you
+# could pass today you would still pass after the copy. SARIF plus Code Scanning is what makes the
+# finding per-pull-request instead of per-repository.
+#
+# Report-only on purpose, and that is a rule rather than a phase: a check that cannot point
+# precisely at what THIS diff added must not be a gate, because the first false failure teaches
+# everyone to reach for an ignore comment.
+name: duplication-scan
+
+on:
+  pull_request:
+    paths-ignore:
+      - "docs/**"
+      - "**/*.md"
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  duplication-scan:
+    name: Duplication Scan (jscpd)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      security-events: write # required to upload SARIF
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "24"
+
+      - name: Run jscpd
+        run: |
+          set -euo pipefail
+          npx --yes jscpd@4 . \
+            --format "typescript,javascript" \
+            --ignore "**/node_modules/**,**/dist/**,**/*.d.ts" \
+            --reporters console,sarif \
+            --output report
+
+      - name: Upload SARIF to Code Scanning
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: report/jscpd-sarif.json
+          category: jscpd
