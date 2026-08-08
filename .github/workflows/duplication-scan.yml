@@ -31,7 +31,7 @@ jobs:
       contents: read
       security-events: write # required to upload SARIF
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
 
