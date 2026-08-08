@@ -92,9 +92,18 @@ Node 20.11 以上。yarn / npm / pnpm / bun に対応（lockfile から自動判
 
 ### `bootstrap`
 
-そのリポジトリのパッケージマネージャで不足している devDependencies を導入し、階層構造を持つ flat ESLint 設定を生成し、CI が必要とする `lint` / `format` / `typecheck` / `test` スクリプトを追加し、3プラットフォームの GitHub Actions ワークフローを書きます。
+そのリポジトリのパッケージマネージャで不足している devDependencies を導入し、この手法が依存する**4つの層**を生成します。それぞれ、他の層には見えないものを見ます:
 
-既にある設定ファイルは決して上書きしません。`--dry-run` で計画だけを表示します。
+| 層 | ツール | 見えるもの |
+| --- | --- | --- |
+| 関数の大きさ・複雑度 | ESLint コアルール | 長い関数、深いネスト、分岐過多 |
+| 型と可読性 | SonarJS + `strictTypeChecked` | 危険な `any`、認知的複雑度 |
+| ファイル横断の重複 | jscpd → Code Scanning | linter には見えないコピペ |
+| デッドコード | knip | 誰も import しない export、孤立ファイル |
+
+あわせて CI が必要とする `lint` / `format` / `typecheck` / `test` / `knip` スクリプト、3プラットフォームのワークフロー、`.gitattributes`、`.prettierignore`、そして `dependabot.yml` を書きます。最後のものは、ever-better が見なくなった後もピン留めした action バージョンを最新に保つためです。
+
+既にある設定ファイルは決して上書きしません — そこに書かれた例外には、ファイルに書かれていない理由があるからです。唯一の例外は行ベースの `.prettierignore` で、これは追記します。`--dry-run` で計画だけを表示します。
 
 ### `freeze`
 
@@ -110,9 +119,19 @@ CI のゲート。抑制されていないエラーがある場合、または�
 
 免除されていた違反を直すと、その suppression は不要になります。`prune` がそれを回収し、直した分だけ天井を下げます。天井が下がる唯一の経路です。
 
+### `log`
+
+```bash
+ever-better log --kind drained  --rule max-depth "6件、うち1件は本物のバグ"
+ever-better log --kind deferred --rule max-lines "router.ts が1400行。分割はそれ自体がプロジェクト"
+ever-better log --kind issue    --rule no-floating-promises "#42 を起票 — 挙動は製品判断"
+```
+
+現在の commit を添えて記録します。効くのは `deferred` です。`QUALITY.md` の **Carried over** チェックリストに、見た時点の commit 付きで出ます。「router.ts は分割が必要」というメモは、400コミット後には*いつ真だったのか*が分からなければ役に立たないからです。
+
 ### `status`
 
-現在のフェーズ、残りの件数、そして残件数が**少ない**ルール — つまり最初に片付けるべきルール — を表示します。
+現在のフェーズ、残りの件数、そして残件数が**少ない**ルール — つまり最初に片付けるべきルール — を表示します。診断から30日超・50コミット超、あるいは記録した commit がこの履歴に無い（rebase / force-push）場合は、先頭に `STALE` 行が出ます。ratchet 自体は陳腐化しません（ESLint が現ツリーに対して維持するため）が、gap 一覧・ファイルサイズ・見送りメモは陳腐化します。
 
 ## 成果物
 
@@ -122,7 +141,7 @@ CI のゲート。抑制されていないエラーがある場合、または�
 | `.ever-better/state.json` | ever-better | する — 台帳 |
 | `QUALITY.md` | 台帳から描画 | する — 人間向けのビュー |
 
-`QUALITY.md` は毎回再生成されます。`<!-- ever-better:notes:start -->` マーカーの間に書いたものは保持されます。
+`QUALITY.md` は毎回再生成され、台帳から描画された4つのセクションを持ちます: フェーズをチェックボックスにし残件の少ないルールを子項目にした **Worklist**、意図的に見送ったリファクタリングの **Carried over**、**Ratchet** 表、そして **Work log**。`<!-- ever-better:notes:start -->` マーカーの間に書いたものは保持されます。
 
 ## Claude Code プラグイン
 
