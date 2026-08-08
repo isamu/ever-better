@@ -1,6 +1,11 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { describeAction, planBootstrap, type BootstrapAction } from "../bootstrapPlan.ts";
+import {
+  describeAction,
+  planBootstrap,
+  PRETTIER_IGNORE_FILE,
+  type BootstrapAction,
+} from "../bootstrapPlan.ts";
 import { installCommand } from "../detect/packageManager.ts";
 import { diagnose } from "../diagnose.ts";
 import { gatherFacts } from "../facts.ts";
@@ -14,6 +19,14 @@ export type BootstrapOptions = {
   cwd: string;
   dryRun: boolean;
   nodeVersion: string;
+};
+
+const readIfPresent = async (filePath: string): Promise<string | null> => {
+  try {
+    return await readFile(filePath, "utf8");
+  } catch {
+    return null;
+  }
 };
 
 const writeGeneratedFile = async (cwd: string, relativePath: string, contents: string) => {
@@ -70,6 +83,7 @@ export const runBootstrap = async (options: BootstrapOptions): Promise<string> =
     packageJson: facts.packageJson,
     rootEntries: facts.rootEntries,
     nodeVersion: options.nodeVersion,
+    prettierIgnore: await readIfPresent(path.join(options.cwd, PRETTIER_IGNORE_FILE)),
   });
 
   if (actions.length === 0) return "Nothing to install or generate. Run `ever-better freeze` next.";

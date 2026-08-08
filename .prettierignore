@@ -2,3 +2,8 @@ dist/
 node_modules/
 *.md
 templates/
+
+# Machine-written; JSON.stringify always expands arrays that Prettier collapses.
+.ever-better/
+QUALITY.md
+eslint-suppressions.json
