@@ -161,6 +161,46 @@ JS -> TS migration is NOT covered by that decision and stays in scope: types are
 type-aware tier possible, so the ceiling means more once they are in. It is already reported as a
 gap and belongs to the P3 `ever-better-migrate` skill.
 
+## Python: evaluated, feasible, deferred
+
+Raised 2026-08-08. Checked against Ruff's actual documentation rather than assumed.
+
+**The phase model transfers, and Ruff has the primitives**, so this does not need a ratchet of our
+own any more than the JS side did:
+
+| ever-better | JavaScript | Python |
+| --- | --- | --- |
+| freeze | `eslint --suppress-all` | `ruff check --add-noqa` |
+| check | `eslint .` | `ruff check` (with `RUF100` selected) |
+| prune | `eslint --prune-suppressions` | `ruff check --select RUF100 --fix` |
+| format | prettier | `ruff format` |
+
+`RUF100` (`unused-noqa`) is Ruff's own rule for a suppression whose violation is gone — the same
+job `--prune-suppressions` does.
+
+**The one real difference**: Ruff has **no external suppressions file**. `--add-noqa` writes a
+`# noqa: RULE` comment onto every violating line, so the ceiling lives in the source. Consequences
+to design around, not to discover later:
+
+- The first freeze is an enormous, invasive diff — a comment per violating line, rather than one
+  JSON file. It must be its own commit, and the skill has to say so up front.
+- The ceiling is per-line rather than a count, so the ledger counts the markers instead of reading
+  a file ESLint maintains.
+- It interacts with formatting: `ruff format` after `--add-noqa` can move the comments.
+
+**Unclear, and the reason to scope the first Python release to linting only**: type checking has no
+first-party baseline. mypy has none built in (`mypy-baseline` is third-party), and pyright uses
+inline `# type: ignore`. Ship Ruff first; treat types as a later tier, exactly as the JS side treats
+the type-aware rules as a separate step.
+
+**Cost**: a medium refactor, not a rewrite. `RepoFacts` currently bakes in `package.json`, and
+`findEslint` looks in `node_modules`. Both need an ecosystem seam — detect `js` / `python`, then a
+driver exposing detect / plan / freeze / count / prune. The state file, the `QUALITY.md` renderer,
+`check`, and the whole ratchet logic are reusable unchanged.
+
+**Order**: after P3 drain. Drain is what makes the tool worth adopting in the first language; a
+second language before that doubles the surface with nothing behind it.
+
 ## Open questions for isamu
 
 - Publish as `ever-better` unscoped, or under a scope?
