@@ -46,6 +46,31 @@ numbers. Re-read it between steps and name the step you are starting. An agent w
 does not stop; it quietly merges two steps, drops the verification in the middle, and reports a
 phase complete that was never run.
 
+## Leave a trail the owner can read
+
+**Nothing writes the work log for you.** `freeze`, `prune` and `check` record counts; what a count
+cost and what it uncovered exists only because somebody wrote it down:
+
+```bash
+npx ever-better log --kind drained  --rule max-depth "12 violations; 1 real bug — unreachable branch, deleted with a test"
+npx ever-better log --kind deferred --rule max-lines "router.ts is 1400 lines; splitting it is its own project"
+npx ever-better log --kind issue    --rule no-floating-promises "opened #42 — swallowed error, product decision"
+npx ever-better log --kind note "ESLint 8 -> 9 before freezing, so the ceiling is from the new rule set"
+```
+
+The last twenty entries render as the **Work log** table in `QUALITY.md`, and `deferred` also
+becomes a **Carried over** checklist.
+
+- **One entry per commit, written as you make it.** Each is stamped with whatever is HEAD at that
+  moment, which is what lets a later reader ask whether an old note still describes the code — and
+  what a batch written at the end gets wrong for every entry except the last.
+- **Write it for the person who was not watching.** An owner returning to six pull requests reads
+  this table before the diffs. "fixed max-depth" tells them nothing a diff would not; the rule, the
+  count, and the one thing worth knowing — the bug, the decision, the surprise — is the whole value.
+- **Log the choices too, not only the work.** A tier left off, a dependency left at its old major,
+  a clone deliberately not extracted: `note` and `deferred` exist so a decision is legible later as
+  a decision, rather than looking like something nobody got to.
+
 ## Dependencies: tooling early, breaking changes once the tests can catch them
 
 Two halves, and the split is about what can tell you when something broke:

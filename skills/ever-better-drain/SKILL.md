@@ -198,10 +198,20 @@ of it.
 **Never run `freeze` here.** It would re-pin the ceiling at today's number and quietly forgive
 anything added since. It refuses by design; `--force` is not the answer to a red build.
 
-### 8. Commit and open the PR
+### 8. Record what the rule cost, then commit and open the PR
 
-One rule, and say in the body: the rule, how many violations it removed, the ceiling before and
-after, and **every behaviour change with its test**. A reviewer needs to separate "renamed a
+```bash
+npx ever-better log --kind drained --rule <rule> "12 violations; 1 real bug — parseDate returned undefined for an empty string"
+```
+
+Numbers are recorded for you; **what you found is not**. Write the entry as you finish the rule and
+before the commit, not in a batch at the end — each is stamped with whatever is HEAD at that moment,
+which is the only thing that makes an old entry re-checkable. It renders into the **Work log** in
+`QUALITY.md`, which is what an owner who was not watching reads before any diff, so it wants the
+rule, the count, and the one thing worth knowing rather than "fixed max-depth".
+
+One rule per PR, and say in the body: the rule, how many violations it removed, the ceiling before
+and after, and **every behaviour change with its test**. A reviewer needs to separate "renamed a
 variable" from "this was returning undefined".
 
 **When the edit re-indents a block, that is two commits, not one.** Wrapping a body in a guard, a
@@ -226,6 +236,15 @@ Open a GitHub issue — do not guess — when the fix requires a decision only t
 
 Write the issue with: the rule, the file and line, what the two or three options are, and what you
 would pick and why. Then move to the next rule rather than blocking.
+
+```bash
+npx ever-better log --kind issue --rule <rule> "opened #42 — swallowed error, product decision"
+```
+
+**A rule you walked past needs an entry as much as one you drained** — `issue` for what became
+somebody's decision, `deferred` for what you looked at and chose to leave. Without one the ledger
+shows a backlog that stopped moving and no reason why, which reads as an unattended run that quietly
+gave up.
 
 Everything else — a missing await, a narrowed type, a validated response, an extracted function, a
 new test — you do, without asking.

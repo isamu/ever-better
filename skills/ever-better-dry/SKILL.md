@@ -158,3 +158,12 @@ Open one rather than guessing when:
 
 Say which clones, what you would extract, where you would put it, and what it would cost. Then move
 on to the next one instead of waiting.
+
+```bash
+npx ever-better log --kind deferred "3 clones between server/ and web/; extracting crosses the package boundary — #47"
+```
+
+**A clone you decided to leave needs the entry more than one you extracted.** The extraction is in
+the diff; the judgement that two similar blocks are coincidence rather than one idea is visible
+nowhere else, and the next run will otherwise re-open the same question and reach a different
+answer.

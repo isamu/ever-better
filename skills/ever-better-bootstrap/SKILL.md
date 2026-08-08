@@ -106,6 +106,14 @@ block the freeze.
 
 ### 7. Hand off
 
+```bash
+npx ever-better log --kind note "eslint 8 -> 10, sonarjs + security tiers on; max-lines-per-function left at 60 for a scripts repo"
+```
+
+Record what you turned on and, more importantly, **what you turned off and why** — the ceiling
+frozen next is a number from exactly this rule set, and a tier missing for a reason is
+indistinguishable later from a tier nobody got to.
+
 Say how many violations there are and across how many rules, then route to the
 **`ever-better-freeze`** skill. Do not freeze here — freezing is a decision, and the user should
 make it having seen the number.

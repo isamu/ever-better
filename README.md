@@ -167,8 +167,9 @@ ever-better log --kind deferred --rule max-lines "router.ts is 1400 lines; its o
 ever-better log --kind issue    --rule no-floating-promises "opened #42 — product decision"
 ```
 
-Records what happened against the current commit. `deferred` is the one that earns its keep: it
-renders into a **Carried over** checklist in `QUALITY.md` with the commit it was seen at, because
+Records what happened against the current commit, and it is the only thing that writes the **Work
+log** in `QUALITY.md` — every other command records counts, never why. `deferred` is the one that
+earns its keep: it renders into a **Carried over** checklist with the commit it was seen at, because
 "router.ts needs splitting" is useless four hundred commits later unless a reader can tell when it
 was true.
 
