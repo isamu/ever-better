@@ -34,6 +34,38 @@ those two bring the number down and take the bugs out with it.
 not asked about. Only a refactor that needs the owner's judgment becomes a GitHub issue, and the
 issue says what the options are and which one you would pick.
 
+## Work the phases in order, and say which one you are in
+
+Each phase exists because the one before it made it possible: draining before freezing has no
+ceiling to lower, and refactoring before the types are in place is done blind. Skipping ahead
+usually means doing the same work twice.
+
+So keep the checklist in front of you rather than in your head — `ever-better status` and the
+worklist in `QUALITY.md` are it, both derived from the ledger and so incapable of drifting from the
+numbers. Re-read it between steps and name the step you are starting. An agent working from memory
+does not stop; it quietly merges two steps, drops the verification in the middle, and reports a
+phase complete that was never run.
+
+## Dependencies: tooling early, breaking changes once the tests can catch them
+
+Two halves, and the split is about what can tell you when something broke:
+
+- **The toolchain goes up first**, in the bootstrap phase, majors included — linter, formatter,
+  type checker, test runner, build tool, and any `resolutions` pinning them. They cannot change what
+  ships, only what it says about what ships, and every number recorded later is a number from *this*
+  rule set. Freeze against an old ESLint and the upgrade afterwards invalidates the ceiling.
+- **Runtime dependencies wait for a test suite that can fail.** A major bump of something the
+  product actually calls is exactly the change nobody can review by reading. Until P3 has built real
+  coverage, "it still builds" is all you would have. Once the suite is real, take them deliberately —
+  one dependency per pull request, so a regression names its own cause.
+- **A package nobody maintains is not a version problem.** No release in years, a deprecation
+  notice, an issue tracker nobody answers, or a peer range that blocks the upgrade everything else
+  needs — none of those are fixed by waiting. Look at what the repo actually uses of it, which is
+  usually two functions, and pick: a maintained equivalent, or those two functions written here
+  where they can be typed and tested. Both beat a transitive tree that pins the toolchain in place.
+  Say which you would pick and what it costs; a devDependency or a small utility you just replace,
+  but something load-bearing at runtime is the owner's call and becomes an issue.
+
 ## Start here
 
 1. **Check the CLI is reachable.** `npx ever-better --help`. If npx cannot find it, install it:
@@ -58,8 +90,9 @@ issue says what the options are and which one you would pick.
    - no `CLAUDE.md` / `AGENTS.md`, or a first run on this repo → the **`ever-better-prepare`**
      skill. Everything after it is done by an agent reading instructions; thin instructions produce
      a different answer every session and nobody can tell which was right.
-   - the repo is JavaScript → the **`ever-better-migrate`** skill. Types are the cheapest rule set
-     there is, and the tier that finds the most real bugs cannot run without them.
+   - the repo is JavaScript → the **`ever-better-migrate`** skill, **before any refactoring**. Types
+     are the cheapest rule set there is, the tier that finds the most real bugs cannot run without
+     them, and a shape chosen before the compiler has spoken is a shape you will choose again.
    - anything in the `bootstrap` phase → the **`ever-better-bootstrap`** skill
    - bootstrap clean, nothing frozen yet → the **`ever-better-freeze`** skill
    - already frozen, backlog remaining → the **`ever-better-drain`** skill

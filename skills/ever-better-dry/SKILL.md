@@ -7,6 +7,12 @@ description: Turn duplication that jscpd found into shared functions, and dead c
 Lint sees inside a file. This is for what it cannot see: the same logic written twice in different
 files, and code nobody calls at all.
 
+**This is the sweep, not the first pass.** The drain already deletes a copy at the cheapest possible
+moment — while the second one is being written (`ever-better-drain`, step 6d). What should reach
+this phase is the duplication no single rule fix could see: clones across modules, and the shared
+layer they imply. If a drain has run and jscpd still reports a great deal, that is worth saying out
+loud rather than quietly extracting — it usually means the copies predate any of this work.
+
 ## Why the numbers do not gate
 
 Both scans in a bootstrapped repo are **report-only**, and that is a rule rather than a stage:
@@ -76,6 +82,27 @@ npx ever-better check
 
 One extraction per commit, naming both call sites. A reviewer needs to see that the two really were
 the same.
+
+## Where the shared code lives
+
+An extraction with nowhere to go ends up beside one of its two callers, which is how the third
+caller misses it. A repository that is going to stay DRY needs a standard module, and it has rules:
+
+- **Named after what it knows, never after what it is.** `text`, `time`, `money`, `paths`. A file
+  called `utils.ts`, `helpers.ts` or `common.ts` is a drawer: nobody can predict what is in it, so
+  nobody looks, so the function gets written again — and the drawer is the one file every module
+  imports, which makes it the hardest thing in the repo to change.
+- **It imports nothing above it.** Pure functions over plain values, no reach back into feature
+  code. That is what lets every layer use it without an import cycle, and it is why these are the
+  easiest functions in the repo to test.
+- **Everything in it is tested.** A bug here is a bug at every call site at once, which also makes
+  it the best return on a test in the whole codebase.
+- **Only what is used outside is exported.** knip reports the rest; an export with no external
+  caller is surface you are maintaining for nobody.
+
+Reach for the platform before writing one at all. `node:util`, `node:path`, `Intl`, `structuredClone`
+and `Array.prototype.at` have all quietly replaced a package someone still depends on — and a
+built-in cannot go unmaintained.
 
 ## Preventing the next copy
 
