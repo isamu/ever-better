@@ -92,9 +92,7 @@ describe("planBootstrap", () => {
   });
 
   it("does not reinstall what is already a dependency", () => {
-    const plan = planFor(
-      facts({ packageJson: { devDependencies: { eslint: "^10", prettier: "^3" } } }),
-    );
+    const plan = planFor(facts({ packageJson: { devDependencies: { eslint: "^10", prettier: "^3" } } }));
     const install = plan.find((action) => action.kind === "install");
     assert.ok(install);
     assert.ok(!install.packages.includes("eslint"));
@@ -136,6 +134,20 @@ describe("planBootstrap", () => {
     assert.ok(!written.includes(".gitattributes"));
   });
 
+  it("writes a Prettier config wide enough not to fight the code it lints", () => {
+    const plan = planFor(facts());
+    const written = plan.filter((action) => action.kind === "writeFile");
+    const config = written.find((action) => action.path === ".prettierrc.json");
+    assert.ok(config?.kind === "writeFile");
+    assert.deepEqual(JSON.parse(config.contents), { printWidth: 160 });
+  });
+
+  it("leaves an existing Prettier config alone", () => {
+    const plan = planFor(facts({ rootEntries: ["package.json", ".prettierrc"] }));
+    const written = plan.filter((action) => action.kind === "writeFile").map((a) => a.path);
+    assert.ok(!written.includes(".prettierrc.json"));
+  });
+
   it("writes a .prettierignore that excludes what ever-better generates", () => {
     // Without it the first `diagnose --write` turns format:check red on a file the developer
     // never touched: JSON.stringify always expands arrays that Prettier collapses.
@@ -149,19 +161,8 @@ describe("planBootstrap", () => {
 
   it("proposes no work at all for a repo that already has everything", () => {
     const complete = facts({
-      rootEntries: [
-        "package.json",
-        "tsconfig.json",
-        "eslint.config.js",
-        ".prettierrc.json",
-        ".gitattributes",
-      ],
-      allFiles: [
-        ".github/dependabot.yml",
-        ".github/workflows/ci.yml",
-        ".github/workflows/codex-review.yml",
-        "knip.json",
-      ],
+      rootEntries: ["package.json", "tsconfig.json", "eslint.config.js", ".prettierrc.json", ".gitattributes"],
+      allFiles: [".github/dependabot.yml", ".github/workflows/ci.yml", ".github/workflows/codex-review.yml", "knip.json"],
       packageJson: {
         scripts: {
           lint: "eslint .",
@@ -195,17 +196,12 @@ describe("planBootstrap", () => {
         },
       ],
     });
-    assert.deepEqual(
-      planFor(complete, ".ever-better/\nQUALITY.md\neslint-suppressions.json\n"),
-      [],
-    );
+    assert.deepEqual(planFor(complete, ".ever-better/\nQUALITY.md\neslint-suppressions.json\n"), []);
   });
 
   it("targets the generated workflow at the scripts it is about to add, not today's", () => {
     const plan = planFor(facts());
-    const workflow = plan.find(
-      (action) => action.kind === "writeFile" && action.path.endsWith("ci.yml"),
-    );
+    const workflow = plan.find((action) => action.kind === "writeFile" && action.path.endsWith("ci.yml"));
     assert.ok(workflow?.kind === "writeFile");
     assert.match(workflow.contents, /npm run lint/);
   });
