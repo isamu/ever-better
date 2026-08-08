@@ -5,6 +5,7 @@ import process from "node:process";
 import { runBootstrap } from "./commands/bootstrap.ts";
 import { runCheck } from "./commands/check.ts";
 import { runDiagnose } from "./commands/diagnose.ts";
+import { runEmitDiff } from "./commands/emitDiff.ts";
 import { runFreeze } from "./commands/freeze.ts";
 import { isLogKind, LOG_KIND_LIST, runLog } from "./commands/log.ts";
 import { runPrune } from "./commands/prune.ts";
@@ -18,6 +19,7 @@ const USAGE = `ever-better — make a codebase that can only get better
   prune       reclaim suppressions you have fixed     (lowers the ceiling)
   check       fail if anything rose above its ceiling (for CI)
   status      print the current backlog
+  emit-diff   prove a type-only refactor changed no behaviour
   log         record what happened, stamped with the current commit
 
 Options
@@ -30,6 +32,7 @@ Options
   --node <version>  node version for the generated workflow (default: ${DEFAULT_NODE_VERSION})
   --kind <kind>     log: ${LOG_KIND_LIST}
   --rule <name>     log: the rule this entry is about
+  --against <ref>   emit-diff: git ref to compare against (default: HEAD)
 `;
 
 const OPTIONS = {
@@ -42,6 +45,7 @@ const OPTIONS = {
   node: { type: "string", default: DEFAULT_NODE_VERSION },
   kind: { type: "string", default: "note" },
   rule: { type: "string" },
+  against: { type: "string", default: "HEAD" },
   help: { type: "boolean", default: false },
 } as const;
 
@@ -54,6 +58,7 @@ type Flags = {
   noWrite: boolean;
   node: string;
   kind: string;
+  against: string;
   rule: string | undefined;
   rest: string[];
 };
@@ -76,6 +81,9 @@ const dispatch = async (
   }
   if (command === "freeze") {
     return { output: await runFreeze({ cwd: flags.cwd, force: flags.force }), ok: true };
+  }
+  if (command === "emit-diff") {
+    return { output: await runEmitDiff({ cwd: flags.cwd, against: flags.against }), ok: true };
   }
   if (command === "prune") {
     return { output: await runPrune({ cwd: flags.cwd }), ok: true };
@@ -123,6 +131,7 @@ const main = async (): Promise<number> => {
     noWrite: values["no-write"],
     node: values.node,
     kind: values.kind,
+    against: values.against,
     rule: values.rule,
     rest: positionals.slice(1),
   };
