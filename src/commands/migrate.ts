@@ -11,14 +11,15 @@ export type MigrateOptions = {
   cwd: string;
   /** One file to rename, or none to print the plan. */
   file: string | null;
+  /** Rename every JavaScript file in one pass. */
+  all: boolean;
 };
 
 const JS_EXTENSIONS = new Set(["js", "jsx", "mjs", "cjs"]);
 
 const NEXT_SHOWN = 10;
 
-const javascriptFiles = (files: readonly SourceFile[]): SourceFile[] =>
-  files.filter((file) => JS_EXTENSIONS.has(file.ext));
+const javascriptFiles = (files: readonly SourceFile[]): SourceFile[] => files.filter((file) => JS_EXTENSIONS.has(file.ext));
 
 const countTypeErrors = async (cwd: string): Promise<number | null> => {
   const tsc = path.join(cwd, "node_modules", "typescript", "bin", "tsc");
@@ -46,26 +47,33 @@ const hasTypescript = async (cwd: string): Promise<boolean> =>
 
 const describePlan = (order: readonly string[], cycles: readonly string[][]): string[] => [
   `${order.length} JavaScript files, in dependency order:`,
-  ...order
-    .slice(0, NEXT_SHOWN)
-    .map((file, index) => `  ${index + 1}. ${file} -> ${migratedName(file)}`),
+  ...order.slice(0, NEXT_SHOWN).map((file, index) => `  ${index + 1}. ${file} -> ${migratedName(file)}`),
   ...(order.length > NEXT_SHOWN ? [`  … and ${order.length - NEXT_SHOWN} more`] : []),
   ...(cycles.length > 0
-    ? [
-        "",
-        `${cycles.length} import cycle(s). Nothing in one can go first, so each migrates as a unit:`,
-        ...cycles.map((cycle) => `  ${cycle.join(" -> ")}`),
-      ]
+    ? ["", `${cycles.length} import cycle(s). Nothing in one can go first, so each migrates as a unit:`, ...cycles.map((cycle) => `  ${cycle.join(" -> ")}`)]
     : []),
 ];
 
+const renameEvery = async (cwd: string, files: readonly string[]): Promise<void> => {
+  await Promise.all(files.map((file) => rename(path.join(cwd, file), path.join(cwd, migratedName(file)))));
+};
+
+const describeWholeRepo = (count: number, before: number | null, after: number | null): string[] => [
+  `Renamed ${count} files to TypeScript.`,
+  after === null
+    ? "Could not run tsc to price it — check the result by hand."
+    : `${after} type errors now, ${before ?? 0} before. They have no suppression mechanism: fix what blocks the build, or start from a looser tsconfig and tighten it with \`ever-better strictness\`.`,
+  "Lint errors are not a blocker — `ever-better freeze` records them as the ceiling.",
+];
+
 /**
- * Renames one JavaScript file and reports what it cost.
+ * Renames JavaScript files to TypeScript and reports what it cost.
  *
- * One file at a time is not caution, it is the only thing that works: type errors have no
- * suppression mechanism, so a big-bang rename leaves a repository whose `typecheck` fails with
- * nothing able to grandfather it. Dependencies go first — typing a file whose imports are still
- * JavaScript means typing it against `any`, and all of it has to be redone later.
+ * `--all` takes the repository in one pass; the lint noise it produces is exactly what the ratchet
+ * exists to hold. Type errors are the part that genuinely cannot be grandfathered, so they are
+ * counted rather than assumed. `--file` remains for a repo that would rather take them a few at a
+ * time, dependencies first — typing a file whose imports are still JavaScript types it against
+ * `any`, and that work gets redone once the dependency lands.
  */
 export const runMigrate = async (options: MigrateOptions): Promise<string> => {
   const facts = await gatherFacts(options.cwd);
@@ -75,21 +83,23 @@ export const runMigrate = async (options: MigrateOptions): Promise<string> => {
   const created = await ensureTsconfig(options.cwd, facts.rootEntries);
   const sources = new Map(
     await Promise.all(
-      javascript.map(async (file): Promise<[string, string]> => [
-        file.path,
-        await readFile(path.join(options.cwd, file.path), "utf8").catch(() => ""),
-      ]),
+      javascript.map(async (file): Promise<[string, string]> => [file.path, await readFile(path.join(options.cwd, file.path), "utf8").catch(() => "")]),
     ),
   );
+  if (options.all) {
+    if (!(await hasTypescript(options.cwd))) {
+      return "TypeScript is not installed here. Run `ever-better bootstrap` first.";
+    }
+    const before = await countTypeErrors(options.cwd);
+    await renameEvery(options.cwd, [...sources.keys()]);
+    const after = await countTypeErrors(options.cwd);
+    return [...created, ...describeWholeRepo(sources.size, before, after)].join("\n");
+  }
+
   const { order, cycles } = planMigration(buildGraph(sources));
 
   if (options.file === null) {
-    return [
-      ...created,
-      ...describePlan(order, cycles),
-      "",
-      `Next: ever-better migrate --file ${order[0] ?? ""}`,
-    ].join("\n");
+    return [...created, ...describePlan(order, cycles), "", `Next: ever-better migrate --file ${order[0] ?? ""}`].join("\n");
   }
 
   if (!sources.has(options.file)) return `${options.file} is not a JavaScript file in this repo.`;

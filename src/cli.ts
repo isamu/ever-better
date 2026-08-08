@@ -23,7 +23,7 @@ const USAGE = `ever-better — make a codebase that can only get better
   status      print the current backlog
   emit-diff   prove a type-only refactor changed no behaviour
   catalog     list the helpers that already exist, so nobody writes a sixth
-  migrate     JavaScript to TypeScript, one file at a time, in dependency order
+  migrate     JavaScript to TypeScript, the whole repo or one file at a time
   log         record what happened, stamped with the current commit
 
 Options
@@ -38,6 +38,7 @@ Options
   --rule <name>     log: the rule this entry is about
   --against <ref>   emit-diff: git ref to compare against (default: HEAD)
   --file <path>     migrate: the one file to rename (omit to see the plan)
+  --all             migrate: rename every JavaScript file in one pass
 `;
 
 const OPTIONS = {
@@ -52,6 +53,7 @@ const OPTIONS = {
   rule: { type: "string" },
   against: { type: "string", default: "HEAD" },
   file: { type: "string" },
+  all: { type: "boolean", default: false },
   help: { type: "boolean", default: false },
 } as const;
 
@@ -66,6 +68,7 @@ type Flags = {
   kind: string;
   against: string;
   file: string | undefined;
+  all: boolean;
   rule: string | undefined;
   rest: string[];
 };
@@ -75,19 +78,17 @@ type Outcome = { output: string; ok: boolean };
 /** Commands that only ever succeed. `check` and `log` are the two that can fail, below. */
 const ALWAYS_OK: Record<string, (flags: Flags) => Promise<string>> = {
   diagnose: (flags) => runDiagnose({ cwd: flags.cwd, json: flags.json, write: flags.write }),
-  bootstrap: (flags) =>
-    runBootstrap({ cwd: flags.cwd, dryRun: flags.dryRun, nodeVersion: flags.node }),
+  bootstrap: (flags) => runBootstrap({ cwd: flags.cwd, dryRun: flags.dryRun, nodeVersion: flags.node }),
   freeze: (flags) => runFreeze({ cwd: flags.cwd, force: flags.force }),
   prune: (flags) => runPrune({ cwd: flags.cwd }),
   status: (flags) => runStatus({ cwd: flags.cwd, json: flags.json }),
   catalog: (flags) => runCatalog({ cwd: flags.cwd }),
-  migrate: (flags) => runMigrate({ cwd: flags.cwd, file: flags.file ?? null }),
+  migrate: (flags) => runMigrate({ cwd: flags.cwd, file: flags.file ?? null, all: flags.all }),
   "emit-diff": (flags) => runEmitDiff({ cwd: flags.cwd, against: flags.against }),
 };
 
 const dispatchLog = async (flags: Flags): Promise<Outcome> => {
-  if (!isLogKind(flags.kind))
-    return { output: `--kind must be one of: ${LOG_KIND_LIST}`, ok: false };
+  if (!isLogKind(flags.kind)) return { output: `--kind must be one of: ${LOG_KIND_LIST}`, ok: false };
   const text = flags.rest.join(" ").trim();
   if (!text) return { output: 'log needs text: ever-better log --kind deferred "..."', ok: false };
   // exactOptionalPropertyTypes: an optional property must be OMITTED, not set to undefined.
@@ -130,6 +131,7 @@ const main = async (): Promise<number> => {
     kind: values.kind,
     against: values.against,
     file: values.file,
+    all: values.all,
     rule: values.rule,
     rest: positionals.slice(1),
   };
