@@ -1,7 +1,10 @@
 # Handoff
 
-Where this project came from, what is built, and what to do next. Written 2026-08-08 (JST) at the
-end of the session that created the repository.
+Where this project came from, what is built, and what to do next. Written 2026-08-08 (JST) across
+the session that created the repository and took it to 0.4.0.
+
+Everything below happened in one sitting, so treat the reasoning as current and the file list as
+something to verify against the code rather than trust.
 
 ## Where the idea came from
 
@@ -53,22 +56,15 @@ this and were last published over a year ago. Do not adopt or reimplement them.
 
 ## What is built and verified
 
-All of P0–P2, verified end-to-end against real ESLint on a scratch repository:
+All ten commands and eight skills. The lifecycle is asserted by `test/e2e/lifecycle.e2e.ts` against
+real ESLint in a real repository — bootstrap, freeze, a violation added afterwards rejected, that
+violation removed, a grandfathered one fixed and the ceiling falling, a second freeze refused.
 
-```
-diagnose → bootstrap → freeze (13 violations grandfathered, eslint exits 0)
-        → add a new violation      → check FAILS   (exit 1)
-        → remove it, fix a real one → prune         (ceiling 13 → 12 → 11)
-        → check PASSES
-```
-
-`diagnose` was also run read-only against `~/ss/llm/mulmoterminal` (1381 source files) and its
+`diagnose` has also been run read-only against `~/ss/llm/mulmoterminal` (1381 source files) and its
 output matched what that repo actually has.
 
-Repo gate is green: `format`, `lint`, `typecheck`, `build`, and 67 `node:test` cases.
-
-Two bugs found by dogfooding, both fixed and pinned by tests — see CLAUDE.md, "Anything that ships
-to users needs the generator tested".
+Gate: `format:check`, `lint`, `typecheck`, `build`, 233 unit tests, 8 end-to-end, `knip` clean, on
+three platforms. `main` is protected and requires all three `ci` jobs.
 
 ## Framework support (added the same day, on `feat/framework-support`)
 
@@ -101,6 +97,27 @@ Neither reproduces on macOS, and both passed Linux and macOS CI before failing o
    directly. Now resolves `node_modules/eslint/bin/eslint.js` and runs it with `process.execPath`.
 
 Keep the three-platform matrix. It is the only thing that sees this class of bug.
+
+## How the scope was checked
+
+Near the end of the session the whole conversation was re-read against the repository, because
+"is everything in?" is not a question memory can answer. It found **nine gaps**, all since closed:
+
+1. `diagnose` promised an `ever-better-migrate` skill that did not exist
+2. the gate was never wired into a repo that already had CI — most of them
+3. `bootstrap` never touched tsconfig, which had been asked for explicitly
+4. an existing ESLint config gained no rules at all
+5. `id-length`, `no-restricted-imports`, `import/no-cycle` and the security plugin were missing
+6. knip and jscpd counts were not in the ledger — examined and **deliberately dropped**, see above
+7. there was no end-to-end test
+8. no shared-helpers catalogue
+9. no check that the agent instructions the process depends on actually exist
+
+A second pass found three more: everything since 0.2.0 was **unpublished**, this file was stale, and
+Prettier was installed but never enforced by anything.
+
+Worth repeating before any release: the gap between "built" and "shipped" is invisible from inside
+the repository, and so is a doc that has quietly stopped being true.
 
 ## What is NOT built
 
@@ -203,9 +220,41 @@ driver exposing detect / plan / freeze / count / prune. The state file, the `QUA
 **Order**: after P3 drain. Drain is what makes the tool worth adopting in the first language; a
 second language before that doubles the surface with nothing behind it.
 
-## Open questions for isamu
+## Decisions taken, and what they closed
 
-- Publish as `ever-better` unscoped, or under a scope?
-- Should `bootstrap` install knip and jscpd, or keep them as a later tier?
-- The generated file line limit is 600, copied from mulmoterminal. Is that the right default for
-  other people's repos, or should `bootstrap` propose one from the repo's own distribution?
+Recorded because the reasoning is worth more than the outcome, and because a later session will
+otherwise re-propose the ones that were rejected.
+
+- **Published unscoped as `ever-better`.** npm and GitHub were both free.
+- **`bootstrap` installs knip and generates both scan workflows.** They were briefly a later tier;
+  a repo that has to be revisited to get them never is.
+- **knip and jscpd counts are NOT in the ledger.** They were on the plan and dropped: both scans are
+  report-only because neither can point at what *this* diff added, and a counter that never gates is
+  decoration. jscpd's SARIF into Code Scanning already gives the per-PR view, which is strictly
+  better than a global total.
+- **File line limit stays at 600**, and the other thresholds moved to the reference numbers
+  (`max-lines-per-function` 50, `complexity` 15). Freeze grandfathers whatever exists, so a stricter
+  default costs nothing on day one and binds every line written afterwards. There is no reason to
+  start loose.
+- **Casts are banned outright** — `as`, `as unknown as`, `!`, `@ts-ignore`, `@ts-nocheck`.
+  `@ts-expect-error` survives only with a written reason, because it is the one form that fails
+  loudly when it stops being needed.
+- **No import plugin ships.** Three attempts, each measured: `eslint-plugin-import` caps at ESLint
+  ^9; the TypeScript resolver drags it back in and fails the whole install; import-x's own resolver
+  reports nothing on a real two-file cycle. The third is the worst — an enabled rule finding nothing
+  reads as proof there are no cycles.
+- **Branch protection is on**, requiring all three `ci` jobs, admins included. It exists because a
+  pull request was merged red once: a wait loop exited on "not pending" and the merge ran in the
+  same command without reading the result.
+
+## Traps that cost real time, and would again
+
+Beyond the ones in CLAUDE.md:
+
+- **`yarn lint | tail` always exits 0.** A pipe reports the last stage's status, so a failing gate
+  reads as a pass. This produced two false "all green" claims in one session. Check exit codes one
+  command at a time.
+- **`cp -r` breaks `node_modules/.bin` symlinks.** Two fixture "failures" were the copy, not the
+  product. Build a fresh fixture and install into it rather than copying one.
+- **`new Set(string.matchAll(...))` dedupes match objects, not strings.** It never collapses
+  anything. Map to `match[0]` first.
