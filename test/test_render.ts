@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { renderEslintConfig } from "../src/generate/eslintConfig.ts";
+import { renderCodexReviewWorkflow } from "../src/generate/codexReview.ts";
 import { renderWorkflow } from "../src/generate/workflow.ts";
 import { extractNotes, NOTES_END, NOTES_START, renderQuality } from "../src/render/quality.ts";
 import { applyRuleCounts, emptyState } from "../src/state.ts";
@@ -226,5 +227,37 @@ describe("renderEslintConfig — readability and security tiers", () => {
     // Everything it looks for — child processes, non-literal fs paths — is Node-side.
     const browser = renderEslintConfig({ ...opts, runtime: "browser" });
     assert.ok(!browser.includes("eslint-plugin-security"));
+  });
+});
+
+describe("renderCodexReviewWorkflow", () => {
+  const workflow = renderCodexReviewWorkflow("24");
+
+  it("passes green when no API key is configured", () => {
+    // A generated check that is red until somebody adds a secret is one everybody learns to
+    // ignore, and it would arrive red in every repo this tool touches.
+    assert.match(workflow, /present=false/);
+    assert.match(workflow, /::notice::OPENAI_API_KEY is not set/);
+  });
+
+  it("gates every real step on the key being present", () => {
+    const gated = workflow.split("\n").filter((line) => line.includes("steps.key.outputs.present"));
+    assert.ok(gated.length >= 4);
+  });
+
+  it("skips Dependabot, whose PRs never receive secrets", () => {
+    assert.match(workflow, /if: github\.actor != 'dependabot\[bot\]'/);
+  });
+
+  it("asks for one verdict line, so the result is machine-readable", () => {
+    assert.match(workflow, /CODEX VERDICT: LGTM/);
+  });
+
+  it("pins the CLI version", () => {
+    assert.match(workflow, /CODEX_VERSION: "\d+\.\d+\.\d+"/);
+  });
+
+  it("cancels a superseded run rather than reviewing every push", () => {
+    assert.match(workflow, /cancel-in-progress: true/);
   });
 });

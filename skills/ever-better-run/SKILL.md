@@ -49,7 +49,20 @@ the current tree. It is the *diagnosis* that ages: gap list, file sizes, and eve
 Re-read **Carried over** after re-diagnosing and drop the entries that no longer describe anything.
 A stale checklist that nobody prunes is how the list stops being read at all.
 
+## Commit cadence, while working in someone else's repository
+
+**Small and often.** One rule per commit during a drain; a config change, its verification and the
+fixes it prompts are three commits, not one. A twenty-file commit mixing a lint fix, a bug fix and a
+refactor cannot be reviewed or reverted, and an unattended run produces exactly that unless the
+cadence is deliberate.
+
+The commit message says which rule, how many violations, and — separately — any behaviour that
+changed. A reviewer has to be able to tell "renamed a variable" from "this was returning undefined".
+
 ## Before anything
+
+0. **Run `ever-better-prepare`** if this is a first run here, or if `diagnose` reports no
+   `CLAUDE.md` / `AGENTS.md`. Everything below is done by an agent reading instructions.
 
 1. **Confirm the working tree is clean.** `git status --porcelain`. If it is not, stop and say so:
    this process installs packages and rewrites files, and untangling that from someone's own work

@@ -5,6 +5,7 @@ import {
   eslintPackagesFor,
   renderEslintConfig,
 } from "./generate/eslintConfig.ts";
+import { CODEX_WORKFLOW_PATH, renderCodexReviewWorkflow } from "./generate/codexReview.ts";
 import { renderDependabot } from "./generate/dependabot.ts";
 import { GATE_WORKFLOW_PATH, renderGateWorkflow } from "./generate/gateWorkflow.ts";
 import { renderGitattributes } from "./generate/gitattributes.ts";
@@ -76,9 +77,9 @@ const scriptsToAdd = (options: BootstrapPlanOptions): Record<string, string> => 
  * Only ever writes a file the repo does not have. Overwriting someone's ESLint config would erase
  * the exceptions they had reasons for, and those reasons are not in the file.
  */
-const filesToWrite = (options: BootstrapPlanOptions): BootstrapAction[] => {
-  const actions: BootstrapAction[] = [];
+const configActions = (options: BootstrapPlanOptions): BootstrapAction[] => {
   const { diagnosis, rootEntries } = options;
+  const actions: BootstrapAction[] = [];
 
   if (diagnosis.tooling.eslint === "none") {
     actions.push({
@@ -111,8 +112,23 @@ const filesToWrite = (options: BootstrapPlanOptions): BootstrapAction[] => {
   if (!rootEntries.includes(".gitattributes")) {
     actions.push({ kind: "writeFile", path: ".gitattributes", contents: renderGitattributes() });
   }
+  return actions;
+};
 
-  actions.push(...scanActions(options));
+/** Each of these is its own FILE, so none of them has to edit a workflow the repo already wrote. */
+const workflowActions = (options: BootstrapPlanOptions): BootstrapAction[] => {
+  const { diagnosis } = options;
+  const actions: BootstrapAction[] = [];
+
+  // A second model on every pull request. Skips itself, green, until a key exists — see the
+  // generator; a check that is red until somebody adds a secret is one everybody learns to ignore.
+  if (!options.allFiles.includes(CODEX_WORKFLOW_PATH)) {
+    actions.push({
+      kind: "writeFile",
+      path: CODEX_WORKFLOW_PATH,
+      contents: renderCodexReviewWorkflow(options.nodeVersion),
+    });
+  }
 
   if (!options.allFiles.includes(".github/dependabot.yml")) {
     actions.push({
@@ -131,6 +147,16 @@ const filesToWrite = (options: BootstrapPlanOptions): BootstrapAction[] => {
       contents: renderGateWorkflow(diagnosis.packageManager, options.nodeVersion),
     });
   }
+  return actions;
+};
+
+const filesToWrite = (options: BootstrapPlanOptions): BootstrapAction[] => {
+  const { diagnosis } = options;
+  const actions: BootstrapAction[] = [
+    ...configActions(options),
+    ...scanActions(options),
+    ...workflowActions(options),
+  ];
 
   if (!diagnosis.ci.present) {
     actions.push({

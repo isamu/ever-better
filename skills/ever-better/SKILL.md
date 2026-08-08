@@ -55,6 +55,9 @@ issue says what the options are and which one you would pick.
 
 4. **Route.** Depending on what came back:
 
+   - no `CLAUDE.md` / `AGENTS.md`, or a first run on this repo → the **`ever-better-prepare`**
+     skill. Everything after it is done by an agent reading instructions; thin instructions produce
+     a different answer every session and nobody can tell which was right.
    - anything in the `bootstrap` phase → the **`ever-better-bootstrap`** skill
    - bootstrap clean, nothing frozen yet → the **`ever-better-freeze`** skill
    - already frozen, backlog remaining → the **`ever-better-drain`** skill

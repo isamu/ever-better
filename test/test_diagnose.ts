@@ -156,7 +156,12 @@ describe("planBootstrap", () => {
         ".prettierrc.json",
         ".gitattributes",
       ],
-      allFiles: [".github/dependabot.yml", ".github/workflows/ci.yml", "knip.json"],
+      allFiles: [
+        ".github/dependabot.yml",
+        ".github/workflows/ci.yml",
+        ".github/workflows/codex-review.yml",
+        "knip.json",
+      ],
       packageJson: {
         scripts: {
           lint: "eslint .",
