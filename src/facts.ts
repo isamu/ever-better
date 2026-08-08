@@ -2,6 +2,7 @@ import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import { exec } from "./util/exec.ts";
 import { countLines } from "./util/lines.ts";
+import { gatherProbes } from "./probe/gather.ts";
 import type { PackageJson, RepoFacts, SourceFile, WorkflowFile } from "./types.ts";
 
 const SOURCE_EXTENSIONS = new Set([
@@ -103,11 +104,13 @@ export const gatherFacts = async (cwd: string): Promise<RepoFacts> => {
   const sourcePaths = files.filter(
     (file) => SOURCE_EXTENSIONS.has(extensionOf(file)) && !CONFIG_FILE_PATTERN.test(file),
   );
+  const sourceFiles = await Promise.all(sourcePaths.map((file) => toSourceFile(cwd, file)));
   return {
     cwd,
     rootEntries: rootEntriesOf(files),
     packageJson: await readPackageJson(cwd),
-    sourceFiles: await Promise.all(sourcePaths.map((file) => toSourceFile(cwd, file))),
+    sourceFiles,
     workflows: await readWorkflows(cwd, files),
+    probes: await gatherProbes(cwd, sourceFiles),
   };
 };

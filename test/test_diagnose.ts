@@ -10,6 +10,7 @@ const facts = (overrides: Partial<RepoFacts> = {}): RepoFacts => ({
   packageJson: { name: "demo" },
   sourceFiles: [],
   workflows: [],
+  probes: { rules: null, tsconfig: null },
   ...overrides,
 });
 

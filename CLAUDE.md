@@ -77,6 +77,25 @@ that is largest.
 It is **plain JavaScript and never compiled** — it must load identically whether the CLI runs from
 `dist/` or from source. `formatterPath()` resolves it relative to the package root.
 
+## Ask the tool, do not read the config — and count with colour off
+
+`src/probe/` exists because a config file does not tell you what is enforced. Presets, a
+framework's own config and later blocks override each other silently, and a rule that ends up off
+reports nothing to notice. `eslint --print-config <file>` and `tsc --showConfig` are the only
+honest answers, and both are asked per-file / after `extends` for that reason.
+
+Two traps, both of which produced a wrong answer here before being fixed:
+
+- **`tsc` and `eslint` colour their output, so `grep -c "error TS"` matches nothing** and reports
+  a clean run. Three strictness flags were measured at "zero cost" that way and one of them had
+  six errors. Always pass `--pretty false` when counting.
+- **Measure a flag by enabling it in the tsconfig, not by passing it on the command line.** The
+  CLI form silently disagreed with the project form here.
+
+Type errors have no suppression mechanism — `--suppress-all` cannot touch them — so a strictness
+flag must be measured before it is switched on. Enabling one that costs 500 errors hands the owner
+a repo whose `typecheck` script fails, and nothing can grandfather that.
+
 ## Windows is not a formality
 
 Both Windows failures here passed on Linux and macOS first, and neither is reproducible locally on

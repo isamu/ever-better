@@ -62,6 +62,9 @@ const findEslint = async (cwd: string): Promise<EslintInvocation | null> => {
   return null;
 };
 
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
+
 const isRuleCounts = (value: unknown): value is RuleCounts =>
   typeof value === "object" && value !== null && "errors" in value && "suppressed" in value;
 
@@ -112,6 +115,34 @@ export const runRuleCounts = async (cwd: string): Promise<RuleCounts> => {
  */
 export const suppressAll = async (cwd: string): Promise<void> => {
   await runEslint(cwd, [".", "--suppress-all"], "eslint --suppress-all");
+};
+
+/**
+ * What ESLint will ACTUALLY apply to one file. Reading the config source cannot answer this:
+ * presets, a framework's own config and later blocks all override each other silently, and a rule
+ * that ends up off reports nothing to notice.
+ *
+ * Returns null rather than throwing — a repo without ESLint is the normal case here.
+ */
+export const printConfig = async (
+  cwd: string,
+  filePath: string,
+): Promise<Record<string, unknown> | null> => {
+  const eslint = await findEslint(cwd);
+  if (!eslint) return null;
+  try {
+    const result = await exec(
+      eslint.command,
+      [...eslint.prefixArgs, "--print-config", filePath],
+      cwd,
+      { shell: eslint.shell },
+    );
+    if (result.code !== 0) return null;
+    const parsed: unknown = JSON.parse(result.stdout);
+    return isRecord(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
 };
 
 /** Drops suppressions for violations that no longer exist, which is how the ceiling comes down. */

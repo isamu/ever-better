@@ -95,6 +95,7 @@ const limitsBlock = (options: EslintConfigOptions): string[] => [
   '      complexity: ["error", 20],',
   '      "max-depth": ["error", 4],',
   '      "max-nested-callbacks": ["error", 4],',
+  '      "max-params": ["error", 6],',
   '      "sonarjs/cognitive-complexity": ["error", 15],',
   "    },",
   "  },",

@@ -91,7 +91,9 @@ const dispatch = async (
     const text = flags.rest.join(" ").trim();
     if (!text)
       return { output: 'log needs text: ever-better log --kind deferred "..."', ok: false };
-    const output = await runLog({ cwd: flags.cwd, kind: flags.kind, text, rule: flags.rule });
+    // exactOptionalPropertyTypes: an optional property must be OMITTED, not set to undefined.
+    const rule = flags.rule === undefined ? {} : { rule: flags.rule };
+    const output = await runLog({ cwd: flags.cwd, kind: flags.kind, text, ...rule });
     return { output, ok: true };
   }
   if (command === "status") {

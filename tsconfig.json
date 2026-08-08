@@ -9,6 +9,10 @@
     "noUncheckedIndexedAccess": true,
     "noImplicitOverride": true,
     "noFallthroughCasesInSwitch": true,
+    // Not included by `strict`, and each measured at zero cost here before being switched on.
+    "exactOptionalPropertyTypes": true,
+    "noImplicitReturns": true,
+    "noPropertyAccessFromIndexSignature": true,
     "verbatimModuleSyntax": true,
     "isolatedModules": true,
     // Imports are written with `.ts` extensions so `node --test test/*.ts` runs the sources

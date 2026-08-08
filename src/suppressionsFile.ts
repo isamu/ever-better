@@ -7,7 +7,7 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null;
 
 const isCountEntry = (value: unknown): value is { count: number } =>
-  isRecord(value) && typeof value.count === "number";
+  isRecord(value) && typeof value["count"] === "number";
 
 /**
  * Sum of every recorded suppression. Written by ESLint as `{ file: { rule: { count } } }`, so its

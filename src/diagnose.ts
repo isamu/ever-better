@@ -4,6 +4,8 @@ import { detectLanguageMode, typescriptFileRatio } from "./detect/language.ts";
 import { detectPackageManager } from "./detect/packageManager.ts";
 import { summarizeSizes, DEFAULT_FILE_LINE_LIMIT } from "./detect/sizes.ts";
 import { detectScripts, detectTooling } from "./detect/tooling.ts";
+import { findWeakRules } from "./probe/effectiveRules.ts";
+import { findMissingStrictness, isStrictOff } from "./probe/effectiveTsconfig.ts";
 import type { Diagnosis, Gap, RepoFacts, ScriptCoverage } from "./types.ts";
 
 const REQUIRED_SCRIPTS: readonly (keyof ScriptCoverage)[] = [
@@ -180,6 +182,61 @@ const frameworkGaps = (diagnosis: Omit<Diagnosis, "gaps">, facts: RepoFacts): Ga
   ];
 };
 
+const MAX_NAMED_RULES = 6;
+
+/**
+ * The gap nothing else can see. A repo can have a config file, a strict preset and a green build
+ * while the rules that find real bugs are silently off — presets and framework configs override
+ * each other, and a rule that is off reports nothing. This asks ESLint instead of reading the file.
+ */
+const effectiveRuleGaps = (facts: RepoFacts): Gap[] => {
+  const weak = findWeakRules(facts.probes.rules);
+  if (weak.length === 0) return [];
+  const off = weak.filter((verdict) => verdict.state === "off");
+  const named = weak.slice(0, MAX_NAMED_RULES).map((verdict) => verdict.rule.name);
+  const more = weak.length > MAX_NAMED_RULES ? `, and ${weak.length - MAX_NAMED_RULES} more` : "";
+  return [
+    {
+      id: "weak-rules",
+      title: `${weak.length} high-value rules are not enforcing (${off.length} off, ${weak.length - off.length} warn-only)`,
+      detail:
+        `Measured with \`eslint --print-config\`, not read from the config: ${named.join(", ")}${more}. ` +
+        "Each of these has cost somebody real bugs, and a rule that is off reports nothing to notice.",
+      phase: "tighten",
+    },
+  ];
+};
+
+/**
+ * `strict: true` does not include these, which is the trap: a repo sets strict, believes it is
+ * done, and never learns that indexing an array still hands back a value typed as present.
+ */
+const strictnessGaps = (facts: RepoFacts): Gap[] => {
+  if (!facts.probes.tsconfig) return [];
+  if (isStrictOff(facts.probes.tsconfig)) {
+    return [
+      {
+        id: "tsconfig-strict",
+        title: "TypeScript `strict` is off",
+        detail: "Everything else in the type tier is moot until this is on.",
+        phase: "tighten",
+      },
+    ];
+  }
+  const missing = findMissingStrictness(facts.probes.tsconfig);
+  if (missing.length === 0) return [];
+  return [
+    {
+      id: "tsconfig-strictness",
+      title: `${missing.length} strictness flags \`strict\` does not include are off`,
+      detail:
+        `Measured with \`tsc --showConfig\`, after every extends: ${missing.map((entry) => entry.flag.name).join(", ")}. ` +
+        "Type errors have no suppression mechanism, so enable them one at a time and measure the cost first.",
+      phase: "tighten",
+    },
+  ];
+};
+
 const GAP_DETECTORS = [eslintGaps, languageGaps, toolingGaps, scriptGaps, ciGaps, sizeGaps];
 
 /**
@@ -204,6 +261,8 @@ export const diagnose = (facts: RepoFacts): Diagnosis => {
   const gaps = [
     ...GAP_DETECTORS.flatMap((detect) => detect(partial)),
     ...frameworkGaps(partial, facts),
+    ...effectiveRuleGaps(facts),
+    ...strictnessGaps(facts),
   ];
   return { ...partial, gaps };
 };
