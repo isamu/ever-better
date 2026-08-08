@@ -104,10 +104,8 @@ Keep the three-platform matrix. It is the only thing that sees this class of bug
 
 ## What is NOT built
 
-- **JS → TS migration.** It is DIAGNOSED — `diagnose` reports a JavaScript repo and says the
-  type-aware tier cannot run without types — and the bootstrap skill says to ask before migrating.
-  Nothing performs the migration. This was in scope from the first decision and is the largest
-  remaining gap.
+Everything from the original scope has shipped. What remains was never in it:
+
 - **No monorepo support.** One baseline per repository; the state shape leaves room for more.
 - **Python.** Assessed and deferred — see the section above.
 
@@ -128,12 +126,11 @@ The point of the whole thing: **whoever writes the next line cannot break it qui
 
 ## Suggested next steps, in order
 
-1. **JS → TS migration.** The one thing from the original scope with no implementation.
-2. **Run it on a repository that is not this one.** `~/tne/orion` is the obvious candidate. Expect
+1. **Run it on a repository that is not this one.** `~/tne/orion` is the obvious candidate. Expect
    the diagnosis to be right and the generated config to need one or two adjustments — capture
    those as generator changes, not local edits.
-3. **Monorepo support**, if a target needs it.
-4. **Python**, after the above.
+2. **Monorepo support**, if a target needs it.
+3. **Python**, after the above.
 
 ## Reference material
 
