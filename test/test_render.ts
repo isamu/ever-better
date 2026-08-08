@@ -190,3 +190,41 @@ describe("QUALITY.md", () => {
     assert.equal(renderQuality(frozen(), "n", FRESH), renderQuality(frozen(), "n", FRESH));
   });
 });
+
+describe("renderEslintConfig — readability and security tiers", () => {
+  const opts = {
+    typed: true,
+    fileLineLimit: 600,
+    testGlob: "test/**",
+    testRunner: "vitest" as const,
+    framework: "none" as const,
+    runtime: "node" as const,
+  };
+
+  it("ships no import plugin at all", () => {
+    // Measured, not assumed: eslint-plugin-import caps at eslint ^9; the TypeScript resolver drags
+    // it back in and fails the install; and import-x's own resolver reports nothing on a real
+    // two-file cycle. An enabled rule that silently finds nothing reads as proof of no cycles.
+    const config = renderEslintConfig(opts);
+    assert.ok(!config.includes("import-x"));
+    assert.ok(!config.includes("no-cycle"));
+  });
+
+  it("gives id-length exceptions, because a loop counter is not the problem", () => {
+    const config = renderEslintConfig(opts);
+    assert.match(config, /"id-length"/);
+    assert.match(config, /min: 3, exceptions:/);
+    // `js` is the conventional alias for @eslint/js and appears in this very file.
+    assert.match(config, /"js"/);
+  });
+
+  it("adds the security tier for Node-side code", () => {
+    assert.match(renderEslintConfig(opts), /security\.configs\.recommended/);
+  });
+
+  it("leaves the security tier out of a browser-only bundle", () => {
+    // Everything it looks for — child processes, non-literal fs paths — is Node-side.
+    const browser = renderEslintConfig({ ...opts, runtime: "browser" });
+    assert.ok(!browser.includes("eslint-plugin-security"));
+  });
+});
