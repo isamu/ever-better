@@ -43,7 +43,8 @@
     "prepack": "yarn build",
     "knip": "knip",
     "duplication": "npx --yes jscpd@4 . --format typescript,javascript --ignore \"**/node_modules/**,**/dist/**,**/*.d.ts\" --reporters console",
-    "docs": "node scripts/write-docs.ts"
+    "docs": "node scripts/write-docs.ts",
+    "test:e2e": "node --test \"test/e2e/*.e2e.ts\""
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
