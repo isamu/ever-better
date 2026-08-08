@@ -21,8 +21,30 @@ const BASE_PACKAGES = [
   "eslint-config-prettier",
 ];
 
-export const eslintPackagesFor = (framework: Framework): string[] => [
+/*
+ * Import-cycle detection is deliberately absent, and it took three attempts to establish why:
+ *
+ *   - `eslint-plugin-import` peers at eslint ^9, so it cannot be installed beside ESLint 10.
+ *   - `eslint-plugin-import-x` does support 10, but `no-cycle` needs a resolver that understands
+ *     TypeScript. `flatConfigs.typescript` names `eslint-import-resolver-typescript`, whose
+ *     optional peer drags `eslint-plugin-import` back in and fails the whole install.
+ *   - import-x's own `createNodeResolver`, told about `.ts`, loads without error and then reports
+ *     nothing at all on a genuine two-file cycle. Measured, not assumed.
+ *
+ * An enabled rule that silently finds nothing is the worst of the three: it reads as proof the
+ * codebase has no cycles. Revisit when the import ecosystem has caught up with ESLint 10.
+ */
+
+/**
+ * The security plugin only where its rules can apply: everything it looks for — child processes,
+ * non-literal fs paths, unsafe regexes — is Node-side. On a browser-only bundle it is noise.
+ */
+const securityPackages = (runtime: Runtime): string[] =>
+  runtime === "browser" ? [] : ["eslint-plugin-security"];
+
+export const eslintPackagesFor = (framework: Framework, runtime: Runtime = "node"): string[] => [
   ...BASE_PACKAGES,
+  ...securityPackages(runtime),
   ...frameworkParts(framework, true).packages,
 ];
 
@@ -86,6 +108,24 @@ const typedBlock = (options: EslintConfigOptions): string[] => {
     "  },",
   ];
 };
+
+/**
+ * Rules that keep the code readable to whoever arrives next, rather than correct. `id-length`
+ * carries exceptions because a loop counter and a discarded binding are not the problem it is
+ * aimed at — a variable called `d` holding a customer record is.
+ */
+const readabilityBlock = (): string[] => [
+  "  {",
+  "    rules: {",
+  "      // A loop counter and a discarded binding are not what this is aimed at; a variable called",
+  "      // `d` holding a customer record is. `js`, `fs`, `os` are the conventional module aliases.",
+  '      "id-length": [',
+  '        "error",',
+  '        { min: 3, exceptions: ["_", "i", "j", "k", "id", "ok", "to", "up", "js", "fs", "os"] },',
+  "      ],",
+  "    },",
+  "  },",
+];
 
 const limitsBlock = (options: EslintConfigOptions): string[] => [
   "  {",
@@ -154,11 +194,18 @@ const testBlock = (options: EslintConfigOptions): string[] => [
   "  },",
 ];
 
+const securityImport = (runtime: Runtime): string[] =>
+  runtime === "browser" ? [] : ['import security from "eslint-plugin-security";'];
+
+const securityBlock = (runtime: Runtime): string[] =>
+  runtime === "browser" ? [] : ["  security.configs.recommended,"];
+
 export const renderEslintConfig = (options: EslintConfigOptions): string => {
   const framework = frameworkParts(options.framework, options.typed);
   return [
     ...HEADER,
     ...BASE_IMPORTS,
+    ...securityImport(options.runtime),
     ...framework.imports,
     "",
     "export default tseslint.config(",
@@ -167,6 +214,7 @@ export const renderEslintConfig = (options: EslintConfigOptions): string => {
     "  js.configs.recommended,",
     ...typedBlock(options),
     "  sonarjs.configs.recommended,",
+    ...securityBlock(options.runtime),
     ...framework.configs,
     "  prettier,",
     "",
@@ -174,6 +222,7 @@ export const renderEslintConfig = (options: EslintConfigOptions): string => {
     "",
     ...strictnessBlock(options),
     ...limitsBlock(options),
+    ...readabilityBlock(),
     ...testBlock(options),
     ...configFileBlock(options),
     ");",

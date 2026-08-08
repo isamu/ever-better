@@ -44,8 +44,9 @@ const installed = (packageJson: PackageJson | null): Set<string> =>
 const missingPackages = (options: BootstrapPlanOptions): string[] => {
   const have = installed(options.packageJson);
   const { framework, language, tooling } = options.diagnosis;
-  const wanted = [...eslintPackagesFor(framework), "prettier"];
-  if (language !== "javascript") {
+  const typed = language !== "javascript";
+  const wanted = [...eslintPackagesFor(framework, options.diagnosis.runtime), "prettier"];
+  if (typed) {
     wanted.push("typescript", "@types/node");
     // `tsc` cannot read an SFC at all, so a Vue repo typechecking with it silently skips every
     // component. vue-tsc is what the typecheck script will call.
