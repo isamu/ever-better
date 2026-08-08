@@ -40,8 +40,7 @@ const languageGaps = (diagnosis: Omit<Diagnosis, "gaps">): Gap[] => {
         title: "No TypeScript",
         detail:
           "Types are the cheapest rule set there is, and the type-aware lint tier cannot run " +
-          "without them. Migrating is a phase of its own — the ever-better-bootstrap skill covers " +
-          "when to do it and what it unlocks.",
+          "without them. `ever-better migrate` walks it one file at a time, dependencies first.",
         phase: "bootstrap",
       },
     ];

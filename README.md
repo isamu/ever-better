@@ -171,6 +171,24 @@ renders into a **Carried over** checklist in `QUALITY.md` with the commit it was
 "router.ts needs splitting" is useless four hundred commits later unless a reader can tell when it
 was true.
 
+### `migrate`
+
+```bash
+ever-better migrate                              # the plan, in dependency order
+ever-better migrate --file src/util/text.js      # one rename, priced
+```
+
+JavaScript to TypeScript, one file per commit. Writes a `tsconfig.json` with `allowJs` and
+`checkJs: false` first, so the repo compiles exactly as it is today, then renames one file at a time
+and reports how many type errors that cost.
+
+**One at a time is not caution.** Type errors have no suppression mechanism — `--suppress-all`
+grandfathers lint violations and there is no equivalent for the compiler — so a big-bang rename
+leaves a repository whose `typecheck` fails with nothing able to stage the work.
+
+**Dependencies first**, and the order is computed from the import graph. Typing a file whose imports
+are still JavaScript means typing it against `any`, and all of it has to be redone later.
+
 ### `catalog`
 
 ```bash
