@@ -4,7 +4,7 @@
  * lines the very first `diagnose --write` turns `format:check` red in CI, on a file the developer
  * never touched.
  */
-export const GENERATED_PATHS = [".ever-better/", "QUALITY.md", "eslint-suppressions.json"];
+const GENERATED_PATHS = [".ever-better/", "QUALITY.md", "eslint-suppressions.json"];
 
 const HEADER = "# Written by ever-better; machine-generated, so Prettier must not police it.";
 
