@@ -20,6 +20,29 @@ npx ever-better check        # CI のゲート: 件数が増えたら失敗
 npx ever-better prune        # 直した分だけ天井を下げる
 ```
 
+## Claude Code に丸投げする
+
+こちらが本来の使い方です。プラグインを入れて、Claude Code をリポジトリに向けてこう言うだけ:
+
+```
+このレポに ever-better を回して
+```
+
+診断し、足りないものを導入し、フォーマットし、ベースラインを固定し、そこから**1ルール = 1 PR**でバックログを削っていきます。違反を直し、直すために必要な pure 関数を切り出し、テストを書き、天井を下げながら進みます。
+
+**コードから判断できることは全部自分で決めます。** GitHub issue を立てて先に進むのは、本当に判断が必要な数少ないケースだけです — 挙動が曖昧（throw すべきか、retry か、log か）、公開 API の変更、それ自体がプロジェクト規模のリファクタリング、そしてそのルール自体がこのレポに合っていない可能性がある場合。issue には選択肢と「自分ならこれを選ぶ」まで書きます。
+
+届く PR の順番: フォーマット → ツール導入 → freeze → 以降1ルールずつ。手つかずのリポジトリなら数本では済みません。始める前に知っておく価値があります。
+
+```
+/plugin marketplace add isamu/ever-better
+/plugin install ever-better
+```
+
+スキルは `ever-better-run`（上の無人ループ）、`ever-better`（入口とルーティング）、`ever-better-bootstrap`、`ever-better-freeze`、`ever-better-drain`、`ever-better-dry`。
+
+以下の CLI はこれらのスキルが呼ぶものですが、自分で動かしたい場合はそれだけでも使えます。
+
 ## なぜ必要か
 
 古いリポジトリに厳しい linter を入れると4000件のエラーが出て、そのまま revert されます。よくある回避策 — 全部を `warn` にする — では何も強制されず、件数は静かに増え続けます。
@@ -103,15 +126,7 @@ CI のゲート。抑制されていないエラーがある場合、または�
 
 ## Claude Code プラグイン
 
-このリポジトリは Claude Code のプラグインでもあります。CLI が意図的に持たない「判断」の部分 — このリポジトリではどの gap が重要か、この警告は本物のバグか、この関数をどう分割するか — をエージェントが担当します。
-
-```
-/plugin marketplace add isamu/ever-better
-/plugin install ever-better
-```
-
-スキル: `ever-better`（入口とルーティング）、`ever-better-bootstrap`、`ever-better-freeze`、
-`ever-better-drain`（P3）、`ever-better-dry`（P5）。
+冒頭に書いたとおり、プラグインが主役で CLI はそれが呼ぶ道具です。この分担は意図的なもので、CLI は毎回同じ結果でなければならない作業（検出・導入・集計・描画・ゲート）を、スキルは判断が要る作業（この警告は本物のバグか、これは重複か偶然か、何を issue にすべきか）を担当します。
 
 ## フェーズ
 
