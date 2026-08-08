@@ -10,14 +10,31 @@
 // The whole trailing run of closers, because the INNERMOST one closes the config list. Taking the
 // last instead puts the appended block outside the array — for `defineConfig([...])` that makes it
 // a second argument, which is silently not a config at all.
-const CLOSERS = /[\])]+\s*;?\s*$/;
+const CLOSER_CHARS = new Set(["]", ")"]);
+
+/** Index of the innermost closer in the trailing run, or -1 when the file does not end in one. */
+const findClosersStart = (source: string): number => {
+  let end = source.length;
+  while (end > 0 && /\s/.test(source[end - 1] ?? "")) end -= 1;
+  if (source[end - 1] === ";") end -= 1;
+  while (end > 0 && /\s/.test(source[end - 1] ?? "")) end -= 1;
+
+  let start = end;
+  while (start > 0 && CLOSER_CHARS.has(source[start - 1] ?? "")) start -= 1;
+  return start === end ? -1 : start;
+};
+
+const trimTrailingSpace = (text: string): string => {
+  let end = text.length;
+  while (end > 0 && /\s/.test(text[end - 1] ?? "")) end -= 1;
+  return text.slice(0, end);
+};
 
 export const appendConfigBlocks = (source: string, blocks: readonly string[]): string | null => {
   if (blocks.length === 0) return null;
-  const match = CLOSERS.exec(source);
-  if (!match) return null;
-  const cutAt = match.index;
-  const head = source.slice(0, cutAt).replace(/\s*$/, "");
+  const cutAt = findClosersStart(source);
+  if (cutAt < 0) return null;
+  const head = trimTrailingSpace(source.slice(0, cutAt));
   const separator = head.endsWith(",") ? "" : ",";
   return `${head}${separator}\n${blocks.join("\n")}\n${source.slice(cutAt)}`;
 };
