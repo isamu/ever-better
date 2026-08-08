@@ -146,6 +146,16 @@ linter, and reading a plugin's README would have produced the wrong answer in ea
 When adding a framework, build a fixture under the scratchpad with real dependencies, run
 `bootstrap` then `eslint .` against it, and only then write the test.
 
+## The samples page is generated — run `yarn docs`
+
+`docs/generated-config.md` is rendered by `src/generate/samplesDoc.ts` from the same code that
+writes those files. A hand-copied example is wrong the first time a generator changes, and a wrong
+example is worse than none: a reader who follows one and gets something else stops believing the
+rest of the page.
+
+`test/test_samplesDoc.ts` fails when the file on disk and the generators disagree. Change a
+generator, run `yarn docs`, commit both.
+
 ## Anything that ships to users needs the generator tested
 
 A bug in `src/generate/` reaches every repository that runs `bootstrap`, and it will not show up

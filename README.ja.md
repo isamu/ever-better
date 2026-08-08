@@ -82,6 +82,9 @@ Node 20.11 以上。yarn / npm / pnpm / bun に対応（lockfile から自動判
 
 設定ファイルは `package.json` に `"type": "module"` がなければ `eslint.config.mjs` として生成します。中身はどちらでも ESM なので、CommonJS のパッケージで `.js` にすると Node が毎回 reparse して警告を出すためです。
 
+bootstrap が書くファイルの実物は **[docs/generated-config.md](docs/generated-config.md)** にあります。
+ジェネレータそのものから生成しているので、実装とずれません。
+
 ## 各コマンド
 
 ### `diagnose`

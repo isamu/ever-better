@@ -42,7 +42,8 @@
     "test": "node --test \"test/*.ts\"",
     "prepack": "yarn build",
     "knip": "knip",
-    "duplication": "npx --yes jscpd@4 . --format typescript,javascript --ignore \"**/node_modules/**,**/dist/**,**/*.d.ts\" --reporters console"
+    "duplication": "npx --yes jscpd@4 . --format typescript,javascript --ignore \"**/node_modules/**,**/dist/**,**/*.d.ts\" --reporters console",
+    "docs": "node scripts/write-docs.ts"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
