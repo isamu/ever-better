@@ -172,6 +172,8 @@ describe("planBootstrap", () => {
           "typescript-eslint": "^8",
           "eslint-plugin-sonarjs": "^4",
           "eslint-config-prettier": "^10",
+          "eslint-plugin-import-x": "^4",
+          "eslint-plugin-security": "^4",
           knip: "^6",
           prettier: "^3",
           vitest: "^4",
