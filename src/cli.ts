@@ -3,6 +3,7 @@ import { parseArgs } from "node:util";
 import { DEFAULT_NODE_VERSION } from "./generate/actionVersions.ts";
 import process from "node:process";
 import { runBootstrap } from "./commands/bootstrap.ts";
+import { runCatalog } from "./commands/catalog.ts";
 import { runCheck } from "./commands/check.ts";
 import { runDiagnose } from "./commands/diagnose.ts";
 import { runEmitDiff } from "./commands/emitDiff.ts";
@@ -20,6 +21,7 @@ const USAGE = `ever-better — make a codebase that can only get better
   check       fail if anything rose above its ceiling (for CI)
   status      print the current backlog
   emit-diff   prove a type-only refactor changed no behaviour
+  catalog     list the helpers that already exist, so nobody writes a sixth
   log         record what happened, stamped with the current commit
 
 Options
@@ -81,6 +83,9 @@ const dispatch = async (
   }
   if (command === "freeze") {
     return { output: await runFreeze({ cwd: flags.cwd, force: flags.force }), ok: true };
+  }
+  if (command === "catalog") {
+    return { output: await runCatalog({ cwd: flags.cwd }), ok: true };
   }
   if (command === "emit-diff") {
     return { output: await runEmitDiff({ cwd: flags.cwd, against: flags.against }), ok: true };

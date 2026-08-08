@@ -171,6 +171,19 @@ renders into a **Carried over** checklist in `QUALITY.md` with the commit it was
 "router.ts needs splitting" is useless four hundred commits later unless a reader can tell when it
 was true.
 
+### `catalog`
+
+```bash
+ever-better catalog
+```
+
+Writes `docs/shared-helpers.md`: every exported function, grouped by directory, with the first
+sentence of its doc comment. Point your CLAUDE.md at it.
+
+It fills the gap between the two scans. A linter sees inside one file; duplication detection only
+notices copies once they are textually similar, and two independent implementations of the same
+idea rarely are. Nothing else reports the same function written a sixth time under a sixth name.
+
 ### `emit-diff`
 
 ```bash

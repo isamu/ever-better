@@ -77,6 +77,26 @@ npx ever-better check
 One extraction per commit, naming both call sites. A reviewer needs to see that the two really were
 the same.
 
+## Preventing the next copy
+
+Removing duplication is the second-best outcome. The best is the helper being found before the
+second one is written:
+
+```bash
+npx ever-better catalog
+```
+
+It writes `docs/shared-helpers.md` — every exported function, grouped by directory, with the first
+sentence of its doc comment. **Point the repository's CLAUDE.md at it**, or it will not be read
+before the next helper is written, and generating it will have achieved nothing.
+
+This is the gap between the two scans. A linter sees inside one file. Duplication detection only
+notices copies once they are textually similar — and two independent implementations of the same
+idea rarely are. Nothing else reports the same function under a sixth name.
+
+Regenerate it after a refactor rather than editing it; it is derived, and a stale catalogue is
+worse than none because it sends the reader looking for something that moved.
+
 ## Dead code
 
 ```bash

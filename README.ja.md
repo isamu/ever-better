@@ -132,6 +132,16 @@ ever-better log --kind issue    --rule no-floating-promises "#42 を起票 — �
 
 現在の commit を添えて記録します。効くのは `deferred` です。`QUALITY.md` の **Carried over** チェックリストに、見た時点の commit 付きで出ます。「router.ts は分割が必要」というメモは、400コミット後には*いつ真だったのか*が分からなければ役に立たないからです。
 
+### `catalog`
+
+```bash
+ever-better catalog
+```
+
+`docs/shared-helpers.md` を書き出します。export された全関数を、ディレクトリごとに、doc コメントの先頭1文付きで一覧にします。CLAUDE.md からここを指してください。
+
+2つのスキャンの隙間を埋めるものです。linter は1ファイルの中しか見えず、重複検出は「テキストとして似ている」段階になって初めて気づきます。同じ発想を独立に実装した2つは、たいてい似ていません。**同じ関数が6回目の名前で書かれている**ことを報告できるものは他にありません。
+
 ### `emit-diff`
 
 ```bash
