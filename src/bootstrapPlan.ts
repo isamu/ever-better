@@ -6,6 +6,7 @@ import {
   renderEslintConfig,
 } from "./generate/eslintConfig.ts";
 import { renderGitattributes } from "./generate/gitattributes.ts";
+import { appendGeneratedPaths, renderPrettierIgnore } from "./generate/prettierIgnore.ts";
 import { renderWorkflow } from "./generate/workflow.ts";
 import type { Diagnosis, PackageJson, ScriptCoverage } from "./types.ts";
 
@@ -14,11 +15,15 @@ export type BootstrapAction =
   | { kind: "writeFile"; path: string; contents: string }
   | { kind: "addScripts"; scripts: Record<string, string> };
 
+export const PRETTIER_IGNORE_FILE = ".prettierignore";
+
 export type BootstrapPlanOptions = {
   diagnosis: Diagnosis;
   packageJson: PackageJson | null;
   rootEntries: readonly string[];
   nodeVersion: string;
+  /** Contents of an existing `.prettierignore`, so its generated paths can be appended. */
+  prettierIgnore: string | null;
 };
 
 const DEFAULT_TEST_GLOB = "test/**";
@@ -89,6 +94,8 @@ const filesToWrite = (options: BootstrapPlanOptions): BootstrapAction[] => {
     });
   }
 
+  actions.push(...prettierIgnoreAction(options));
+
   if (!rootEntries.includes(".gitattributes")) {
     actions.push({ kind: "writeFile", path: ".gitattributes", contents: renderGitattributes() });
   }
@@ -106,6 +113,20 @@ const filesToWrite = (options: BootstrapPlanOptions): BootstrapAction[] => {
   }
 
   return actions;
+};
+
+/**
+ * The only file bootstrap will edit rather than create. `.prettierignore` is line-based, so
+ * appending is well-defined; every other config carries decisions whose reasons are not in it.
+ */
+const prettierIgnoreAction = (options: BootstrapPlanOptions): BootstrapAction[] => {
+  if (options.prettierIgnore === null) {
+    return [{ kind: "writeFile", path: PRETTIER_IGNORE_FILE, contents: renderPrettierIgnore() }];
+  }
+  const appended = appendGeneratedPaths(options.prettierIgnore);
+  return appended === null
+    ? []
+    : [{ kind: "writeFile", path: PRETTIER_IGNORE_FILE, contents: appended }];
 };
 
 /** What the scripts WILL be once this plan is applied — the workflow must call those, not today's. */

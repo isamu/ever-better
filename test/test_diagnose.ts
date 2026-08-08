@@ -66,12 +66,13 @@ describe("diagnose", () => {
 });
 
 describe("planBootstrap", () => {
-  const planFor = (input: RepoFacts) =>
+  const planFor = (input: RepoFacts, prettierIgnore: string | null = null) =>
     planBootstrap({
       diagnosis: diagnose(input),
       packageJson: input.packageJson,
       rootEntries: input.rootEntries,
       nodeVersion: "24",
+      prettierIgnore,
     });
 
   it("installs, adds scripts and writes configs for a bare repo", () => {
@@ -109,6 +110,17 @@ describe("planBootstrap", () => {
     assert.ok(!written.includes(".gitattributes"));
   });
 
+  it("writes a .prettierignore that excludes what ever-better generates", () => {
+    // Without it the first `diagnose --write` turns format:check red on a file the developer
+    // never touched: JSON.stringify always expands arrays that Prettier collapses.
+    const plan = planFor(facts());
+    const written = plan.filter((action) => action.kind === "writeFile");
+    const ignore = written.find((action) => action.path === ".prettierignore");
+    assert.ok(ignore?.kind === "writeFile");
+    assert.match(ignore.contents, /\.ever-better\//);
+    assert.match(ignore.contents, /eslint-suppressions\.json/);
+  });
+
   it("proposes no work at all for a repo that already has everything", () => {
     const complete = facts({
       rootEntries: [
@@ -140,7 +152,10 @@ describe("planBootstrap", () => {
       },
       workflows: [{ path: ".github/workflows/ci.yml", content: "run: yarn lint" }],
     });
-    assert.deepEqual(planFor(complete), []);
+    assert.deepEqual(
+      planFor(complete, ".ever-better/\nQUALITY.md\neslint-suppressions.json\n"),
+      [],
+    );
   });
 
   it("targets the generated workflow at the scripts it is about to add, not today's", () => {
