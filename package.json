@@ -28,7 +28,7 @@
   },
   "files": [
     "dist",
-    "templates"
+    "formatters"
   ],
   "engines": {
     "node": ">=20.11"
