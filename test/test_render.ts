@@ -108,7 +108,7 @@ describe("renderEslintConfig — frameworks", () => {
 
   it("puts prettier last so it can switch off the plugins' formatting rules", () => {
     const config = forFramework("vue");
-    assert.ok(config.indexOf("flat/recommended") < config.indexOf("  prettier,"));
+    assert.ok(config.indexOf("flat/recommended") < config.indexOf("prettierRecommended,"));
   });
 });
 
@@ -217,6 +217,61 @@ describe("renderEslintConfig — readability and security tiers", () => {
     assert.match(config, /min: 3, exceptions:/);
     // `js` is the conventional alias for @eslint/js and appears in this very file.
     assert.match(config, /"js"/);
+  });
+
+  it("bans `as`, which asserts what the compiler could not check", () => {
+    // The single biggest one, and it was missing: the strengthen path added it to a repo's own
+    // config while the generated config did not have it at all.
+    assert.match(renderEslintConfig(opts), /assertionStyle: "never"/);
+  });
+
+  it("closes every other door out of the type system", () => {
+    // `as` alone is not enough: `as unknown as T`, `!`, `@ts-ignore` and `@ts-nocheck` are the
+    // same claim wearing different syntax. `@ts-expect-error` survives only with a written
+    // reason, because it is the one that fails loudly when it stops being needed.
+    const config = renderEslintConfig(opts);
+    assert.match(config, /"ts-ignore": true/);
+    assert.match(config, /"ts-nocheck": true/);
+    assert.match(config, /"ts-expect-error": "allow-with-description"/);
+    assert.match(config, /"@typescript-eslint\/no-non-null-assertion": "error"/);
+  });
+
+  it("reports a disable directive that no longer suppresses anything", () => {
+    // A stale eslint-disable is an exception nobody re-examined, and it is how a rule quietly
+    // stops applying to a file after a refactor.
+    assert.match(renderEslintConfig(opts), /reportUnusedDisableDirectives: "error"/);
+  });
+
+  it("says in the file itself what to write instead of a cast", () => {
+    assert.match(renderEslintConfig(opts), /Write a type guard instead/);
+  });
+
+  it("uses both TypeChecked presets, which are disjoint", () => {
+    const config = renderEslintConfig(opts);
+    assert.match(config, /strictTypeChecked/);
+    assert.match(config, /stylisticTypeChecked/);
+  });
+
+  it("uses the reference thresholds rather than looser ones", () => {
+    // Freeze grandfathers whatever exists, so a stricter default costs nothing on day one and
+    // binds every line written afterwards. There is no reason to start loose.
+    const config = renderEslintConfig(opts);
+    assert.match(config, /"max-lines-per-function": \["error", \{ max: 50/);
+    assert.match(config, /complexity: \["error", 15\]/);
+  });
+
+  it("runs Prettier as a lint rule, which puts formatting inside the ratchet", () => {
+    // A formatting violation becomes an error like any other: `eslint --fix` repairs it, and CI
+    // needs one gate instead of two that can disagree about the same file.
+    const config = renderEslintConfig(opts);
+    assert.match(config, /eslint-plugin-prettier\/recommended/);
+    assert.match(config, /prettierRecommended,/);
+  });
+
+  it("puts the formatter config last, so nothing can turn a conflicting rule back on", () => {
+    const config = renderEslintConfig(opts);
+    const blocks = ["prettierRecommended,", 'files: ["test/**"]'];
+    assert.ok(config.indexOf(blocks[0] ?? "") < config.indexOf(blocks[1] ?? ""));
   });
 
   it("adds the security tier for Node-side code", () => {

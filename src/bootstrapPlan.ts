@@ -65,6 +65,11 @@ const scriptsToAdd = (options: BootstrapPlanOptions): Record<string, string> => 
   const additions: Record<string, string> = {};
   if (!scripts.lint) additions["lint"] = "eslint .";
   if (!scripts.format) additions["format"] = "prettier --write .";
+  // For a human checking without writing. CI does not need it — `lint` covers formatting now
+  // that Prettier runs as a rule.
+  if (!options.packageJson?.scripts?.["format:check"]) {
+    additions["format:check"] = "prettier --check .";
+  }
   if (!scripts.typecheck && language !== "javascript") {
     additions["typecheck"] = typecheckCommand(options.diagnosis.framework);
   }

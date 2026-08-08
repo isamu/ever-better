@@ -19,6 +19,10 @@ const BASE_PACKAGES = [
   "typescript-eslint",
   "eslint-plugin-sonarjs",
   "eslint-config-prettier",
+  // Prettier runs AS a lint rule rather than as a separate command. That is what puts formatting
+  // inside the ratchet: a violation is an error like any other, `eslint --fix` repairs it, and CI
+  // needs one gate instead of two that can disagree.
+  "eslint-plugin-prettier",
 ];
 
 /*
@@ -63,6 +67,11 @@ const HEADER = [
   "// `ever-better freeze` is recorded in eslint-suppressions.json. Old code is grandfathered;",
   "// new code is held to the whole standard from the first commit. Do not soften a rule to make",
   "// a red build green — the suppressions file already did that, once, on purpose.",
+  "//",
+  "// Type assertions are banned outright: `as`, `<T>x`, `!`, `@ts-ignore`, `@ts-nocheck`. Each is a",
+  "// claim the compiler could not check and that no reviewer can see. Write a type guard instead —",
+  "// `const isThing = (v: unknown): v is Thing => ...` — which is testable, narrows for every",
+  "// caller, and fails at the boundary where the data was actually wrong.",
   "",
 ];
 
@@ -71,7 +80,7 @@ const BASE_IMPORTS = [
   'import globals from "globals";',
   'import tseslint from "typescript-eslint";',
   'import sonarjs from "eslint-plugin-sonarjs";',
-  'import prettier from "eslint-config-prettier";',
+  'import prettierRecommended from "eslint-plugin-prettier/recommended";',
 ];
 
 const GLOBALS_EXPRESSION: Record<Runtime, string> = {
@@ -101,6 +110,8 @@ const typedBlock = (options: EslintConfigOptions): string[] => {
     "  // strictTypeChecked, not recommended: the type-aware rules that find real bugs are only in",
     "  // the TypeChecked presets, and the strict variant is where the `any` family lives.",
     "  tseslint.configs.strictTypeChecked,",
+    "  // The two are disjoint; typescript-eslint's own advice is to use both.",
+    "  tseslint.configs.stylisticTypeChecked,",
     "  {",
     "    languageOptions: {",
     "      parserOptions: { projectService: true, tsconfigRootDir: import.meta.dirname },",
@@ -133,8 +144,8 @@ const limitsBlock = (options: EslintConfigOptions): string[] => [
   "    // than one-line fixes, which is exactly why they are recorded rather than negotiated.",
   "    rules: {",
   `      "max-lines": ["error", { max: ${options.fileLineLimit}, skipBlankLines: true, skipComments: true }],`,
-  '      "max-lines-per-function": ["error", { max: 60, skipBlankLines: true, skipComments: true }],',
-  '      complexity: ["error", 20],',
+  '      "max-lines-per-function": ["error", { max: 50, skipBlankLines: true, skipComments: true }],',
+  '      complexity: ["error", 15],',
   '      "max-depth": ["error", 4],',
   '      "max-nested-callbacks": ["error", 4],',
   '      "max-params": ["error", 6],',
@@ -153,6 +164,21 @@ const strictnessBlock = (options: EslintConfigOptions): string[] => {
     '      "@typescript-eslint/no-explicit-any": "error",',
     '      "@typescript-eslint/no-non-null-assertion": "error",',
     '      "@typescript-eslint/no-unused-vars": ["error", { argsIgnorePattern: "^__" }],',
+    "      // `as` asserts what the compiler could not check, and it is invisible in review. Write a",
+    "      // type guard instead — the guard is testable and the assertion is a promise.",
+    '      "@typescript-eslint/consistent-type-assertions": ["error", { assertionStyle: "never" }],',
+    "      // The other doors out of the type system. `@ts-expect-error` survives only with a",
+    "      // written reason, because it is the one that fails loudly when it stops being needed.",
+    '      "@typescript-eslint/ban-ts-comment": [',
+    '        "error",',
+    "        {",
+    '          "ts-ignore": true,',
+    '          "ts-nocheck": true,',
+    '          "ts-check": false,',
+    '          "ts-expect-error": "allow-with-description",',
+    "          minimumDescriptionLength: 10,",
+    "        },",
+    "      ],",
     "    },",
     "  },",
   ];
@@ -194,6 +220,19 @@ const testBlock = (options: EslintConfigOptions): string[] => [
   "  },",
 ];
 
+/**
+ * A stale `eslint-disable` is an exception nobody re-examined. Reporting the ones that no longer
+ * suppress anything is the only way they ever get removed — and a disable comment left behind after
+ * a refactor is how a rule quietly stops applying to a file.
+ */
+const disableDirectiveBlock = (): string[] => [
+  "  {",
+  "    linterOptions: {",
+  '      reportUnusedDisableDirectives: "error",',
+  "    },",
+  "  },",
+];
+
 const securityImport = (runtime: Runtime): string[] =>
   runtime === "browser" ? [] : ['import security from "eslint-plugin-security";'];
 
@@ -210,13 +249,16 @@ export const renderEslintConfig = (options: EslintConfigOptions): string => {
     "",
     "export default tseslint.config(",
     ignoresLine(options.framework),
+    ...disableDirectiveBlock(),
     "",
     "  js.configs.recommended,",
     ...typedBlock(options),
     "  sonarjs.configs.recommended,",
     ...securityBlock(options.runtime),
     ...framework.configs,
-    "  prettier,",
+    // Last: it switches off every rule that would argue with the formatter, so anything after it
+    // could turn one back on.
+    "  prettierRecommended,",
     "",
     `  { languageOptions: { globals: ${GLOBALS_EXPRESSION[options.runtime]} } },`,
     "",
