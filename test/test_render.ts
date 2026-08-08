@@ -4,6 +4,7 @@ import { renderEslintConfig } from "../src/generate/eslintConfig.ts";
 import { renderWorkflow } from "../src/generate/workflow.ts";
 import { extractNotes, NOTES_END, NOTES_START, renderQuality } from "../src/render/quality.ts";
 import { applyRuleCounts, emptyState } from "../src/state.ts";
+import type { Freshness } from "../src/freshness.ts";
 import type { Framework } from "../src/types.ts";
 
 const configOptions = {
@@ -140,26 +141,37 @@ describe("renderWorkflow", () => {
   });
 });
 
+const FRESH: Freshness = { stale: false, reason: "current" };
+
 describe("QUALITY.md", () => {
   const frozen = () => {
     const state = applyRuleCounts(emptyState(), { "no-any": 4, "max-depth": 1 }, "freeze");
     return { ...state, frozenAt: "2026-08-08T00:00:00.000Z" };
   };
 
-  it("lists the biggest backlog first", () => {
-    const rendered = renderQuality(frozen(), "");
-    const anyIndex = rendered.indexOf("no-any");
-    const depthIndex = rendered.indexOf("max-depth");
-    assert.ok(anyIndex < depthIndex);
+  // Scoped to one section on purpose: the worklist lists the SMALLEST backlog first and the
+  // ratchet table the largest, so an unscoped indexOf finds whichever section comes first and
+  // proves nothing about either.
+  const section = (rendered: string, from: string, to: string): string =>
+    rendered.slice(rendered.indexOf(from), rendered.indexOf(to));
+
+  it("lists the biggest backlog first in the ratchet table", () => {
+    const table = section(renderQuality(frozen(), "", FRESH), "## Ratchet", "## Outstanding");
+    assert.ok(table.indexOf("no-any") < table.indexOf("max-depth"));
+  });
+
+  it("puts the smallest backlog first in the worklist, which is the drain order", () => {
+    const worklist = section(renderQuality(frozen(), "", FRESH), "## Worklist", "## Ratchet");
+    assert.ok(worklist.indexOf("max-depth") < worklist.indexOf("no-any"));
   });
 
   it("shows a drop as a negative change", () => {
     const drained = applyRuleCounts(frozen(), { "no-any": 1, "max-depth": 1 }, "observe");
-    assert.match(renderQuality(drained, ""), /\| 4 \| 1 \| -3 \|/);
+    assert.match(renderQuality(drained, "", FRESH), /\| 4 \| 1 \| -3 \|/);
   });
 
   it("round-trips the owner's notes", () => {
-    const rendered = renderQuality(frozen(), "keep me");
+    const rendered = renderQuality(frozen(), "keep me", FRESH);
     assert.equal(extractNotes(rendered), "keep me");
   });
 
@@ -173,6 +185,6 @@ describe("QUALITY.md", () => {
   });
 
   it("is stable: the same state renders byte-identically", () => {
-    assert.equal(renderQuality(frozen(), "n"), renderQuality(frozen(), "n"));
+    assert.equal(renderQuality(frozen(), "n", FRESH), renderQuality(frozen(), "n", FRESH));
   });
 });

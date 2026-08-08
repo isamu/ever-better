@@ -1,6 +1,6 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
-import type { Counter, Diagnosis, Phase, RuleBaseline, State } from "./types.ts";
+import type { Counter, Diagnosis, LogEntry, LogKind, Phase, RuleBaseline, State } from "./types.ts";
 
 const STATE_DIR = ".ever-better";
 const STATE_FILE = "state.json";
@@ -35,15 +35,26 @@ export const emptyState = (): State => ({
   phase: "diagnose",
   updatedAt: new Date().toISOString(),
   frozenAt: null,
+  diagnosedAt: null,
+  diagnosedCommit: null,
   diagnosis: null,
   rules: {},
   counters: {},
+  log: [],
+});
+
+/** 0.1.0 wrote neither `log` nor the diagnosis provenance; fill them rather than rejecting. */
+const migrate = (state: State): State => ({
+  ...state,
+  diagnosedAt: state.diagnosedAt ?? null,
+  diagnosedCommit: state.diagnosedCommit ?? null,
+  log: state.log ?? [],
 });
 
 export const readState = async (cwd: string): Promise<State | null> => {
   try {
     const parsed: unknown = JSON.parse(await readFile(statePath(cwd), "utf8"));
-    return isState(parsed) ? parsed : null;
+    return isState(parsed) ? migrate(parsed) : null;
   } catch {
     return null;
   }
@@ -55,10 +66,27 @@ export const writeState = async (cwd: string, state: State): Promise<void> => {
   await writeFile(statePath(cwd), `${JSON.stringify(stamped, null, 2)}\n`, "utf8");
 };
 
-export const withDiagnosis = (state: State, diagnosis: Diagnosis): State => ({
+export const withDiagnosis = (
+  state: State,
+  diagnosis: Diagnosis,
+  commit: string | null,
+): State => ({
   ...state,
   diagnosis,
+  diagnosedAt: new Date().toISOString(),
+  diagnosedCommit: commit,
 });
+
+/** Kept bounded: this file is read whole on every command, and a log is the thing that grows. */
+const MAX_LOG_ENTRIES = 200;
+
+export const appendLog = (state: State, entry: Omit<LogEntry, "at">): State => ({
+  ...state,
+  log: [...(state.log ?? []), { ...entry, at: new Date().toISOString() }].slice(-MAX_LOG_ENTRIES),
+});
+
+export const logOfKind = (state: State, kind: LogKind): LogEntry[] =>
+  (state.log ?? []).filter((entry) => entry.kind === kind);
 
 export const withPhase = (state: State, phase: Phase): State => ({ ...state, phase });
 
