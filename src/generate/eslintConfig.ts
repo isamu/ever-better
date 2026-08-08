@@ -119,6 +119,42 @@ const typedBlock = (options: EslintConfigOptions): string[] => {
 };
 
 /**
+ * Bindings that never move. All three are about a name meaning one thing for its whole scope,
+ * which is the cheapest form of immutability a JavaScript codebase can have — and the first two
+ * are `--fix`-able, so this tier is a command rather than a backlog.
+ */
+const bindingsBlock = (): string[] => [
+  "  {",
+  "    rules: {",
+  "      // typescript-eslint enables both of these for `.ts` files only, so the JavaScript repo",
+  "      // that actually contains `var` is the one nothing checks — and `.jsx`, `.vue` and `.mjs`",
+  "      // stay uncovered after a migration. `eslint --fix` converts the lot: var -> let, then",
+  "      // let -> const everywhere nothing reassigns.",
+  '      "no-var": "error",',
+  '      "prefer-const": "error",',
+  "      // A reassigned parameter makes the argument name lie for the rest of the function, and",
+  "      // the caller cannot see it happen.",
+  '      "no-param-reassign": "error",',
+  "    },",
+  "  },",
+];
+
+/**
+ * Nesting as a shape rather than a measurement. `max-depth` reports that a function is four deep;
+ * these two name the rewrite that removes a level, and both are mechanical.
+ */
+const guardClauseBlock = (): string[] => [
+  "  {",
+  "    rules: {",
+  "      // A `return` inside the `if` makes the `else` a level of indentation nobody needs.",
+  '      "no-else-return": ["error", { allowElseIf: false }],',
+  "      // Two `if`s that are one `&&`: a level of nesting for no extra branch.",
+  '      "sonarjs/no-collapsible-if": "error",',
+  "    },",
+  "  },",
+];
+
+/**
  * Rules that keep the code readable to whoever arrives next, rather than correct. `id-length`
  * carries exceptions because a loop counter and a discarded binding are not the problem it is
  * aimed at — a variable called `d` holding a customer record is.
@@ -162,6 +198,9 @@ const strictnessBlock = (options: EslintConfigOptions): string[] => {
     '      "@typescript-eslint/no-explicit-any": "error",',
     '      "@typescript-eslint/no-non-null-assertion": "error",',
     '      "@typescript-eslint/no-unused-vars": ["error", { argsIgnorePattern: "^__" }],',
+    "      // A private field nothing reassigns is a constant, and saying so stops the next reader",
+    "      // looking for the write that never happens.",
+    '      "@typescript-eslint/prefer-readonly": "error",',
     "      // `as` asserts what the compiler could not check, and it is invisible in review. Write a",
     "      // type guard instead — the guard is testable and the assertion is a promise.",
     '      "@typescript-eslint/consistent-type-assertions": ["error", { assertionStyle: "never" }],',
@@ -251,7 +290,9 @@ export const renderEslintConfig = (options: EslintConfigOptions): string => {
     `  { languageOptions: { globals: ${GLOBALS_EXPRESSION[options.runtime]} } },`,
     "",
     ...strictnessBlock(options),
+    ...bindingsBlock(),
     ...limitsBlock(options),
+    ...guardClauseBlock(),
     ...readabilityBlock(),
     ...testBlock(options),
     ...configFileBlock(options),

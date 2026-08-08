@@ -282,6 +282,30 @@ describe("renderEslintConfig — readability and security tiers", () => {
     const browser = renderEslintConfig({ ...opts, runtime: "browser" });
     assert.ok(!browser.includes("eslint-plugin-security"));
   });
+
+  it("states no-var and prefer-const itself, because the preset scopes them to .ts", () => {
+    // Measured: typescript-eslint's eslint-recommended block carries both, with
+    // `files: ["**/*.ts", "**/*.tsx", "**/*.mts", "**/*.cts"]`. Inheriting them would leave every
+    // .js, .jsx, .vue and .mjs file unchecked — which is exactly the repo that still has `var`.
+    for (const config of [renderEslintConfig(opts), renderEslintConfig({ ...opts, typed: false })]) {
+      assert.match(config, /"no-var": "error"/);
+      assert.match(config, /"prefer-const": "error"/);
+      assert.match(config, /"no-param-reassign": "error"/);
+    }
+  });
+
+  it("asks for the guard clause rather than only measuring the nesting", () => {
+    // max-depth reports that a function is four deep; these two name the rewrite that removes a
+    // level, and both are mechanical. sonarjs ships no-collapsible-if off by default.
+    const config = renderEslintConfig(opts);
+    assert.match(config, /"no-else-return": \["error", \{ allowElseIf: false \}\]/);
+    assert.match(config, /"sonarjs\/no-collapsible-if": "error"/);
+  });
+
+  it("keeps prefer-readonly out of an untyped repo, where it would make every run fatal", () => {
+    assert.match(renderEslintConfig(opts), /"@typescript-eslint\/prefer-readonly": "error"/);
+    assert.ok(!renderEslintConfig({ ...opts, typed: false }).includes("prefer-readonly"));
+  });
 });
 
 describe("renderCodexReviewWorkflow", () => {

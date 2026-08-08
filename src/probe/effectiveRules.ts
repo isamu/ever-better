@@ -103,6 +103,16 @@ export const HIGH_VALUE_RULES: readonly HighValueRule[] = [
     why: "per-file size; the per-function guards pass while a file reaches 2000 lines",
     setting: '["error", { max: 600, skipBlankLines: true, skipComments: true }]',
   },
+  {
+    name: "no-var",
+    why: "`var` ignores the block it was written in; typescript-eslint enables this for `.ts` files only, so `.js`, `.jsx` and `.vue` go unchecked",
+    setting: '"error"',
+  },
+  {
+    name: "prefer-const",
+    why: "a `let` nothing reassigns hides which values actually move; with `no-var` it is one `--fix` away",
+    setting: '"error"',
+  },
   { name: "complexity", why: "branch count", setting: '["error", 20]' },
   { name: "max-depth", why: "nesting", setting: '["error", 4]' },
   { name: "max-params", why: "argument count", setting: '["error", 6]' },

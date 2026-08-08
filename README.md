@@ -127,6 +127,7 @@ layers the approach depends on, each covering what the others cannot see:
 | Layer | Tool | What it sees |
 | --- | --- | --- |
 | function size and complexity | ESLint core rules | long functions, deep nesting, too many branches |
+| bindings that move | `no-var`, `prefer-const`, `no-param-reassign` | `var`, a `let` nothing reassigns, an argument overwritten under the caller |
 | types and readability | SonarJS + `strictTypeChecked` | unsafe `any`, cognitive complexity |
 | cross-file duplication | jscpd, into Code Scanning | copy-paste the linter cannot see |
 | dead code | knip | exports nobody imports, orphaned files |

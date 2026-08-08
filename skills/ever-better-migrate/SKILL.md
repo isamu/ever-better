@@ -107,12 +107,23 @@ const isUser = (value: unknown): value is User =>
 It is testable, it narrows for every caller, and it fails at the boundary where the data was
 actually wrong rather than three frames later.
 
-### 6. Regenerate the config and take the baseline
+### 6. Regenerate the config, sweep what the fixer can do, then take the baseline
 
 ```bash
 npx ever-better bootstrap   # regenerate the config, now with the type-aware tier
+npx eslint . --fix          # var -> let -> const, guard clauses, formatting
 npx ever-better freeze --force
 ```
+
+**`--fix` before `freeze`, never after.** Whatever it repairs now never enters the ratchet, and on a
+repository arriving from JavaScript `no-var`, `prefer-const`, `no-else-return` and Prettier are
+usually the largest single block of the backlog. Read the diff — it should contain no behaviour
+change at all — and commit it on its own.
+
+**What the fixer refuses to convert is a finding, not a leftover.** ESLint leaves a `var` alone
+when its function scope is load-bearing: captured by a closure inside a loop, or read outside the
+block it was declared in. Both stay reported. Those are the hoisting bugs `var` is known for, and
+each one is a decision — hand it the block scope it should have had and check what changes.
 
 `--force` is correct here and only here: the rule set genuinely changed, so the ceiling has to be
 re-taken. Say so in the pull request.

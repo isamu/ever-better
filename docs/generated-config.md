@@ -69,6 +69,9 @@ export default tseslint.config(
       "@typescript-eslint/no-explicit-any": "error",
       "@typescript-eslint/no-non-null-assertion": "error",
       "@typescript-eslint/no-unused-vars": ["error", { argsIgnorePattern: "^__" }],
+      // A private field nothing reassigns is a constant, and saying so stops the next reader
+      // looking for the write that never happens.
+      "@typescript-eslint/prefer-readonly": "error",
       // `as` asserts what the compiler could not check, and it is invisible in review. Write a
       // type guard instead — the guard is testable and the assertion is a promise.
       "@typescript-eslint/consistent-type-assertions": ["error", { assertionStyle: "never" }],
@@ -87,6 +90,19 @@ export default tseslint.config(
     },
   },
   {
+    rules: {
+      // typescript-eslint enables both of these for `.ts` files only, so the JavaScript repo
+      // that actually contains `var` is the one nothing checks — and `.jsx`, `.vue` and `.mjs`
+      // stay uncovered after a migration. `eslint --fix` converts the lot: var -> let, then
+      // let -> const everywhere nothing reassigns.
+      "no-var": "error",
+      "prefer-const": "error",
+      // A reassigned parameter makes the argument name lie for the rest of the function, and
+      // the caller cannot see it happen.
+      "no-param-reassign": "error",
+    },
+  },
+  {
     // Size and complexity guards. These are the ones that turn into refactoring work rather
     // than one-line fixes, which is exactly why they are recorded rather than negotiated.
     rules: {
@@ -97,6 +113,14 @@ export default tseslint.config(
       "max-nested-callbacks": ["error", 4],
       "max-params": ["error", 6],
       "sonarjs/cognitive-complexity": ["error", 15],
+    },
+  },
+  {
+    rules: {
+      // A `return` inside the `if` makes the `else` a level of indentation nobody needs.
+      "no-else-return": ["error", { allowElseIf: false }],
+      // Two `if`s that are one `&&`: a level of nesting for no extra branch.
+      "sonarjs/no-collapsible-if": "error",
     },
   },
   {
@@ -215,6 +239,9 @@ export default tseslint.config(
       "@typescript-eslint/no-explicit-any": "error",
       "@typescript-eslint/no-non-null-assertion": "error",
       "@typescript-eslint/no-unused-vars": ["error", { argsIgnorePattern: "^__" }],
+      // A private field nothing reassigns is a constant, and saying so stops the next reader
+      // looking for the write that never happens.
+      "@typescript-eslint/prefer-readonly": "error",
       // `as` asserts what the compiler could not check, and it is invisible in review. Write a
       // type guard instead — the guard is testable and the assertion is a promise.
       "@typescript-eslint/consistent-type-assertions": ["error", { assertionStyle: "never" }],
@@ -233,6 +260,19 @@ export default tseslint.config(
     },
   },
   {
+    rules: {
+      // typescript-eslint enables both of these for `.ts` files only, so the JavaScript repo
+      // that actually contains `var` is the one nothing checks — and `.jsx`, `.vue` and `.mjs`
+      // stay uncovered after a migration. `eslint --fix` converts the lot: var -> let, then
+      // let -> const everywhere nothing reassigns.
+      "no-var": "error",
+      "prefer-const": "error",
+      // A reassigned parameter makes the argument name lie for the rest of the function, and
+      // the caller cannot see it happen.
+      "no-param-reassign": "error",
+    },
+  },
+  {
     // Size and complexity guards. These are the ones that turn into refactoring work rather
     // than one-line fixes, which is exactly why they are recorded rather than negotiated.
     rules: {
@@ -243,6 +283,14 @@ export default tseslint.config(
       "max-nested-callbacks": ["error", 4],
       "max-params": ["error", 6],
       "sonarjs/cognitive-complexity": ["error", 15],
+    },
+  },
+  {
+    rules: {
+      // A `return` inside the `if` makes the `else` a level of indentation nobody needs.
+      "no-else-return": ["error", { allowElseIf: false }],
+      // Two `if`s that are one `&&`: a level of nesting for no extra branch.
+      "sonarjs/no-collapsible-if": "error",
     },
   },
   {
@@ -332,6 +380,9 @@ export default tseslint.config(
       "@typescript-eslint/no-explicit-any": "error",
       "@typescript-eslint/no-non-null-assertion": "error",
       "@typescript-eslint/no-unused-vars": ["error", { argsIgnorePattern: "^__" }],
+      // A private field nothing reassigns is a constant, and saying so stops the next reader
+      // looking for the write that never happens.
+      "@typescript-eslint/prefer-readonly": "error",
       // `as` asserts what the compiler could not check, and it is invisible in review. Write a
       // type guard instead — the guard is testable and the assertion is a promise.
       "@typescript-eslint/consistent-type-assertions": ["error", { assertionStyle: "never" }],
@@ -350,6 +401,19 @@ export default tseslint.config(
     },
   },
   {
+    rules: {
+      // typescript-eslint enables both of these for `.ts` files only, so the JavaScript repo
+      // that actually contains `var` is the one nothing checks — and `.jsx`, `.vue` and `.mjs`
+      // stay uncovered after a migration. `eslint --fix` converts the lot: var -> let, then
+      // let -> const everywhere nothing reassigns.
+      "no-var": "error",
+      "prefer-const": "error",
+      // A reassigned parameter makes the argument name lie for the rest of the function, and
+      // the caller cannot see it happen.
+      "no-param-reassign": "error",
+    },
+  },
+  {
     // Size and complexity guards. These are the ones that turn into refactoring work rather
     // than one-line fixes, which is exactly why they are recorded rather than negotiated.
     rules: {
@@ -360,6 +424,14 @@ export default tseslint.config(
       "max-nested-callbacks": ["error", 4],
       "max-params": ["error", 6],
       "sonarjs/cognitive-complexity": ["error", 15],
+    },
+  },
+  {
+    rules: {
+      // A `return` inside the `if` makes the `else` a level of indentation nobody needs.
+      "no-else-return": ["error", { allowElseIf: false }],
+      // Two `if`s that are one `&&`: a level of nesting for no extra branch.
+      "sonarjs/no-collapsible-if": "error",
     },
   },
   {
@@ -432,6 +504,19 @@ export default tseslint.config(
   { languageOptions: { globals: globals.node } },
 
   {
+    rules: {
+      // typescript-eslint enables both of these for `.ts` files only, so the JavaScript repo
+      // that actually contains `var` is the one nothing checks — and `.jsx`, `.vue` and `.mjs`
+      // stay uncovered after a migration. `eslint --fix` converts the lot: var -> let, then
+      // let -> const everywhere nothing reassigns.
+      "no-var": "error",
+      "prefer-const": "error",
+      // A reassigned parameter makes the argument name lie for the rest of the function, and
+      // the caller cannot see it happen.
+      "no-param-reassign": "error",
+    },
+  },
+  {
     // Size and complexity guards. These are the ones that turn into refactoring work rather
     // than one-line fixes, which is exactly why they are recorded rather than negotiated.
     rules: {
@@ -442,6 +527,14 @@ export default tseslint.config(
       "max-nested-callbacks": ["error", 4],
       "max-params": ["error", 6],
       "sonarjs/cognitive-complexity": ["error", 15],
+    },
+  },
+  {
+    rules: {
+      // A `return` inside the `if` makes the `else` a level of indentation nobody needs.
+      "no-else-return": ["error", { allowElseIf: false }],
+      // Two `if`s that are one `&&`: a level of nesting for no extra branch.
+      "sonarjs/no-collapsible-if": "error",
     },
   },
   {

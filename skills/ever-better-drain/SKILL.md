@@ -81,6 +81,12 @@ usually surfaces it:
 **When a fix changes behaviour, that is a bug, and a bug gets a test.** Say so in the commit
 message; do not fold it silently into a lint cleanup.
 
+**A rule ESLint can fix is not this work.** `no-var`, `prefer-const`, `no-else-return`,
+`sonarjs/no-collapsible-if` and Prettier are all fixable: take the whole rule in one command —
+`npx eslint . --fix --rule '{"<rule>":"error"}'` — read the diff, prune, commit. What is left over
+afterwards is the judgment. The `var` the fixer would not touch is the clearest case: it declined
+because a closure or a read outside the block depends on that function scope, which is the bug.
+
 ### 5. Make it testable — extract the pure part
 
 If you cannot write the test without a filesystem, a clock, a network call or a process, the
