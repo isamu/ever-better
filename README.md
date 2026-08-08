@@ -22,6 +22,36 @@ npx ever-better check        # CI gate: fail if anything rose
 npx ever-better prune        # after a fix: reclaim the ceiling you earned
 ```
 
+## Hand it to Claude Code
+
+This is how it is meant to be used. Install the plugin, point Claude Code at a repository and say:
+
+```
+run ever-better on this repo
+```
+
+It diagnoses, installs what is missing, formats, freezes the baseline, then works the backlog down
+one rule per pull request — fixing violations, extracting the pure functions that make the fixes
+testable, writing the tests, and lowering the ceiling as it goes.
+
+**It decides everything it can from the code.** It opens a GitHub issue and moves on for the few
+things that are genuinely not its call: behaviour that is ambiguous (should this throw, retry or
+log?), a public API change, a refactor big enough to be its own project, or a rule that may simply
+be wrong for this repo. Each issue names the options and which one it would pick.
+
+What arrives, in order: a formatting PR, a tooling PR, a freeze PR, then one PR per rule. On an
+untouched repository that is more than a handful — worth knowing before you start it.
+
+```
+/plugin marketplace add isamu/ever-better
+/plugin install ever-better
+```
+
+The skills are `ever-better-run` (the unattended loop above), `ever-better` (entry point and
+routing), `ever-better-bootstrap`, `ever-better-freeze`, `ever-better-drain`, `ever-better-dry`.
+
+The CLI below is what those skills call, and it works on its own if you would rather drive.
+
 ## Why this exists
 
 Adding a strict linter to an old repository produces four thousand errors and gets reverted. The
@@ -131,17 +161,10 @@ are the ones to drain first.
 
 ## Claude Code plugin
 
-The repository is also a Claude Code plugin, so an agent can drive the phases with the judgment
-the CLI deliberately leaves out — which gaps matter for *this* repo, whether a warning is a real
-bug, how to split a function.
-
-```
-/plugin marketplace add isamu/ever-better
-/plugin install ever-better
-```
-
-Skills: `ever-better` (entry point and routing), `ever-better-bootstrap`, `ever-better-freeze`,
-`ever-better-drain` (P3), `ever-better-dry` (P5).
+Covered at the top — the plugin is the primary interface, and the CLI is what it calls. The split
+is deliberate: the CLI does what must be identical on every run (detect, install, count, render,
+gate), and the skills do what needs judgment (is this warning a real bug, is this duplication or
+coincidence, what deserves an issue).
 
 ## The phases
 
