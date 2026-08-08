@@ -24,6 +24,9 @@ export const detectCi = (workflows: readonly WorkflowFile[]): CiCoverage => {
     runsTest: mentions(combined, "test"),
     runsBuild: mentions(combined, "build"),
     runsTypecheck: mentions(combined, "typecheck"),
+    // The baseline is only a ratchet if something rejects a regression. A repo can have thorough
+    // CI and still enforce nothing, which looks identical from the outside.
+    runsEverBetterCheck: /ever-better\s+check/.test(combined),
   };
 };
 

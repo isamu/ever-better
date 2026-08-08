@@ -73,7 +73,4 @@ export const renderWorkflow = (options: WorkflowOptions): string =>
     "",
     ...scriptSteps(options),
     "",
-    "      - name: ever-better check",
-    "        run: npx ever-better check",
-    "",
   ].join("\n");

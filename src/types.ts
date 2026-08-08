@@ -81,6 +81,7 @@ export type CiCoverage = {
   runsTest: boolean;
   runsBuild: boolean;
   runsTypecheck: boolean;
+  runsEverBetterCheck: boolean;
 };
 
 export type SizeDistribution = {

@@ -6,6 +6,7 @@ import {
   renderEslintConfig,
 } from "./generate/eslintConfig.ts";
 import { renderDependabot } from "./generate/dependabot.ts";
+import { GATE_WORKFLOW_PATH, renderGateWorkflow } from "./generate/gateWorkflow.ts";
 import { renderGitattributes } from "./generate/gitattributes.ts";
 import { renderKnipConfig } from "./generate/knipConfig.ts";
 import { renderDeadCodeWorkflow, renderDuplicationWorkflow } from "./generate/scanWorkflows.ts";
@@ -117,6 +118,16 @@ const filesToWrite = (options: BootstrapPlanOptions): BootstrapAction[] => {
       kind: "writeFile",
       path: ".github/dependabot.yml",
       contents: renderDependabot(diagnosis.packageManager),
+    });
+  }
+
+  // A repo with its own CI still needs the gate. Its own file, because splicing a step into a
+  // pipeline this tool did not write means editing YAML it cannot parse.
+  if (!diagnosis.ci.runsEverBetterCheck && !options.allFiles.includes(GATE_WORKFLOW_PATH)) {
+    actions.push({
+      kind: "writeFile",
+      path: GATE_WORKFLOW_PATH,
+      contents: renderGateWorkflow(diagnosis.packageManager, options.nodeVersion),
     });
   }
 
