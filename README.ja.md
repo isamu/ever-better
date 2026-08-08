@@ -132,6 +132,19 @@ ever-better log --kind issue    --rule no-floating-promises "#42 を起票 — �
 
 現在の commit を添えて記録します。効くのは `deferred` です。`QUALITY.md` の **Carried over** チェックリストに、見た時点の commit 付きで出ます。「router.ts は分割が必要」というメモは、400コミット後には*いつ真だったのか*が分からなければ役に立たないからです。
 
+### `migrate`
+
+```bash
+ever-better migrate                              # 依存順の移行計画
+ever-better migrate --file src/util/text.js      # 1ファイル改名、コスト付き
+```
+
+JavaScript から TypeScript へ、1コミット1ファイルで進めます。まず `allowJs` + `checkJs: false` の `tsconfig.json` を書いて「今のまま」コンパイルが通る状態を作り、そこから1ファイルずつ改名して**型エラーが何件増えたか**を報告します。
+
+**1ファイルずつなのは慎重さではありません。** 型エラーには suppression の仕組みがありません（`--suppress-all` は lint 違反を grandfather しますが、コンパイラには相当物がない）。一括改名すると `typecheck` が落ちたまま、段階的に進める手段が無いレポジトリが残ります。
+
+**依存の葉から**進めます。順序は import グラフから計算します。import 先がまだ JavaScript のファイルに型を付けるのは `any` に対して型を付けることで、依存側が型付けされた後に全部やり直しになります。
+
 ### `catalog`
 
 ```bash
