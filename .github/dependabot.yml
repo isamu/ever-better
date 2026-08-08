@@ -1,0 +1,41 @@
+version: 2
+
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      # One PR per ecosystem rather than one per package. The lint stack moves together —
+      # typescript-eslint's peer range pins which ESLint it accepts — so reviewing them apart
+      # produces PRs that cannot merge on their own.
+      eslint:
+        patterns:
+          - "eslint"
+          - "eslint-*"
+          - "@eslint/*"
+          - "typescript-eslint"
+          - "globals"
+      dev:
+        patterns:
+          - "*"
+        exclude-patterns:
+          - "eslint"
+          - "eslint-*"
+          - "@eslint/*"
+          - "typescript-eslint"
+          - "globals"
+          - "typescript"
+    # TypeScript is pinned deliberately: typescript-eslint 8 declares support for `<6.1.0`, so a
+    # bump to 7 breaks the linter this tool exists to configure. Raise it by hand, with the
+    # linter's support range checked first.
+    ignore:
+      - dependency-name: typescript
+        update-types: ["version-update:semver-major"]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 3
