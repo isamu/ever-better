@@ -2,8 +2,8 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import type { Counter, Diagnosis, Phase, RuleBaseline, State } from "./types.ts";
 
-export const STATE_DIR = ".ever-better";
-export const STATE_FILE = "state.json";
+const STATE_DIR = ".ever-better";
+const STATE_FILE = "state.json";
 
 /**
  * ESLint's bulk suppressions cover errors only. Warnings therefore stay visible forever and would
@@ -19,7 +19,7 @@ export const WARNINGS_COUNTER = "eslint:warnings";
  */
 export type BaselineMode = "observe" | "freeze" | "rebaseline";
 
-export const statePath = (cwd: string): string => path.join(cwd, STATE_DIR, STATE_FILE);
+const statePath = (cwd: string): string => path.join(cwd, STATE_DIR, STATE_FILE);
 
 const isState = (value: unknown): value is State =>
   typeof value === "object" &&

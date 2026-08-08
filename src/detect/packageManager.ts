@@ -37,6 +37,3 @@ export const installCommand = (manager: PackageManager, packages: readonly strin
   if (manager === "bun") return `bun add --dev ${list}`;
   return `npm install --save-dev ${list}`;
 };
-
-export const runCommand = (manager: PackageManager, script: string): string =>
-  manager === "npm" ? `npm run ${script}` : `${manager} ${script}`;

@@ -1,4 +1,4 @@
-import { readdir, readFile, stat } from "node:fs/promises";
+import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import { exec } from "./util/exec.ts";
 import { countLines } from "./util/lines.ts";
@@ -110,12 +110,4 @@ export const gatherFacts = async (cwd: string): Promise<RepoFacts> => {
     sourceFiles: await Promise.all(sourcePaths.map((file) => toSourceFile(cwd, file))),
     workflows: await readWorkflows(cwd, files),
   };
-};
-
-export const isRepository = async (cwd: string): Promise<boolean> => {
-  try {
-    return (await stat(cwd)).isDirectory();
-  } catch {
-    return false;
-  }
 };

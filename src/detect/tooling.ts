@@ -21,7 +21,7 @@ export const allDependencies = (packageJson: PackageJson | null): Record<string,
   ...packageJson?.devDependencies,
 });
 
-export const hasDependency = (packageJson: PackageJson | null, name: string): boolean =>
+const hasDependency = (packageJson: PackageJson | null, name: string): boolean =>
   name in allDependencies(packageJson);
 
 /**
