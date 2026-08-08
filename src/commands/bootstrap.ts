@@ -12,6 +12,7 @@ import { gatherFacts } from "../facts.ts";
 import { headCommit } from "../git.ts";
 import { writeQualityFile } from "../qualityFile.ts";
 import { emptyState, readState, withDiagnosis, withPhase, writeState } from "../state.ts";
+import { applyStrictness } from "./strictness.ts";
 import { exec } from "../util/exec.ts";
 import type { PackageManager } from "../types.ts";
 
@@ -88,14 +89,25 @@ export const runBootstrap = async (options: BootstrapOptions): Promise<string> =
     prettierIgnore: await readIfPresent(path.join(options.cwd, PRETTIER_IGNORE_FILE)),
   });
 
-  if (actions.length === 0) return "Nothing to install or generate. Run `ever-better freeze` next.";
-
   const lines = actions.map((action) => `  ${describeAction(action)}`);
-  if (options.dryRun) return ["Would apply:", ...lines, "", "Re-run without --dry-run."].join("\n");
+  if (options.dryRun) {
+    const preview =
+      actions.length === 0 ? ["Nothing to install or generate."] : ["Would apply:", ...lines];
+    return [
+      ...preview,
+      "",
+      "Strictness is measured on a real run.",
+      "Re-run without --dry-run.",
+    ].join("\n");
+  }
 
   for (const action of actions) {
     await applyAction(options.cwd, diagnosis.packageManager, action);
   }
+
+  // After the plan, not before: TypeScript may only have just been installed, and there is
+  // nothing to measure against until it is.
+  const strictness = await applyStrictness(options.cwd, facts.sourceFiles);
 
   const after = diagnose(await gatherFacts(options.cwd));
   const previous = (await readState(options.cwd)) ?? emptyState();
@@ -103,5 +115,14 @@ export const runBootstrap = async (options: BootstrapOptions): Promise<string> =
   await writeState(options.cwd, state);
   await writeQualityFile(options.cwd, state);
 
-  return ["Applied:", ...lines, "", "Next: `ever-better freeze` to pin the baseline."].join("\n");
+  // Reported even when the plan was empty. A repo that already has every tool is the common case
+  // for an existing codebase, and returning early there skipped the tightening entirely.
+  return [
+    actions.length === 0 ? "Nothing to install or generate." : "Applied:",
+    ...lines,
+    "",
+    strictness.message,
+    "",
+    "Next: `ever-better freeze` to pin the baseline.",
+  ].join("\n");
 };
