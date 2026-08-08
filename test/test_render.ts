@@ -155,8 +155,7 @@ describe("QUALITY.md", () => {
   // Scoped to one section on purpose: the worklist lists the SMALLEST backlog first and the
   // ratchet table the largest, so an unscoped indexOf finds whichever section comes first and
   // proves nothing about either.
-  const section = (rendered: string, from: string, to: string): string =>
-    rendered.slice(rendered.indexOf(from), rendered.indexOf(to));
+  const section = (rendered: string, from: string, to: string): string => rendered.slice(rendered.indexOf(from), rendered.indexOf(to));
 
   it("lists the biggest backlog first in the ratchet table", () => {
     const table = section(renderQuality(frozen(), "", FRESH), "## Ratchet", "## Outstanding");

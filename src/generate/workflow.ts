@@ -29,10 +29,7 @@ const SETUP: Partial<Record<PackageManager, string[]>> = {
 const STEP_ORDER: readonly (keyof ScriptCoverage)[] = ["lint", "typecheck", "build", "test"];
 
 const scriptSteps = (options: WorkflowOptions): string[] =>
-  STEP_ORDER.filter((name) => options.scripts[name]).flatMap((name) => [
-    `      - name: ${name}`,
-    `        run: ${RUN[options.packageManager]} ${name}`,
-  ]);
+  STEP_ORDER.filter((name) => options.scripts[name]).flatMap((name) => [`      - name: ${name}`, `        run: ${RUN[options.packageManager]} ${name}`]);
 
 /**
  * Three runners, not one. Path separators, case-insensitive filesystems and file watching are the

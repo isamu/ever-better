@@ -9,29 +9,20 @@ const PROJECT_EXTENSIONS = ["ts", "tsx", "js", "jsx", "vue", "svelte"];
 const dirsPresent = (sourceFiles: readonly SourceFile[], candidates: readonly string[]): string[] =>
   candidates.filter((dir) => sourceFiles.some((file) => file.path.startsWith(`${dir}/`)));
 
-const exists = (sourceFiles: readonly SourceFile[], path: string): boolean =>
-  sourceFiles.some((file) => file.path === path);
+const exists = (sourceFiles: readonly SourceFile[], path: string): boolean => sourceFiles.some((file) => file.path === path);
 
 /**
  * Only patterns that match something. knip prints a configuration hint for every entry glob that
  * matches nothing, so a speculative config greets the owner with five complaints on the first run
  * — and a tool whose first output is noise about itself does not get read again.
  */
-const entryPoints = (
-  packageJson: PackageJson | null,
-  sourceFiles: readonly SourceFile[],
-): string[] => {
-  const declared = [
-    ...Object.values(packageJson?.bin ?? {}),
-    ...(packageJson?.main === undefined ? [] : [packageJson.main]),
-  ];
+const entryPoints = (packageJson: PackageJson | null, sourceFiles: readonly SourceFile[]): string[] => {
+  const declared = [...Object.values(packageJson?.bin ?? {}), ...(packageJson?.main === undefined ? [] : [packageJson.main])];
   const conventional = dirsPresent(sourceFiles, SOURCE_DIRS).flatMap((dir) =>
     ENTRY_NAMES.map((name) => `${dir}/${name}.ts`).filter((path) => exists(sourceFiles, path)),
   );
   const tests = dirsPresent(sourceFiles, TEST_DIRS).map((dir) => `${dir}/**/*.{ts,tsx,js,jsx}`);
-  const scripts = sourceFiles.some((file) => file.path.startsWith("scripts/"))
-    ? ["scripts/**/*.{ts,mjs,js}"]
-    : [];
+  const scripts = sourceFiles.some((file) => file.path.startsWith("scripts/")) ? ["scripts/**/*.{ts,mjs,js}"] : [];
   return [...new Set([...declared, ...conventional, ...tests, ...scripts])];
 };
 
@@ -57,10 +48,7 @@ const projectPatterns = (sourceFiles: readonly SourceFile[]): string[] => {
  * Missing an entry point is the other way knip becomes untrustworthy: a helper called only from a
  * spec gets reported as unused, the report fills with false positives, and people stop reading it.
  */
-export const renderKnipConfig = (
-  packageJson: PackageJson | null,
-  sourceFiles: readonly SourceFile[],
-): string => {
+export const renderKnipConfig = (packageJson: PackageJson | null, sourceFiles: readonly SourceFile[]): string => {
   const entry = entryPoints(packageJson, sourceFiles);
   const config = {
     $schema: "https://unpkg.com/knip@6/schema.json",

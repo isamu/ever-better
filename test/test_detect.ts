@@ -112,9 +112,7 @@ describe("detectCi", () => {
   });
 
   it("does not mistake a workflow filename for a runner", () => {
-    const ci = detectCi([
-      { path: ".github/workflows/windows-daily.yaml", content: "name: windows-daily" },
-    ]);
+    const ci = detectCi([{ path: ".github/workflows/windows-daily.yaml", content: "name: windows-daily" }]);
     assert.deepEqual(ci.runners, []);
   });
 

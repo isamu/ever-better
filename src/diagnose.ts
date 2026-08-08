@@ -8,13 +8,7 @@ import { findWeakRules } from "./probe/effectiveRules.ts";
 import { findMissingStrictness, isStrictOff } from "./probe/effectiveTsconfig.ts";
 import type { Diagnosis, Gap, RepoFacts, ScriptCoverage } from "./types.ts";
 
-const REQUIRED_SCRIPTS: readonly (keyof ScriptCoverage)[] = [
-  "format",
-  "lint",
-  "build",
-  "typecheck",
-  "test",
-];
+const REQUIRED_SCRIPTS: readonly (keyof ScriptCoverage)[] = ["format", "lint", "build", "typecheck", "test"];
 
 const eslintGaps = (diagnosis: Omit<Diagnosis, "gaps">): Gap[] => {
   if (diagnosis.tooling.eslint === "flat") return [];
@@ -40,7 +34,7 @@ const languageGaps = (diagnosis: Omit<Diagnosis, "gaps">): Gap[] => {
         title: "No TypeScript",
         detail:
           "Types are the cheapest rule set there is, and the type-aware lint tier cannot run " +
-          "without them. `ever-better migrate` walks it one file at a time, dependencies first.",
+          "without them. `ever-better migrate --all` converts the repo and prices the type errors.",
         phase: "bootstrap",
       },
     ];
@@ -50,9 +44,7 @@ const languageGaps = (diagnosis: Omit<Diagnosis, "gaps">): Gap[] => {
       {
         id: "typescript-partial",
         title: `Only ${percent}% of sources are TypeScript`,
-        detail:
-          "The type-aware rules cover the typed part only, so the remaining .js files are the " +
-          "blind spot the counts will not show.",
+        detail: "The type-aware rules cover the typed part only, so the remaining .js files are the " + "blind spot the counts will not show.",
         phase: "tighten",
       },
     ];
@@ -66,8 +58,7 @@ const toolingGaps = (diagnosis: Omit<Diagnosis, "gaps">): Gap[] => {
     gaps.push({
       id: "prettier",
       title: "No formatter",
-      detail:
-        "Formatting must land before linting starts, or the first drain PR is a diff nobody can read.",
+      detail: "Formatting must land before linting starts, or the first drain PR is a diff nobody can read.",
       phase: "bootstrap",
     });
   }
@@ -99,9 +90,7 @@ const toolingGaps = (diagnosis: Omit<Diagnosis, "gaps">): Gap[] => {
     gaps.push({
       id: "agent-instructions",
       title: "No CLAUDE.md / AGENTS.md",
-      detail:
-        "Draining is done by agents. Rules that live only in your head produce a different fix " +
-        "every session.",
+      detail: "Draining is done by agents. Rules that live only in your head produce a different fix " + "every session.",
       phase: "drain",
     });
   }
@@ -127,8 +116,7 @@ const ciGaps = (diagnosis: Omit<Diagnosis, "gaps">): Gap[] => {
       {
         id: "ci",
         title: "No CI workflows",
-        detail:
-          "The baseline is only a ratchet if something rejects a regression. Without CI it is a note.",
+        detail: "The baseline is only a ratchet if something rejects a regression. Without CI it is a note.",
         phase: "review",
       },
     ];
@@ -170,8 +158,7 @@ const sizeGaps = (diagnosis: Omit<Diagnosis, "gaps">): Gap[] => {
     {
       id: "file-size",
       title: `${diagnosis.sizes.overFileLimit} files over ${DEFAULT_FILE_LINE_LIMIT} lines`,
-      detail:
-        "These are the split-and-DRY backlog. Knowing the count now makes the limit a choice.",
+      detail: "These are the split-and-DRY backlog. Knowing the count now makes the limit a choice.",
       phase: "split",
     },
   ];
@@ -268,11 +255,6 @@ export const diagnose = (facts: RepoFacts): Diagnosis => {
     ci: detectCi(facts.workflows),
     sizes: summarizeSizes(facts.sourceFiles),
   };
-  const gaps = [
-    ...GAP_DETECTORS.flatMap((detect) => detect(partial)),
-    ...frameworkGaps(partial, facts),
-    ...effectiveRuleGaps(facts),
-    ...strictnessGaps(facts),
-  ];
+  const gaps = [...GAP_DETECTORS.flatMap((detect) => detect(partial)), ...frameworkGaps(partial, facts), ...effectiveRuleGaps(facts), ...strictnessGaps(facts)];
   return { ...partial, gaps };
 };

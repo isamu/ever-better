@@ -1,14 +1,6 @@
 import { runRuleCounts, suppressAll, totalOf } from "../eslintRunner.ts";
 import { writeQualityFile } from "../qualityFile.ts";
-import {
-  applyRuleCounts,
-  emptyState,
-  readState,
-  setCounter,
-  WARNINGS_COUNTER,
-  withPhase,
-  writeState,
-} from "../state.ts";
+import { applyRuleCounts, emptyState, readState, setCounter, WARNINGS_COUNTER, withPhase, writeState } from "../state.ts";
 import type { State } from "../types.ts";
 
 export type FreezeOptions = {
@@ -33,12 +25,7 @@ export const runFreeze = async (options: FreezeOptions): Promise<string> => {
   const mode = options.force ? "rebaseline" : "freeze";
 
   const frozen: State = {
-    ...setCounter(
-      applyRuleCounts(previous, counts.suppressed, mode),
-      WARNINGS_COUNTER,
-      totalOf(counts.warnings),
-      mode,
-    ),
+    ...setCounter(applyRuleCounts(previous, counts.suppressed, mode), WARNINGS_COUNTER, totalOf(counts.warnings), mode),
     frozenAt: new Date().toISOString(),
   };
   const state = withPhase(frozen, "drain");
@@ -53,9 +40,7 @@ export const runFreeze = async (options: FreezeOptions): Promise<string> => {
     warnings > 0
       ? `${warnings} warnings stay visible — ESLint cannot suppress those, so their total is ratcheted instead.`
       : "New code is held to the full rule set from here.",
-    errors > 0
-      ? `WARNING: ${errors} errors could not be suppressed and will fail CI. Fix the config before committing.`
-      : "",
+    errors > 0 ? `WARNING: ${errors} errors could not be suppressed and will fail CI. Fix the config before committing.` : "",
     "",
     "Commit eslint-suppressions.json, .ever-better/state.json and QUALITY.md.",
     "Next: pick the rule with the smallest count in QUALITY.md and drain it.",

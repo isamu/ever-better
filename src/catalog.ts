@@ -48,8 +48,7 @@ export const extractExports = (source: string, file: string): CatalogEntry[] => 
   });
 };
 
-const byName = (left: CatalogEntry, right: CatalogEntry): number =>
-  left.name.localeCompare(right.name);
+const byName = (left: CatalogEntry, right: CatalogEntry): number => left.name.localeCompare(right.name);
 
 const directoryOf = (file: string): string => {
   const slash = file.lastIndexOf("/");
@@ -71,9 +70,7 @@ export const renderCatalog = (entries: readonly CatalogEntry[]): string => {
   if (entries.length === 0) {
     return [...HEADER, "No exported functions found.", ""].join("\n");
   }
-  const directories = [...new Set(entries.map((entry) => directoryOf(entry.file)))].sort((a, b) =>
-    a.localeCompare(b),
-  );
+  const directories = [...new Set(entries.map((entry) => directoryOf(entry.file)))].sort((a, b) => a.localeCompare(b));
   const sections = directories.flatMap((directory) => [
     `## ${directory}`,
     "",
@@ -82,18 +79,11 @@ export const renderCatalog = (entries: readonly CatalogEntry[]): string => {
     ...entries
       .filter((entry) => directoryOf(entry.file) === directory)
       .sort(byName)
-      .map(
-        (entry) => `| \`${entry.name}\` | ${entry.file}:${entry.line} | ${entry.summary ?? ""} |`,
-      ),
+      .map((entry) => `| \`${entry.name}\` | ${entry.file}:${entry.line} | ${entry.summary ?? ""} |`),
     "",
   ]);
   return [...HEADER, `${entries.length} exported functions.`, "", ...sections].join("\n");
 };
 
 export const catalogSources = (files: readonly SourceFile[]): SourceFile[] =>
-  files.filter(
-    (file) =>
-      !file.path.includes("test") &&
-      !file.path.endsWith(".d.ts") &&
-      ["ts", "tsx", "mts", "js", "mjs"].includes(file.ext),
-  );
+  files.filter((file) => !file.path.includes("test") && !file.path.endsWith(".d.ts") && ["ts", "tsx", "mts", "js", "mjs"].includes(file.ext));

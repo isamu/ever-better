@@ -175,19 +175,26 @@ was true.
 
 ```bash
 ever-better migrate                              # the plan, in dependency order
+ever-better migrate --all                        # rename the whole repo, priced
 ever-better migrate --file src/util/text.js      # one rename, priced
 ```
 
-JavaScript to TypeScript, one file per commit. Writes a `tsconfig.json` with `allowJs` and
-`checkJs: false` first, so the repo compiles exactly as it is today, then renames one file at a time
-and reports how many type errors that cost.
+JavaScript to TypeScript. Writes a `tsconfig.json` with `allowJs` and `checkJs: false` first, so the
+repo compiles exactly as it is today, then renames — everything at once with `--all`, or one file at
+a time — and reports how many type errors that cost.
 
-**One at a time is not caution.** Type errors have no suppression mechanism — `--suppress-all`
-grandfathers lint violations and there is no equivalent for the compiler — so a big-bang rename
-leaves a repository whose `typecheck` fails with nothing able to stage the work.
+**Lint errors are not a reason to stop.** They are what the ratchet is for: `freeze` records them as
+the ceiling and they come down rule by rule afterwards. A rule that fires on a legitimate pattern in
+this repo is a config decision, not a migration one.
 
-**Dependencies first**, and the order is computed from the import graph. Typing a file whose imports
-are still JavaScript means typing it against `any`, and all of it has to be redone later.
+**Type errors are the part that cannot be grandfathered.** `--suppress-all` covers lint violations
+and the compiler has no equivalent, so `--all` prices the rename and leaves the number in front of
+you: fix what blocks the build, or start from a looser `tsconfig.json` and tighten it with
+`ever-better strictness`, which measures each flag before you turn it on.
+
+**`--file` migrates in dependency order**, computed from the import graph, for a repo that would
+rather take the errors a few at a time. Typing a file whose imports are still JavaScript means
+typing it against `any`, and that work is redone once the dependency lands.
 
 ### `catalog`
 

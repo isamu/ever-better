@@ -3,12 +3,7 @@ import path from "node:path";
 import { addCompilerOptions } from "../generate/tsconfigEdit.ts";
 import { findMissingStrictness, isStrictOff } from "../probe/effectiveTsconfig.ts";
 import { gatherProbes } from "../probe/gather.ts";
-import {
-  freeFlags,
-  measureStrictnessCosts,
-  pricedFlags,
-  type FlagCost,
-} from "../probe/tsconfigCost.ts";
+import { freeFlags, measureStrictnessCosts, pricedFlags, type FlagCost } from "../probe/tsconfigCost.ts";
 import type { SourceFile } from "../types.ts";
 
 export type StrictnessResult = {
@@ -21,8 +16,7 @@ const TSCONFIG = "tsconfig.json";
 
 const COMMENT = "Enabled by ever-better after measuring each at zero new type errors.";
 
-const describePriced = (priced: readonly FlagCost[]): string[] =>
-  priced.map((cost) => `  ${cost.flag}: ${cost.errors ?? "?"} type errors — left off`);
+const describePriced = (priced: readonly FlagCost[]): string[] => priced.map((cost) => `  ${cost.flag}: ${cost.errors ?? "?"} type errors — left off`);
 
 /**
  * Turns on the strictness flags that cost nothing, and reports the price of the ones that do.
@@ -32,10 +26,7 @@ const describePriced = (priced: readonly FlagCost[]): string[] =>
  * flag that costs 500 errors would leave the owner with a `typecheck` script that fails and no way
  * to stage the work.
  */
-export const applyStrictness = async (
-  cwd: string,
-  sourceFiles: readonly SourceFile[],
-): Promise<StrictnessResult> => {
+export const applyStrictness = async (cwd: string, sourceFiles: readonly SourceFile[]): Promise<StrictnessResult> => {
   const probes = await gatherProbes(cwd, sourceFiles);
   if (!probes.tsconfig) {
     return { applied: [], priced: [], message: "No TypeScript config to tighten." };

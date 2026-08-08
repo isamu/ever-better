@@ -1,10 +1,6 @@
 import { typecheckCommand } from "./detect/framework.ts";
 import { DEFAULT_FILE_LINE_LIMIT } from "./detect/sizes.ts";
-import {
-  eslintConfigFileName,
-  eslintPackagesFor,
-  renderEslintConfig,
-} from "./generate/eslintConfig.ts";
+import { eslintConfigFileName, eslintPackagesFor, renderEslintConfig } from "./generate/eslintConfig.ts";
 import { CODEX_WORKFLOW_PATH, renderCodexReviewWorkflow } from "./generate/codexReview.ts";
 import { renderDependabot } from "./generate/dependabot.ts";
 import { GATE_WORKFLOW_PATH, renderGateWorkflow } from "./generate/gateWorkflow.ts";
@@ -16,9 +12,7 @@ import { renderWorkflow } from "./generate/workflow.ts";
 import type { Diagnosis, PackageJson, ScriptCoverage, SourceFile } from "./types.ts";
 
 export type BootstrapAction =
-  | { kind: "install"; packages: string[] }
-  | { kind: "writeFile"; path: string; contents: string }
-  | { kind: "addScripts"; scripts: Record<string, string> };
+  { kind: "install"; packages: string[] } | { kind: "writeFile"; path: string; contents: string } | { kind: "addScripts"; scripts: Record<string, string> };
 
 export const PRETTIER_IGNORE_FILE = ".prettierignore";
 
@@ -36,11 +30,11 @@ export type BootstrapPlanOptions = {
 
 const DEFAULT_TEST_GLOB = "test/**";
 
+/** The only Prettier setting worth writing: version 3 already defaults `trailingComma` to `"all"`. */
+const DEFAULT_PRINT_WIDTH = 160;
+
 const installed = (packageJson: PackageJson | null): Set<string> =>
-  new Set([
-    ...Object.keys(packageJson?.dependencies ?? {}),
-    ...Object.keys(packageJson?.devDependencies ?? {}),
-  ]);
+  new Set([...Object.keys(packageJson?.dependencies ?? {}), ...Object.keys(packageJson?.devDependencies ?? {})]);
 
 const missingPackages = (options: BootstrapPlanOptions): string[] => {
   const have = installed(options.packageJson);
@@ -96,8 +90,7 @@ const configActions = (options: BootstrapPlanOptions): BootstrapAction[] => {
         testGlob: DEFAULT_TEST_GLOB,
         // A repo with no runner gets vitest installed below, so the config must describe the
         // runner it will have, not the absence it has now.
-        testRunner:
-          diagnosis.tooling.testRunner === "none" ? "vitest" : diagnosis.tooling.testRunner,
+        testRunner: diagnosis.tooling.testRunner === "none" ? "vitest" : diagnosis.tooling.testRunner,
         framework: diagnosis.framework,
         runtime: diagnosis.runtime,
       }),
@@ -108,7 +101,7 @@ const configActions = (options: BootstrapPlanOptions): BootstrapAction[] => {
     actions.push({
       kind: "writeFile",
       path: ".prettierrc.json",
-      contents: `${JSON.stringify({ printWidth: 100, trailingComma: "all" }, null, 2)}\n`,
+      contents: `${JSON.stringify({ printWidth: DEFAULT_PRINT_WIDTH }, null, 2)}\n`,
     });
   }
 
@@ -157,11 +150,7 @@ const workflowActions = (options: BootstrapPlanOptions): BootstrapAction[] => {
 
 const filesToWrite = (options: BootstrapPlanOptions): BootstrapAction[] => {
   const { diagnosis } = options;
-  const actions: BootstrapAction[] = [
-    ...configActions(options),
-    ...scanActions(options),
-    ...workflowActions(options),
-  ];
+  const actions: BootstrapAction[] = [...configActions(options), ...scanActions(options), ...workflowActions(options)];
 
   if (!diagnosis.ci.present) {
     actions.push({
@@ -187,9 +176,7 @@ const prettierIgnoreAction = (options: BootstrapPlanOptions): BootstrapAction[] 
     return [{ kind: "writeFile", path: PRETTIER_IGNORE_FILE, contents: renderPrettierIgnore() }];
   }
   const appended = appendGeneratedPaths(options.prettierIgnore);
-  return appended === null
-    ? []
-    : [{ kind: "writeFile", path: PRETTIER_IGNORE_FILE, contents: appended }];
+  return appended === null ? [] : [{ kind: "writeFile", path: PRETTIER_IGNORE_FILE, contents: appended }];
 };
 
 /**

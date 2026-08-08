@@ -16,8 +16,7 @@ export type RuleCounts = {
   files: number;
 };
 
-export const totalOf = (counts: Readonly<Record<string, number>>): number =>
-  Object.values(counts).reduce((sum, count) => sum + count, 0);
+export const totalOf = (counts: Readonly<Record<string, number>>): number => Object.values(counts).reduce((sum, count) => sum + count, 0);
 
 /** ESLint reserves 2 for "I could not run at all"; 1 merely means it found problems. */
 const FATAL_EXIT_CODE = 2;
@@ -62,11 +61,9 @@ const findEslint = async (cwd: string): Promise<EslintInvocation | null> => {
   return null;
 };
 
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === "object" && value !== null && !Array.isArray(value);
+const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null && !Array.isArray(value);
 
-const isRuleCounts = (value: unknown): value is RuleCounts =>
-  typeof value === "object" && value !== null && "errors" in value && "suppressed" in value;
+const isRuleCounts = (value: unknown): value is RuleCounts => typeof value === "object" && value !== null && "errors" in value && "suppressed" in value;
 
 const parseCounts = (stdout: string, stderr: string): RuleCounts => {
   const trimmed = stdout.trim();
@@ -86,9 +83,7 @@ const parseCounts = (stdout: string, stderr: string): RuleCounts => {
 const runEslint = async (cwd: string, args: readonly string[], label: string) => {
   const eslint = await findEslint(cwd);
   if (!eslint) {
-    throw new Error(
-      "eslint is not installed in this repository. Run `ever-better bootstrap` first.",
-    );
+    throw new Error("eslint is not installed in this repository. Run `ever-better bootstrap` first.");
   }
   const result = await exec(eslint.command, [...eslint.prefixArgs, ...args], cwd, {
     shell: eslint.shell,
@@ -124,19 +119,11 @@ export const suppressAll = async (cwd: string): Promise<void> => {
  *
  * Returns null rather than throwing — a repo without ESLint is the normal case here.
  */
-export const printConfig = async (
-  cwd: string,
-  filePath: string,
-): Promise<Record<string, unknown> | null> => {
+export const printConfig = async (cwd: string, filePath: string): Promise<Record<string, unknown> | null> => {
   const eslint = await findEslint(cwd);
   if (!eslint) return null;
   try {
-    const result = await exec(
-      eslint.command,
-      [...eslint.prefixArgs, "--print-config", filePath],
-      cwd,
-      { shell: eslint.shell },
-    );
+    const result = await exec(eslint.command, [...eslint.prefixArgs, "--print-config", filePath], cwd, { shell: eslint.shell });
     if (result.code !== 0) return null;
     const parsed: unknown = JSON.parse(result.stdout);
     return isRecord(parsed) ? parsed : null;

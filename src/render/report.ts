@@ -29,27 +29,13 @@ const ciLine = (diagnosis: Diagnosis): string => {
 const sizeLines = (diagnosis: Diagnosis): string[] => [
   `  source files      ${diagnosis.sizes.total}`,
   `  over ${DEFAULT_FILE_LINE_LIMIT} lines     ${diagnosis.sizes.overFileLimit}`,
-  ...diagnosis.sizes.largest
-    .slice(0, 3)
-    .map((file) => `                      ${file.lines}  ${file.path}`),
+  ...diagnosis.sizes.largest.slice(0, 3).map((file) => `                      ${file.lines}  ${file.path}`),
 ];
 
 const gapLines = (gaps: readonly Gap[]): string[] => {
   if (gaps.length === 0) return ["", "No gaps found. Freeze the baseline and start draining."];
-  return [
-    "",
-    `${gaps.length} gap(s):`,
-    ...gaps.flatMap((gap) => [`  [${gap.phase}] ${gap.title}`, `      ${gap.detail}`]),
-  ];
+  return ["", `${gaps.length} gap(s):`, ...gaps.flatMap((gap) => [`  [${gap.phase}] ${gap.title}`, `      ${gap.detail}`])];
 };
 
 export const renderReport = (diagnosis: Diagnosis): string =>
-  [
-    "ever-better diagnose",
-    "",
-    ...toolingLines(diagnosis),
-    ciLine(diagnosis),
-    ...sizeLines(diagnosis),
-    ...gapLines(diagnosis.gaps),
-    "",
-  ].join("\n");
+  ["ever-better diagnose", "", ...toolingLines(diagnosis), ciLine(diagnosis), ...sizeLines(diagnosis), ...gapLines(diagnosis.gaps), ""].join("\n");

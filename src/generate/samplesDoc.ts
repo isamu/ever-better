@@ -1,16 +1,7 @@
 import { CONFIG_SAMPLES, WORKFLOW_SAMPLES, type Sample } from "./samples.ts";
 import { STRICTNESS_SAMPLE } from "./strictnessSample.ts";
 
-const block = (sample: Sample): string[] => [
-  `### ${sample.title}`,
-  "",
-  sample.note,
-  "",
-  "```" + sample.language,
-  sample.contents.trimEnd(),
-  "```",
-  "",
-];
+const block = (sample: Sample): string[] => [`### ${sample.title}`, "", sample.note, "", "```" + sample.language, sample.contents.trimEnd(), "```", ""];
 
 const HEADER = [
   "# What you end up with",

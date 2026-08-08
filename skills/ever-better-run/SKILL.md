@@ -59,6 +59,10 @@ cadence is deliberate.
 The commit message says which rule, how many violations, and — separately — any behaviour that
 changed. A reviewer has to be able to tell "renamed a variable" from "this was returning undefined".
 
+An edit that re-indents a block is itself two commits — the change at the old indentation, then the
+reflow — or the three lines you wrote disappear into a whole-block diff. See `ever-better-drain`,
+step 8.
+
 ## Before anything
 
 0. **Run `ever-better-prepare`** if this is a first run here, or if `diagnose` reports no
@@ -80,16 +84,19 @@ changed. A reviewer has to be able to tell "renamed a variable" from "this was r
 npx ever-better diagnose
 ```
 
-Read it, then follow **`ever-better-bootstrap`** and **`ever-better-freeze`**. Three separate pull
+Read it, then follow **`ever-better-bootstrap`** and **`ever-better-freeze`**. Four separate pull
 requests, in this order, each merged before the next:
 
-1. **`chore: format`** — mechanical, whole-repo, unreviewable if mixed with anything else.
-2. **`chore: quality tooling`** — the bootstrap output: ESLint config, scripts, `.gitattributes`,
+1. **`chore: raise the toolchain`** — linter, formatter, type checker, test runner, build tool to
+   current, majors included (bootstrap step 3). Skip it only if they already are: every number the
+   next three PRs record is a number from this rule set, and upgrading afterwards invalidates it.
+2. **`chore: format`** — mechanical, whole-repo, unreviewable if mixed with anything else.
+3. **`chore: quality tooling`** — the bootstrap output: ESLint config, scripts, `.gitattributes`,
    workflows.
-3. **`chore: freeze the baseline`** — `eslint-suppressions.json`, `.ever-better/state.json`,
+4. **`chore: freeze the baseline`** — `eslint-suppressions.json`, `.ever-better/state.json`,
    `QUALITY.md`.
 
-After (3), CI rejects any new violation. Everything from here is optional cleanup that can stop at
+After (4), CI rejects any new violation. Everything from here is optional cleanup that can stop at
 any point without leaving the repo worse.
 
 ### Phase 3: drain, until it is empty
@@ -113,6 +120,11 @@ progress as you go — the ceiling before and after each PR is the number that m
 When the backlog is empty, add the next tier and freeze again. Type-aware rules first if the repo
 is TypeScript and they were off, then `eslint-plugin-security` if it touches the filesystem, child
 processes or user input. Each tier is a bootstrap + freeze pair, and then drain again.
+
+This is also where the **runtime** dependency majors belong — the ones held back at phase 0 because
+nothing could tell you they broke. P3 has since built the suite that can. One dependency per pull
+request, and a package that turns out to be unmaintained gets replaced or reimplemented rather than
+pinned; see "Dependencies" in the `ever-better` entry skill.
 
 ### Phase 5: duplication and dead code
 

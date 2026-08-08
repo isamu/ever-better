@@ -6,8 +6,7 @@ import { applyRuleCounts, appendLog, emptyState, logOfKind } from "../src/state.
 
 const NOW = new Date("2026-08-08T00:00:00.000Z");
 
-const daysAgo = (days: number): string =>
-  new Date(NOW.getTime() - days * 24 * 60 * 60 * 1000).toISOString();
+const daysAgo = (days: number): string => new Date(NOW.getTime() - days * 24 * 60 * 60 * 1000).toISOString();
 
 const input = (overrides: Partial<Parameters<typeof assessFreshness>[0]> = {}) => ({
   diagnosedAt: daysAgo(1),

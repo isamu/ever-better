@@ -137,10 +137,7 @@ export type RuleVerdict = {
  * `warn` is reported separately because it is a deliberate stop on the way to `error` — but one
  * that stays there forever unless somebody is counting.
  */
-export const findWeakRules = (
-  printed: PrintedConfig | null,
-  wanted: readonly HighValueRule[] = HIGH_VALUE_RULES,
-): RuleVerdict[] => {
+export const findWeakRules = (printed: PrintedConfig | null, wanted: readonly HighValueRule[] = HIGH_VALUE_RULES): RuleVerdict[] => {
   if (!printed) return [];
   const rules = printed.rules ?? {};
   return wanted.flatMap((rule): RuleVerdict[] => {

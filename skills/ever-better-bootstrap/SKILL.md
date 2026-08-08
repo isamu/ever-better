@@ -46,7 +46,30 @@ npx ever-better bootstrap
 Idempotent, and it never overwrites a config the repo already had — someone's existing
 `eslint.config.js` holds exceptions whose reasons are not in the file.
 
-### 3. Format first, in its own commit
+### 3. Raise the toolchain before you measure anything
+
+`bootstrap` installs what is *missing* at current versions; it does not touch what is already there.
+So a repo on ESLint 8, TypeScript 4 and an old Prettier is still about to be measured by them:
+
+```bash
+<pm> outdated
+```
+
+Take the linter, the formatter, the type checker, the test runner and the build tool to current —
+majors included — in their own commit, before the format run and before anything is frozen. The
+`devDependencies` and `resolutions` blocks are the whole scope here.
+
+The reason it is *this* early: the ceiling records violations of the rule set you own at freeze
+time. Freeze on the old ESLint and the upgrade afterwards pins suppressions for rules that no longer
+exist, hides the ones that arrived, and re-runs the whole drain. A newer TypeScript also infers more,
+so part of today's `no-unsafe-*` backlog evaporates rather than being fixed by hand. And Prettier's
+output changes between majors — upgrading after the format commit means formatting the repo twice.
+
+This is also the safe half of the upgrade work: dev tooling cannot change what ships, only what it
+says about what ships. **Runtime dependencies are a different decision and come later** — see
+"Dependencies" in the `ever-better` entry skill.
+
+### 4. Format first, in its own commit
 
 ```bash
 <pm> format
@@ -55,7 +78,7 @@ Idempotent, and it never overwrites a config the repo already had — someone's 
 Formatting rewrites nearly every file. If it lands in the same commit as anything else, that
 commit is unreviewable. Commit it alone, with a message that says it is mechanical.
 
-### 4. Look at what was generated
+### 5. Look at what was generated
 
 Open `eslint.config.js` and read it with the user. It is theirs now. Two things to check:
 
@@ -64,8 +87,13 @@ Open `eslint.config.js` and read it with the user. It is theirs now. Two things 
   changes what the ceiling means.
 - **Do the ignores cover the generated code?** Anything checked in but machine-written should be
   ignored, not suppressed. Suppressing it puts noise in the ledger forever.
+- **The CI workflow runs Linux, macOS and Windows — keep all three.** Path separators, a CRLF
+  checkout against LF-formatted files, and the extensionless `node_modules/.bin` shims that Node
+  cannot spawn are each green on Linux and red only on Windows. Trimming the matrix to save minutes
+  does not remove those failures, it removes the only thing that reports them — and they then arrive
+  in someone's install rather than in a pull request.
 
-### 5. Confirm it runs
+### 6. Confirm it runs
 
 ```bash
 <pm> lint
@@ -76,7 +104,7 @@ time. What you are checking for here is that ESLint *runs*: no parse errors, no 
 the project service", no plugin resolution failure. A parse error cannot be suppressed and will
 block the freeze.
 
-### 6. Hand off
+### 7. Hand off
 
 Say how many violations there are and across how many rules, then route to the
 **`ever-better-freeze`** skill. Do not freeze here — freezing is a decision, and the user should

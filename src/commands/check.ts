@@ -1,14 +1,6 @@
 import { runRuleCounts, totalOf } from "../eslintRunner.ts";
 import { writeQualityFile } from "../qualityFile.ts";
-import {
-  applyRuleCounts,
-  findRegressions,
-  readState,
-  setCounter,
-  totalViolations,
-  WARNINGS_COUNTER,
-  writeState,
-} from "../state.ts";
+import { applyRuleCounts, findRegressions, readState, setCounter, totalViolations, WARNINGS_COUNTER, writeState } from "../state.ts";
 
 export type CheckOptions = {
   cwd: string;
@@ -36,12 +28,7 @@ export const runCheck = async (options: CheckOptions): Promise<CheckResult> => {
     return { ok: false, message: "No baseline. Run `ever-better freeze` and commit the result." };
   }
 
-  const state = setCounter(
-    applyRuleCounts(previous, counts.suppressed, "observe"),
-    WARNINGS_COUNTER,
-    totalOf(counts.warnings),
-    "observe",
-  );
+  const state = setCounter(applyRuleCounts(previous, counts.suppressed, "observe"), WARNINGS_COUNTER, totalOf(counts.warnings), "observe");
   if (options.write) {
     await writeState(options.cwd, state);
     await writeQualityFile(options.cwd, state);
@@ -51,19 +38,13 @@ export const runCheck = async (options: CheckOptions): Promise<CheckResult> => {
   if (errorTotal > 0) {
     return {
       ok: false,
-      message: [
-        `${errorTotal} unsuppressed error(s) — these are new since the baseline:`,
-        ...worst(counts.errors),
-      ].join("\n"),
+      message: [`${errorTotal} unsuppressed error(s) — these are new since the baseline:`, ...worst(counts.errors)].join("\n"),
     };
   }
 
   const regressions = findRegressions(state);
   if (regressions.length > 0) {
-    const lines = regressions.map(
-      (item) =>
-        `  ${item.name}: ${item.baseline} -> ${item.current} (+${item.current - item.baseline})`,
-    );
+    const lines = regressions.map((item) => `  ${item.name}: ${item.baseline} -> ${item.current} (+${item.current - item.baseline})`);
     return { ok: false, message: ["Counts grew past their ceiling:", ...lines].join("\n") };
   }
 

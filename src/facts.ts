@@ -5,19 +5,7 @@ import { countLines } from "./util/lines.ts";
 import { gatherProbes } from "./probe/gather.ts";
 import type { PackageJson, RepoFacts, SourceFile, WorkflowFile } from "./types.ts";
 
-const SOURCE_EXTENSIONS = new Set([
-  "ts",
-  "tsx",
-  "mts",
-  "cts",
-  "js",
-  "jsx",
-  "mjs",
-  "cjs",
-  "vue",
-  "svelte",
-  "astro",
-]);
+const SOURCE_EXTENSIONS = new Set(["ts", "tsx", "mts", "cts", "js", "jsx", "mjs", "cjs", "vue", "svelte", "astro"]);
 
 const IGNORED_SEGMENTS = new Set(["node_modules", "dist", "build", "out", "coverage", ".git"]);
 
@@ -27,11 +15,9 @@ const CONFIG_FILE_PATTERN = /(^|\/)([^/]*\.config\.[cm]?[jt]s|\.[^/]+rc\.[cm]?[j
 
 const WORKFLOW_DIR = ".github/workflows";
 
-const isIgnored = (relativePath: string): boolean =>
-  relativePath.split("/").some((segment) => IGNORED_SEGMENTS.has(segment));
+const isIgnored = (relativePath: string): boolean => relativePath.split("/").some((segment) => IGNORED_SEGMENTS.has(segment));
 
-const extensionOf = (relativePath: string): string =>
-  path.extname(relativePath).slice(1).toLowerCase();
+const extensionOf = (relativePath: string): string => path.extname(relativePath).slice(1).toLowerCase();
 
 /**
  * `git ls-files -co --exclude-standard` is the whole gitignore engine for free: tracked files plus
@@ -84,9 +70,7 @@ const toSourceFile = async (cwd: string, relativePath: string): Promise<SourceFi
 });
 
 const readWorkflows = async (cwd: string, files: readonly string[]): Promise<WorkflowFile[]> => {
-  const workflowPaths = files.filter(
-    (file) => file.startsWith(`${WORKFLOW_DIR}/`) && /\.ya?ml$/.test(file),
-  );
+  const workflowPaths = files.filter((file) => file.startsWith(`${WORKFLOW_DIR}/`) && /\.ya?ml$/.test(file));
   return Promise.all(
     workflowPaths.map(async (relativePath) => ({
       path: relativePath,
@@ -95,15 +79,12 @@ const readWorkflows = async (cwd: string, files: readonly string[]): Promise<Wor
   );
 };
 
-const rootEntriesOf = (files: readonly string[]): string[] =>
-  files.filter((file) => !file.includes("/"));
+const rootEntriesOf = (files: readonly string[]): string[] => files.filter((file) => !file.includes("/"));
 
 /** The only function in the codebase that touches the filesystem for detection purposes. */
 export const gatherFacts = async (cwd: string): Promise<RepoFacts> => {
   const files = await listFiles(cwd);
-  const sourcePaths = files.filter(
-    (file) => SOURCE_EXTENSIONS.has(extensionOf(file)) && !CONFIG_FILE_PATTERN.test(file),
-  );
+  const sourcePaths = files.filter((file) => SOURCE_EXTENSIONS.has(extensionOf(file)) && !CONFIG_FILE_PATTERN.test(file));
   const sourceFiles = await Promise.all(sourcePaths.map((file) => toSourceFile(cwd, file)));
   return {
     cwd,

@@ -6,20 +6,13 @@
  */
 const ANCHOR = /("compilerOptions"\s*:\s*\{)/;
 
-export const addCompilerOptions = (
-  source: string,
-  flags: readonly string[],
-  comment: string,
-): string | null => {
+export const addCompilerOptions = (source: string, flags: readonly string[], comment: string): string | null => {
   const wanted = flags.filter((flag) => !source.includes(`"${flag}"`));
   if (wanted.length === 0) return null;
   if (!ANCHOR.test(source)) return null;
 
   const indent = innerIndent(source);
-  const lines = [
-    `${indent}// ${comment}`,
-    ...wanted.map((flag) => `${indent}"${flag}": true,`),
-  ].join("\n");
+  const lines = [`${indent}// ${comment}`, ...wanted.map((flag) => `${indent}"${flag}": true,`)].join("\n");
   return source.replace(ANCHOR, `$1\n${lines}`);
 };
 

@@ -8,8 +8,7 @@ const GENERATED_PATHS = [".ever-better/", "QUALITY.md", "eslint-suppressions.jso
 
 const HEADER = "# Written by ever-better; machine-generated, so Prettier must not police it.";
 
-export const renderPrettierIgnore = (): string =>
-  ["dist/", "build/", "coverage/", "", HEADER, ...GENERATED_PATHS, ""].join("\n");
+export const renderPrettierIgnore = (): string => ["dist/", "build/", "coverage/", "", HEADER, ...GENERATED_PATHS, ""].join("\n");
 
 /**
  * `.prettierignore` is line-based, so appending is well-defined in a way that editing someone's

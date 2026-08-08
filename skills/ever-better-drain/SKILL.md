@@ -10,9 +10,22 @@ where the number comes down and the bugs come out.
 **Automate by default.** The only things that stop and ask are the ones where a wrong guess costs
 the owner real work — see "What becomes an issue" below. Everything else you fix, test and commit.
 
+## Before the loop: is this repository typed yet?
+
+If it is still JavaScript, stop and run **`ever-better-migrate`** first. Refactoring untyped code is
+done blind — the tier that finds the real bugs cannot run, so nothing but the tests disagrees with
+you — and every rename surfaces its type errors *after* the move, which changes the shape of what
+you just extracted. Migrate, then run the linter, read what it reports, and let that pick the work.
+
 ## The loop
 
 One rule per pull request. Not one violation, not the whole backlog.
+
+**Work the steps in order and say which one you are on.** They are numbered because each depends on
+the one before: pruning before the fix reclaims nothing, and a test written after the refactor
+asserts the code you just wrote. `ever-better status` and the worklist in `QUALITY.md` are the
+checklist — re-read them between steps rather than carrying the position in your head, which is how
+a step gets skipped and reported as done.
 
 ### 1. Pick the rule
 
@@ -36,7 +49,23 @@ The suppressions file hides them, so read `eslint-suppressions.json` for which f
 then look at those files. Or temporarily narrow: `npx eslint . --rule '{"<rule>":"error"}'` on the
 files you care about.
 
-### 3. Fix them — and notice what the fix reveals
+### 3. Pin what the code does now — before you touch it
+
+A refactor is a change that must **not** alter behaviour, and a test written afterwards cannot say
+whether it did: it asserts the code you have just written. So the test goes first, against today's
+code, at whatever seam already exists — the exported function, the CLI, the route. Run it and watch
+it pass. That green is the baseline; when it is still green after the extraction, the extraction is
+proven rather than assumed.
+
+If nothing is callable without a filesystem or a network, do not skip the step — take the smallest
+seam you can reach and cover that. Step 4 is where it gets easier to test, and a refactor done
+before any coverage exists is one nobody can review.
+
+For a change that is *supposed* to alter behaviour — a bug the rule uncovered — the same test runs
+the other way: write it, watch it fail, then fix. And for a refactor that is purely types, `emit-diff`
+in step 6b proves more than either (see below).
+
+### 4. Fix them — and notice what the fix reveals
 
 This is the part that is not mechanical. A lint rule is a proxy for a real problem, and the fix
 usually surfaces it:
@@ -52,7 +81,7 @@ usually surfaces it:
 **When a fix changes behaviour, that is a bug, and a bug gets a test.** Say so in the commit
 message; do not fold it silently into a lint cleanup.
 
-### 4. Make it testable — extract the pure part
+### 5. Make it testable — extract the pure part
 
 If you cannot write the test without a filesystem, a clock, a network call or a process, the
 function is doing two jobs. Split it:
@@ -68,7 +97,7 @@ This repo is the worked example: `gatherFacts` is the only function that touches
 detection, `diagnose` is pure over what it returns, and that is why the diagnosis has real tests
 and no fixtures on disk.
 
-### 5. Write the test — then make it fail on purpose
+### 6. Write the test — then make it fail on purpose
 
 Cover the case that was broken, plus the boundary either side of it.
 
@@ -84,7 +113,7 @@ The same applies to a rule you have just switched on: make one violation on purp
 lint reports it. A rule that is enabled and silently finds nothing reads exactly like a clean
 codebase.
 
-### 5b. For a type-only refactor, prove it rather than test it
+### 6b. For a type-only refactor, prove it rather than test it
 
 Narrowing a parameter, deleting an `as`, splitting an interface, adding a guard that replaces a
 cast — all of it erases at compile time. So compile before and after and compare the output:
@@ -102,7 +131,7 @@ When the output does differ, the files it names are exactly where to look — an
 is that the refactor was not type-only after all, which is worth knowing before review rather than
 after.
 
-### 5c. Leave the code more readable than the rule required
+### 6c. Leave the code more readable than the rule required
 
 The rule is the trigger, not the goal. While you are in the function anyway, take the cheap wins —
 but only the cheap ones, and only in the same commit if they are genuinely mechanical:
@@ -118,11 +147,38 @@ but only the cheap ones, and only in the same commit if they are genuinely mecha
 - **One job per function.** If you cannot name it without "and", that is two functions — and the
   split is usually what makes the pure half testable.
 - **Shrink the scope.** A variable declared far from its use is a variable the reader has to carry.
+- **Take one slice off the oversized file, every time you are in it.** File and function size come
+  down in the later phases, but "later" never arrives for a 2000-line module if the only plan is one
+  heroic split. Move the function you just made pure into its own file; lift out the one helper that
+  has no business being there. Thirty lines a pass is what turns the split from a project into
+  something that has already happened by the time anyone schedules it.
 
 Do not turn a lint fix into a rewrite. If the readable version is a genuine redesign, that is an
 issue, not this commit.
 
-### 6. Reclaim the ceiling
+### 6d. Before you keep the extracted function, check it does not already exist
+
+Duplication is not only a phase-five sweep — the cheapest moment to remove a copy is the moment you
+are writing it. You have just made something pure and named it, so ask the tools first:
+
+```bash
+grep -n "<what it does>" docs/shared-helpers.md          # the catalogue, if the repo has one
+npx --yes jscpd@4 <the files you touched> --reporters console --format "typescript,javascript"
+```
+
+Three outcomes, and only the middle one is work:
+
+- **It exists** → call it, delete yours. A second implementation under a sixth name is the copy no
+  scan will ever flag, because two independent versions of the same idea are rarely textually alike.
+- **It exists twice, badly** → this is the extraction. Put the shared version in the standard module
+  described under "Preventing the next copy" in **`ever-better-dry`** — a real place with a domain
+  name, not `utils/misc.ts` — and point both callers at it.
+- **It is genuinely local** → leave it in the file. A helper with one caller belongs next to it.
+
+Then regenerate the catalogue (`npx ever-better catalog`) in the same commit, so the next person
+searching finds what you just added rather than writing it again.
+
+### 7. Reclaim the ceiling
 
 ```bash
 npx ever-better prune
@@ -136,11 +192,18 @@ of it.
 **Never run `freeze` here.** It would re-pin the ceiling at today's number and quietly forgive
 anything added since. It refuses by design; `--force` is not the answer to a red build.
 
-### 7. Commit and open the PR
+### 8. Commit and open the PR
 
 One rule, and say in the body: the rule, how many violations it removed, the ceiling before and
 after, and **every behaviour change with its test**. A reviewer needs to separate "renamed a
 variable" from "this was returning undefined".
+
+**When the edit re-indents a block, that is two commits, not one.** Wrapping a body in a guard, a
+function or a `try` shifts every line inside it, and the formatter then rewraps them — so the diff
+marks the whole block as changed and the three lines you actually wrote are invisible in it. Make
+the edit keeping the existing indentation, commit that, then run the formatter and commit the
+reflow on its own. The first diff is the change; the second is noise a reviewer can skip. Squashing
+them back together is how a real edit hides inside a reformat.
 
 ## What becomes an issue instead
 

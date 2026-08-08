@@ -136,14 +136,17 @@ ever-better log --kind issue    --rule no-floating-promises "#42 を起票 — �
 
 ```bash
 ever-better migrate                              # 依存順の移行計画
+ever-better migrate --all                        # レポ全体を一括改名、コスト付き
 ever-better migrate --file src/util/text.js      # 1ファイル改名、コスト付き
 ```
 
-JavaScript から TypeScript へ、1コミット1ファイルで進めます。まず `allowJs` + `checkJs: false` の `tsconfig.json` を書いて「今のまま」コンパイルが通る状態を作り、そこから1ファイルずつ改名して**型エラーが何件増えたか**を報告します。
+JavaScript から TypeScript へ。まず `allowJs` + `checkJs: false` の `tsconfig.json` を書いて「今のまま」コンパイルが通る状態を作り、そこから `--all` で一括、または1ファイルずつ改名して**型エラーが何件増えたか**を報告します。
 
-**1ファイルずつなのは慎重さではありません。** 型エラーには suppression の仕組みがありません（`--suppress-all` は lint 違反を grandfather しますが、コンパイラには相当物がない）。一括改名すると `typecheck` が落ちたまま、段階的に進める手段が無いレポジトリが残ります。
+**lint エラーは止まる理由になりません。** それこそが ratchet の役目です。`freeze` が ceiling として記録し、その後ルール単位で下げていきます。このレポでは正当なパターンに反応するルールがあるなら、それは移行ではなく設定の判断です。
 
-**依存の葉から**進めます。順序は import グラフから計算します。import 先がまだ JavaScript のファイルに型を付けるのは `any` に対して型を付けることで、依存側が型付けされた後に全部やり直しになります。
+**grandfather できないのは型エラーだけです。** `--suppress-all` が効くのは lint 違反で、コンパイラには相当物がありません。だから `--all` は改名のコストを数えて目の前に出します。ビルドを止めるものを直すか、緩い `tsconfig.json` から始めて `ever-better strictness`（各フラグのコストを有効化前に計測します）で締めていくかを選べます。
+
+**`--file` は依存順**（import グラフから計算）で進みます。エラーを少しずつ受け取りたいレポ向けです。import 先がまだ JavaScript のファイルに型を付けるのは `any` に対して型を付けることで、依存側が型付けされた後にやり直しになります。
 
 ### `catalog`
 

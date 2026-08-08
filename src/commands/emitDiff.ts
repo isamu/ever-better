@@ -42,11 +42,7 @@ const collectEmitted = async (root: string, prefix = ""): Promise<EmittedFile[]>
 
 const compileTo = async (projectDir: string, outDir: string): Promise<boolean> => {
   const tsc = path.join(projectDir, "node_modules", "typescript", "bin", "tsc");
-  const result = await exec(
-    process.execPath,
-    [tsc, ...TSC_ARGS, "--outDir", outDir, "--pretty", "false"],
-    projectDir,
-  );
+  const result = await exec(process.execPath, [tsc, ...TSC_ARGS, "--outDir", outDir, "--pretty", "false"], projectDir);
   // Type errors are irrelevant here — tsc still emits, and emitting is the whole point.
   return result.code < 2 || (await readdir(outDir).catch(() => [])).length > 0;
 };
@@ -66,11 +62,7 @@ export const runEmitDiff = async (options: EmitDiffOptions): Promise<string> => 
   const afterOut = path.join(scratch, "out-after");
 
   try {
-    const added = await exec(
-      "git",
-      ["worktree", "add", "--detach", worktree, options.against],
-      options.cwd,
-    );
+    const added = await exec("git", ["worktree", "add", "--detach", worktree, options.against], options.cwd);
     if (added.code !== 0) {
       return `Could not check out ${options.against}:\n${added.stderr.slice(0, 1000)}`;
     }

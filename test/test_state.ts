@@ -1,14 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import {
-  applyRuleCounts,
-  emptyState,
-  findRegressions,
-  improvements,
-  nextBaseline,
-  setCounter,
-  totalViolations,
-} from "../src/state.ts";
+import { applyRuleCounts, emptyState, findRegressions, improvements, nextBaseline, setCounter, totalViolations } from "../src/state.ts";
 
 describe("nextBaseline", () => {
   it("adopts the current count for a rule seen for the first time", () => {

@@ -1,12 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import {
-  detectFramework,
-  detectRuntime,
-  frameworkIgnores,
-  hasUncoveredFileType,
-  typecheckCommand,
-} from "../src/detect/framework.ts";
+import { detectFramework, detectRuntime, frameworkIgnores, hasUncoveredFileType, typecheckCommand } from "../src/detect/framework.ts";
 import { eslintConfigFileName, eslintPackagesFor } from "../src/generate/eslintConfig.ts";
 import type { SourceFile } from "../src/types.ts";
 
