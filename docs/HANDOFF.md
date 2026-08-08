@@ -110,12 +110,18 @@ Keep the three-platform matrix. It is the only thing that sees this class of bug
 - **knip and jscpd are diagnosed but not installed.** `bootstrap` reports them as gaps and stops
   there. Their counters have a place in `state.json` (`counters`) and nothing writes it yet.
 - **No monorepo support.** One baseline per repository. The state shape leaves room for more.
-- **Not published to npm, and the plugin marketplace is untested.** `.claude-plugin/` is written to
-  the same shape as `receptron/mulmocast-claude-plugin`, but nobody has run
-  `/plugin marketplace add isamu/ever-better` against it.
-- **`ever-better check` in the generated workflow calls `npx ever-better`,** which will fail until
-  the package is on npm. Publishing, or documenting a local install, is a prerequisite for the
-  generated CI to work for anyone else.
+Published and verified on 2026-08-08:
+
+- **`ever-better@0.1.0` is on npm.** `npx ever-better@0.1.0 check` was run against the Vue fixture
+  from a clean fetch and behaved correctly, so the `npx ever-better check` step in every generated
+  workflow now resolves.
+- **The plugin installs.** `claude plugin validate . --strict` passes, and
+  `claude plugin marketplace add isamu/ever-better` followed by
+  `claude plugin install ever-better@ever-better` registers all three skills (~419 always-on tokens).
+
+Before the next release, run `npm pack --dry-run` and check the file list. The first publish
+attempt would have shipped without `formatters/rule-counts.js` — every counting command broken for
+installed users, and nothing in the test suite could see it.
 
 ## Suggested next steps, in order
 
@@ -154,6 +160,46 @@ different in kind from everything else here.
 JS -> TS migration is NOT covered by that decision and stays in scope: types are what make the
 type-aware tier possible, so the ceiling means more once they are in. It is already reported as a
 gap and belongs to the P3 `ever-better-migrate` skill.
+
+## Python: evaluated, feasible, deferred
+
+Raised 2026-08-08. Checked against Ruff's actual documentation rather than assumed.
+
+**The phase model transfers, and Ruff has the primitives**, so this does not need a ratchet of our
+own any more than the JS side did:
+
+| ever-better | JavaScript | Python |
+| --- | --- | --- |
+| freeze | `eslint --suppress-all` | `ruff check --add-noqa` |
+| check | `eslint .` | `ruff check` (with `RUF100` selected) |
+| prune | `eslint --prune-suppressions` | `ruff check --select RUF100 --fix` |
+| format | prettier | `ruff format` |
+
+`RUF100` (`unused-noqa`) is Ruff's own rule for a suppression whose violation is gone — the same
+job `--prune-suppressions` does.
+
+**The one real difference**: Ruff has **no external suppressions file**. `--add-noqa` writes a
+`# noqa: RULE` comment onto every violating line, so the ceiling lives in the source. Consequences
+to design around, not to discover later:
+
+- The first freeze is an enormous, invasive diff — a comment per violating line, rather than one
+  JSON file. It must be its own commit, and the skill has to say so up front.
+- The ceiling is per-line rather than a count, so the ledger counts the markers instead of reading
+  a file ESLint maintains.
+- It interacts with formatting: `ruff format` after `--add-noqa` can move the comments.
+
+**Unclear, and the reason to scope the first Python release to linting only**: type checking has no
+first-party baseline. mypy has none built in (`mypy-baseline` is third-party), and pyright uses
+inline `# type: ignore`. Ship Ruff first; treat types as a later tier, exactly as the JS side treats
+the type-aware rules as a separate step.
+
+**Cost**: a medium refactor, not a rewrite. `RepoFacts` currently bakes in `package.json`, and
+`findEslint` looks in `node_modules`. Both need an ecosystem seam — detect `js` / `python`, then a
+driver exposing detect / plan / freeze / count / prune. The state file, the `QUALITY.md` renderer,
+`check`, and the whole ratchet logic are reusable unchanged.
+
+**Order**: after P3 drain. Drain is what makes the tool worth adopting in the first language; a
+second language before that doubles the surface with nothing behind it.
 
 ## Open questions for isamu
 
