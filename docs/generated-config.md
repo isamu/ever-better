@@ -39,6 +39,8 @@ export default tseslint.config(
   // strictTypeChecked, not recommended: the type-aware rules that find real bugs are only in
   // the TypeChecked presets, and the strict variant is where the `any` family lives.
   tseslint.configs.strictTypeChecked,
+  // The two are disjoint; typescript-eslint's own advice is to use both.
+  tseslint.configs.stylisticTypeChecked,
   {
     languageOptions: {
       parserOptions: { projectService: true, tsconfigRootDir: import.meta.dirname },
@@ -57,6 +59,9 @@ export default tseslint.config(
       "@typescript-eslint/no-explicit-any": "error",
       "@typescript-eslint/no-non-null-assertion": "error",
       "@typescript-eslint/no-unused-vars": ["error", { argsIgnorePattern: "^__" }],
+      // `as` asserts what the compiler could not check, and it is invisible in review. Write a
+      // type guard instead — the guard is testable and the assertion is a promise.
+      "@typescript-eslint/consistent-type-assertions": ["error", { assertionStyle: "never" }],
     },
   },
   {
@@ -64,8 +69,8 @@ export default tseslint.config(
     // than one-line fixes, which is exactly why they are recorded rather than negotiated.
     rules: {
       "max-lines": ["error", { max: 600, skipBlankLines: true, skipComments: true }],
-      "max-lines-per-function": ["error", { max: 60, skipBlankLines: true, skipComments: true }],
-      complexity: ["error", 20],
+      "max-lines-per-function": ["error", { max: 50, skipBlankLines: true, skipComments: true }],
+      complexity: ["error", 15],
       "max-depth": ["error", 4],
       "max-nested-callbacks": ["error", 4],
       "max-params": ["error", 6],
@@ -126,6 +131,8 @@ export default tseslint.config(
   // strictTypeChecked, not recommended: the type-aware rules that find real bugs are only in
   // the TypeChecked presets, and the strict variant is where the `any` family lives.
   tseslint.configs.strictTypeChecked,
+  // The two are disjoint; typescript-eslint's own advice is to use both.
+  tseslint.configs.stylisticTypeChecked,
   {
     languageOptions: {
       parserOptions: { projectService: true, tsconfigRootDir: import.meta.dirname },
@@ -176,6 +183,9 @@ export default tseslint.config(
       "@typescript-eslint/no-explicit-any": "error",
       "@typescript-eslint/no-non-null-assertion": "error",
       "@typescript-eslint/no-unused-vars": ["error", { argsIgnorePattern: "^__" }],
+      // `as` asserts what the compiler could not check, and it is invisible in review. Write a
+      // type guard instead — the guard is testable and the assertion is a promise.
+      "@typescript-eslint/consistent-type-assertions": ["error", { assertionStyle: "never" }],
     },
   },
   {
@@ -183,8 +193,8 @@ export default tseslint.config(
     // than one-line fixes, which is exactly why they are recorded rather than negotiated.
     rules: {
       "max-lines": ["error", { max: 600, skipBlankLines: true, skipComments: true }],
-      "max-lines-per-function": ["error", { max: 60, skipBlankLines: true, skipComments: true }],
-      complexity: ["error", 20],
+      "max-lines-per-function": ["error", { max: 50, skipBlankLines: true, skipComments: true }],
+      complexity: ["error", 15],
       "max-depth": ["error", 4],
       "max-nested-callbacks": ["error", 4],
       "max-params": ["error", 6],
@@ -246,6 +256,8 @@ export default tseslint.config(
   // strictTypeChecked, not recommended: the type-aware rules that find real bugs are only in
   // the TypeChecked presets, and the strict variant is where the `any` family lives.
   tseslint.configs.strictTypeChecked,
+  // The two are disjoint; typescript-eslint's own advice is to use both.
+  tseslint.configs.stylisticTypeChecked,
   {
     languageOptions: {
       parserOptions: { projectService: true, tsconfigRootDir: import.meta.dirname },
@@ -266,6 +278,9 @@ export default tseslint.config(
       "@typescript-eslint/no-explicit-any": "error",
       "@typescript-eslint/no-non-null-assertion": "error",
       "@typescript-eslint/no-unused-vars": ["error", { argsIgnorePattern: "^__" }],
+      // `as` asserts what the compiler could not check, and it is invisible in review. Write a
+      // type guard instead — the guard is testable and the assertion is a promise.
+      "@typescript-eslint/consistent-type-assertions": ["error", { assertionStyle: "never" }],
     },
   },
   {
@@ -273,8 +288,8 @@ export default tseslint.config(
     // than one-line fixes, which is exactly why they are recorded rather than negotiated.
     rules: {
       "max-lines": ["error", { max: 600, skipBlankLines: true, skipComments: true }],
-      "max-lines-per-function": ["error", { max: 60, skipBlankLines: true, skipComments: true }],
-      complexity: ["error", 20],
+      "max-lines-per-function": ["error", { max: 50, skipBlankLines: true, skipComments: true }],
+      complexity: ["error", 15],
       "max-depth": ["error", 4],
       "max-nested-callbacks": ["error", 4],
       "max-params": ["error", 6],
@@ -345,8 +360,8 @@ export default tseslint.config(
     // than one-line fixes, which is exactly why they are recorded rather than negotiated.
     rules: {
       "max-lines": ["error", { max: 600, skipBlankLines: true, skipComments: true }],
-      "max-lines-per-function": ["error", { max: 60, skipBlankLines: true, skipComments: true }],
-      complexity: ["error", 20],
+      "max-lines-per-function": ["error", { max: 50, skipBlankLines: true, skipComments: true }],
+      complexity: ["error", 15],
       "max-depth": ["error", 4],
       "max-nested-callbacks": ["error", 4],
       "max-params": ["error", 6],

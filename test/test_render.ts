@@ -219,6 +219,26 @@ describe("renderEslintConfig — readability and security tiers", () => {
     assert.match(config, /"js"/);
   });
 
+  it("bans `as`, which asserts what the compiler could not check", () => {
+    // The single biggest one, and it was missing: the strengthen path added it to a repo's own
+    // config while the generated config did not have it at all.
+    assert.match(renderEslintConfig(opts), /assertionStyle: "never"/);
+  });
+
+  it("uses both TypeChecked presets, which are disjoint", () => {
+    const config = renderEslintConfig(opts);
+    assert.match(config, /strictTypeChecked/);
+    assert.match(config, /stylisticTypeChecked/);
+  });
+
+  it("uses the reference thresholds rather than looser ones", () => {
+    // Freeze grandfathers whatever exists, so a stricter default costs nothing on day one and
+    // binds every line written afterwards. There is no reason to start loose.
+    const config = renderEslintConfig(opts);
+    assert.match(config, /"max-lines-per-function": \["error", \{ max: 50/);
+    assert.match(config, /complexity: \["error", 15\]/);
+  });
+
   it("runs Prettier as a lint rule, which puts formatting inside the ratchet", () => {
     // A formatting violation becomes an error like any other: `eslint --fix` repairs it, and CI
     // needs one gate instead of two that can disagree about the same file.
