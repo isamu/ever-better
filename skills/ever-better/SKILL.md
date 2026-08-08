@@ -23,12 +23,16 @@ and the ledger around that.
 | P0 diagnose | survey the repo, name every gap | `ever-better diagnose` |
 | P1 bootstrap | install missing tooling, generate configs | `ever-better-bootstrap` skill |
 | P2 freeze | pin today's violations as the ceiling | `ever-better-freeze` skill |
-| P3 drain | fix one rule at a time; the bugs it exposes get tests | not yet shipped |
-| P4 tighten | add the next tier of rules, repeat | not yet shipped |
-| P5 split & DRY | break up big files, remove duplication | not yet shipped |
+| P3 drain | fix one rule at a time; the bugs it exposes get tests | `ever-better-drain` skill |
+| P4 tighten | add the next tier of rules, repeat | `ever-better-bootstrap` + `-freeze` again |
+| P5 split & DRY | remove duplication and dead code | `ever-better-dry` skill |
 
-P3–P5 are the phases where the real value is. They are not automated yet — after P2, read
-`QUALITY.md` and work the smallest backlog first, by hand or with a normal agent session.
+P3 and P5 are where the value is. Everything before them installs tooling and records a number;
+those two bring the number down and take the bugs out with it.
+
+**They automate by default.** A fix, an extracted function, a new test, a deleted orphan — done,
+not asked about. Only a refactor that needs the owner's judgment becomes a GitHub issue, and the
+issue says what the options are and which one you would pick.
 
 ## Start here
 
@@ -53,9 +57,8 @@ P3–P5 are the phases where the real value is. They are not automated yet — a
 
    - anything in the `bootstrap` phase → the **`ever-better-bootstrap`** skill
    - bootstrap clean, nothing frozen yet → the **`ever-better-freeze`** skill
-   - already frozen → read `QUALITY.md`, pick the rule with the **smallest** remaining count, and
-     drain it. Small first: an early win that lands is worth more than the largest backlog
-     half-finished.
+   - already frozen, backlog remaining → the **`ever-better-drain`** skill
+   - backlog empty, or the user asks about duplication or dead code → the **`ever-better-dry`** skill
 
 ## Things worth saying to the user before they commit to this
 
