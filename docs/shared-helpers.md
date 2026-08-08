@@ -19,7 +19,7 @@ notices once the copies are textually similar — and independently written ones
 | `catalogSources` | src/catalog.ts:93 |  |
 | `commitsSince` | src/git.ts:22 | How far the repository has moved since a diagnosis. |
 | `compareEmit` | src/emitCompare.ts:24 | Pure comparison of two compiler outputs. |
-| `describeAction` | src/bootstrapPlan.ts:243 |  |
+| `describeAction` | src/bootstrapPlan.ts:248 |  |
 | `describeComparison` | src/emitCompare.ts:48 |  |
 | `diagnose` | src/diagnose.ts:257 | Pure: every fact was already read from disk by `gatherFacts`. |
 | `emptyState` | src/state.ts:32 |  |
@@ -32,7 +32,7 @@ notices once the copies are textually similar — and independently written ones
 | `improvements` | src/state.ts:154 |  |
 | `logOfKind` | src/state.ts:88 |  |
 | `nextBaseline` | src/state.ts:93 |  |
-| `planBootstrap` | src/bootstrapPlan.ts:233 |  |
+| `planBootstrap` | src/bootstrapPlan.ts:238 |  |
 | `printConfig` | src/eslintRunner.ts:127 | What ESLint will ACTUALLY apply to one file. |
 | `pruneSuppressions` | src/eslintRunner.ts:168 |  |
 | `readState` | src/state.ts:54 |  |
@@ -94,14 +94,14 @@ notices once the copies are textually similar — and independently written ones
 | `addCompilerOptions` | src/generate/tsconfigEdit.ts:9 |  |
 | `appendConfigBlocks` | src/generate/eslintAppend.ts:33 |  |
 | `appendGeneratedPaths` | src/generate/prettierIgnore.ts:18 | `.prettierignore` is line-based, so appending is well-defined in a way that editing someone's config file is not. |
-| `eslintConfigFileName` | src/generate/eslintConfig.ts:56 | The config is written as ESM either way. |
-| `eslintPackagesFor` | src/generate/eslintConfig.ts:45 |  |
+| `eslintConfigFileName` | src/generate/eslintConfig.ts:60 | The config is written as ESM either way. |
+| `eslintPackagesFor` | src/generate/eslintConfig.ts:49 |  |
 | `frameworkParts` | src/generate/frameworkBlocks.ts:114 |  |
 | `renderCodexReviewWorkflow` | src/generate/codexReview.ts:109 | A second model reading the diff. |
 | `renderDeadCodeWorkflow` | src/generate/scanWorkflows.ts:86 | Dead code, into the job summary. |
 | `renderDependabot` | src/generate/dependabot.ts:19 | The generated workflows pin action majors, and a pinned version rots silently — a workflow two majors behind still runs, so nothing ever reports it. |
 | `renderDuplicationWorkflow` | src/generate/scanWorkflows.ts:31 | Duplication, into GitHub Code Scanning. |
-| `renderEslintConfig` | src/generate/eslintConfig.ts:203 |  |
+| `renderEslintConfig` | src/generate/eslintConfig.ts:207 |  |
 | `renderGateWorkflow` | src/generate/gateWorkflow.ts:26 | A separate workflow file rather than a step spliced into one the repo already wrote. |
 | `renderGitattributes` | src/generate/gitattributes.ts:9 | Git checks out CRLF on Windows by default while Prettier normalises to LF, so a repository without this reports every single file as unformatted — but only on the Windows runner, and only once someone adds one. |
 | `renderKnipConfig` | src/generate/knipConfig.ts:60 | Every rule is `warn`, which is what keeps the exit code at zero. |

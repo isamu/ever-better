@@ -2,7 +2,7 @@ import js from "@eslint/js";
 import globals from "globals";
 import tseslint from "typescript-eslint";
 import sonarjs from "eslint-plugin-sonarjs";
-import prettier from "eslint-config-prettier";
+import prettierRecommended from "eslint-plugin-prettier/recommended";
 
 // This repository runs every tier its own generator emits. When a tier is uncomfortable here it is
 // uncomfortable in every repo ever-better touches, which is the point.
@@ -12,7 +12,8 @@ export default tseslint.config(
   js.configs.recommended,
   tseslint.configs.recommendedTypeChecked,
   sonarjs.configs.recommended,
-  prettier,
+  // Last: it switches off every rule that would argue with the formatter.
+  prettierRecommended,
 
   {
     languageOptions: {

@@ -169,6 +169,7 @@ describe("planBootstrap", () => {
           typecheck: "tsc",
           test: "vitest run",
           knip: "knip",
+          "format:check": "prettier --check .",
         },
         devDependencies: {
           eslint: "^10",
@@ -177,6 +178,7 @@ describe("planBootstrap", () => {
           "typescript-eslint": "^8",
           "eslint-plugin-sonarjs": "^4",
           "eslint-config-prettier": "^10",
+          "eslint-plugin-prettier": "^5",
           "eslint-plugin-import-x": "^4",
           "eslint-plugin-security": "^4",
           knip: "^6",

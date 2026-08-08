@@ -29,7 +29,7 @@ import js from "@eslint/js";
 import globals from "globals";
 import tseslint from "typescript-eslint";
 import sonarjs from "eslint-plugin-sonarjs";
-import prettier from "eslint-config-prettier";
+import prettierRecommended from "eslint-plugin-prettier/recommended";
 import security from "eslint-plugin-security";
 
 export default tseslint.config(
@@ -46,7 +46,7 @@ export default tseslint.config(
   },
   sonarjs.configs.recommended,
   security.configs.recommended,
-  prettier,
+  prettierRecommended,
 
   { languageOptions: { globals: globals.node } },
 
@@ -115,7 +115,7 @@ import js from "@eslint/js";
 import globals from "globals";
 import tseslint from "typescript-eslint";
 import sonarjs from "eslint-plugin-sonarjs";
-import prettier from "eslint-config-prettier";
+import prettierRecommended from "eslint-plugin-prettier/recommended";
 import security from "eslint-plugin-security";
 import pluginVue from "eslint-plugin-vue";
 
@@ -165,7 +165,7 @@ export default tseslint.config(
       "@typescript-eslint/no-unsafe-return": "off",
     },
   },
-  prettier,
+  prettierRecommended,
 
   { languageOptions: { globals: { ...globals.browser, ...globals.node } } },
 
@@ -234,7 +234,7 @@ import js from "@eslint/js";
 import globals from "globals";
 import tseslint from "typescript-eslint";
 import sonarjs from "eslint-plugin-sonarjs";
-import prettier from "eslint-config-prettier";
+import prettierRecommended from "eslint-plugin-prettier/recommended";
 import security from "eslint-plugin-security";
 import reactHooks from "eslint-plugin-react-hooks";
 import next from "@next/eslint-plugin-next";
@@ -255,7 +255,7 @@ export default tseslint.config(
   security.configs.recommended,
   reactHooks.configs.flat["recommended-latest"],
   next.configs["core-web-vitals"],
-  prettier,
+  prettierRecommended,
 
   { languageOptions: { globals: { ...globals.browser, ...globals.node } } },
 
@@ -324,7 +324,7 @@ import js from "@eslint/js";
 import globals from "globals";
 import tseslint from "typescript-eslint";
 import sonarjs from "eslint-plugin-sonarjs";
-import prettier from "eslint-config-prettier";
+import prettierRecommended from "eslint-plugin-prettier/recommended";
 import security from "eslint-plugin-security";
 
 export default tseslint.config(
@@ -336,7 +336,7 @@ export default tseslint.config(
   tseslint.configs.recommended,
   sonarjs.configs.recommended,
   security.configs.recommended,
-  prettier,
+  prettierRecommended,
 
   { languageOptions: { globals: globals.node } },
 

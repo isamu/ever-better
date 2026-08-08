@@ -108,7 +108,7 @@ describe("renderEslintConfig — frameworks", () => {
 
   it("puts prettier last so it can switch off the plugins' formatting rules", () => {
     const config = forFramework("vue");
-    assert.ok(config.indexOf("flat/recommended") < config.indexOf("  prettier,"));
+    assert.ok(config.indexOf("flat/recommended") < config.indexOf("prettierRecommended,"));
   });
 });
 
@@ -217,6 +217,20 @@ describe("renderEslintConfig — readability and security tiers", () => {
     assert.match(config, /min: 3, exceptions:/);
     // `js` is the conventional alias for @eslint/js and appears in this very file.
     assert.match(config, /"js"/);
+  });
+
+  it("runs Prettier as a lint rule, which puts formatting inside the ratchet", () => {
+    // A formatting violation becomes an error like any other: `eslint --fix` repairs it, and CI
+    // needs one gate instead of two that can disagree about the same file.
+    const config = renderEslintConfig(opts);
+    assert.match(config, /eslint-plugin-prettier\/recommended/);
+    assert.match(config, /prettierRecommended,/);
+  });
+
+  it("puts the formatter config last, so nothing can turn a conflicting rule back on", () => {
+    const config = renderEslintConfig(opts);
+    const blocks = ["prettierRecommended,", 'files: ["test/**"]'];
+    assert.ok(config.indexOf(blocks[0] ?? "") < config.indexOf(blocks[1] ?? ""));
   });
 
   it("adds the security tier for Node-side code", () => {

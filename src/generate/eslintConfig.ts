@@ -19,6 +19,10 @@ const BASE_PACKAGES = [
   "typescript-eslint",
   "eslint-plugin-sonarjs",
   "eslint-config-prettier",
+  // Prettier runs AS a lint rule rather than as a separate command. That is what puts formatting
+  // inside the ratchet: a violation is an error like any other, `eslint --fix` repairs it, and CI
+  // needs one gate instead of two that can disagree.
+  "eslint-plugin-prettier",
 ];
 
 /*
@@ -71,7 +75,7 @@ const BASE_IMPORTS = [
   'import globals from "globals";',
   'import tseslint from "typescript-eslint";',
   'import sonarjs from "eslint-plugin-sonarjs";',
-  'import prettier from "eslint-config-prettier";',
+  'import prettierRecommended from "eslint-plugin-prettier/recommended";',
 ];
 
 const GLOBALS_EXPRESSION: Record<Runtime, string> = {
@@ -216,7 +220,9 @@ export const renderEslintConfig = (options: EslintConfigOptions): string => {
     "  sonarjs.configs.recommended,",
     ...securityBlock(options.runtime),
     ...framework.configs,
-    "  prettier,",
+    // Last: it switches off every rule that would argue with the formatter, so anything after it
+    // could turn one back on.
+    "  prettierRecommended,",
     "",
     `  { languageOptions: { globals: ${GLOBALS_EXPRESSION[options.runtime]} } },`,
     "",
