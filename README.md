@@ -118,11 +118,23 @@ diagnosis.
 
 ### `bootstrap`
 
-Installs the missing dev dependencies with the repo's own package manager, generates a tiered flat
-ESLint config, adds the `lint` / `format` / `typecheck` / `test` scripts CI needs, and writes a
-three-platform GitHub Actions workflow.
+Installs the missing dev dependencies with the repo's own package manager and generates the four
+layers the approach depends on, each covering what the others cannot see:
 
-It never overwrites a config that already exists. `--dry-run` prints the plan and touches nothing.
+| Layer | Tool | What it sees |
+| --- | --- | --- |
+| function size and complexity | ESLint core rules | long functions, deep nesting, too many branches |
+| types and readability | SonarJS + `strictTypeChecked` | unsafe `any`, cognitive complexity |
+| cross-file duplication | jscpd, into Code Scanning | copy-paste the linter cannot see |
+| dead code | knip | exports nobody imports, orphaned files |
+
+Plus the `lint` / `format` / `typecheck` / `test` / `knip` scripts CI needs, a three-platform
+workflow, `.gitattributes`, `.prettierignore`, and `dependabot.yml` so the pinned action versions
+stay current after ever-better has stopped looking.
+
+It never overwrites a config that already exists — the exceptions in it have reasons that are not
+in the file. The one exception is `.prettierignore`, which is line-based and so is appended to.
+`--dry-run` prints the plan and touches nothing.
 
 ### `freeze`
 
@@ -143,10 +155,26 @@ its ceiling. Add it to the workflow after `lint`.
 After you fix a grandfathered violation, its suppression is stale. `prune` reclaims it, lowering
 the ceiling by exactly what you fixed. This is the only way the ceiling comes down.
 
+### `log`
+
+```bash
+ever-better log --kind drained  --rule max-depth "6 violations, 1 real bug"
+ever-better log --kind deferred --rule max-lines "router.ts is 1400 lines; its own project"
+ever-better log --kind issue    --rule no-floating-promises "opened #42 — product decision"
+```
+
+Records what happened against the current commit. `deferred` is the one that earns its keep: it
+renders into a **Carried over** checklist in `QUALITY.md` with the commit it was seen at, because
+"router.ts needs splitting" is useless four hundred commits later unless a reader can tell when it
+was true.
+
 ### `status`
 
 Prints the current phase, the backlog, and the rules with the smallest remaining counts — which
-are the ones to drain first.
+are the ones to drain first. It leads with a `STALE` line when the diagnosis is more than thirty
+days old, fifty commits behind, or was taken on a commit no longer in this history (a rebase or
+force-push). The ratchet itself never goes stale — ESLint maintains it against the current tree —
+but the gap list, the file sizes and every deferred note do.
 
 ## Artifacts
 
@@ -156,8 +184,10 @@ are the ones to drain first.
 | `.ever-better/state.json` | ever-better | yes — the ledger |
 | `QUALITY.md` | rendered from the ledger | yes — the human view |
 
-`QUALITY.md` is regenerated on every run. Anything you write between the
-`<!-- ever-better:notes:start -->` markers survives.
+`QUALITY.md` is regenerated on every run and carries four sections rendered from the ledger: a
+**Worklist** of phases as checkboxes with the smallest remaining rules as sub-items, **Carried
+over** for refactors deliberately not made, the **Ratchet** table, and a **Work log**. Anything you
+write between the `<!-- ever-better:notes:start -->` markers survives.
 
 ## Claude Code plugin
 
