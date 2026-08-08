@@ -105,6 +105,9 @@ The config is written as `eslint.config.mjs` unless `package.json` declares `"ty
 it is ESM either way, and in a CommonJS package a `.js` file makes Node reparse and warn on every
 lint run.
 
+Everything bootstrap writes is shown in **[docs/generated-config.md](docs/generated-config.md)** —
+rendered from the generators themselves, so it cannot drift from what you actually get.
+
 ## What each command does
 
 ### `diagnose`

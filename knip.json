@@ -1,6 +1,6 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
-  "entry": ["src/cli.ts", "src/index.ts", "test/*.ts", "formatters/rule-counts.js"],
+  "entry": ["src/cli.ts", "src/index.ts", "test/*.ts", "scripts/*.ts", "formatters/rule-counts.js"],
   "project": ["src/**/*.ts", "formatters/**/*.js"],
   "rules": {
     "exports": "warn",
