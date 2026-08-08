@@ -114,13 +114,33 @@ export type Counter = {
   current: number;
 };
 
+/**
+ * `deferred` is the one that earns its keep: a refactor the agent decided not to make, recorded
+ * with the commit it was seen at, so a later session can tell whether the observation still
+ * describes the code.
+ */
+export type LogKind = "drained" | "deferred" | "issue" | "note";
+
+export type LogEntry = {
+  at: string;
+  /** HEAD when this was written. Without it a note cannot be aged. */
+  commit: string | null;
+  kind: LogKind;
+  rule?: string;
+  text: string;
+};
+
 export type State = {
   version: 1;
   tool: string;
   phase: Phase;
   updatedAt: string;
   frozenAt: string | null;
+  /** When and at which commit the diagnosis below was taken. */
+  diagnosedAt: string | null;
+  diagnosedCommit: string | null;
   diagnosis: Diagnosis | null;
   rules: Record<string, RuleBaseline>;
   counters: Record<string, Counter>;
+  log: LogEntry[];
 };

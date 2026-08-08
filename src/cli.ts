@@ -5,6 +5,7 @@ import { runBootstrap } from "./commands/bootstrap.ts";
 import { runCheck } from "./commands/check.ts";
 import { runDiagnose } from "./commands/diagnose.ts";
 import { runFreeze } from "./commands/freeze.ts";
+import { isLogKind, LOG_KIND_LIST, runLog } from "./commands/log.ts";
 import { runPrune } from "./commands/prune.ts";
 import { runStatus } from "./commands/status.ts";
 
@@ -18,6 +19,7 @@ const USAGE = `ever-better — make a codebase that can only get better
   prune       reclaim suppressions you have fixed     (lowers the ceiling)
   check       fail if anything rose above its ceiling (for CI)
   status      print the current backlog
+  log         record what happened, stamped with the current commit
 
 Options
   --cwd <dir>       target repository (default: current directory)
@@ -27,6 +29,8 @@ Options
   --force           freeze: allow a ceiling to move up
   --no-write        check: do not update the ledger
   --node <version>  node version for the generated workflow (default: ${DEFAULT_NODE_VERSION})
+  --kind <kind>     log: ${LOG_KIND_LIST}
+  --rule <name>     log: the rule this entry is about
 `;
 
 const OPTIONS = {
@@ -37,6 +41,8 @@ const OPTIONS = {
   force: { type: "boolean", default: false },
   "no-write": { type: "boolean", default: false },
   node: { type: "string", default: DEFAULT_NODE_VERSION },
+  kind: { type: "string", default: "note" },
+  rule: { type: "string" },
   help: { type: "boolean", default: false },
 } as const;
 
@@ -48,6 +54,9 @@ type Flags = {
   force: boolean;
   noWrite: boolean;
   node: string;
+  kind: string;
+  rule: string | undefined;
+  rest: string[];
 };
 
 const dispatch = async (
@@ -76,6 +85,15 @@ const dispatch = async (
     const result = await runCheck({ cwd: flags.cwd, write: !flags.noWrite });
     return { output: result.message, ok: result.ok };
   }
+  if (command === "log") {
+    if (!isLogKind(flags.kind))
+      return { output: `--kind must be one of: ${LOG_KIND_LIST}`, ok: false };
+    const text = flags.rest.join(" ").trim();
+    if (!text)
+      return { output: 'log needs text: ever-better log --kind deferred "..."', ok: false };
+    const output = await runLog({ cwd: flags.cwd, kind: flags.kind, text, rule: flags.rule });
+    return { output, ok: true };
+  }
   if (command === "status") {
     return { output: await runStatus({ cwd: flags.cwd, json: flags.json }), ok: true };
   }
@@ -103,6 +121,9 @@ const main = async (): Promise<number> => {
     force: values.force,
     noWrite: values["no-write"],
     node: values.node,
+    kind: values.kind,
+    rule: values.rule,
+    rest: positionals.slice(1),
   };
 
   const { output, ok } = await dispatch(command, flags);

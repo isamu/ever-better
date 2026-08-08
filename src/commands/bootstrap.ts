@@ -4,6 +4,7 @@ import { describeAction, planBootstrap, type BootstrapAction } from "../bootstra
 import { installCommand } from "../detect/packageManager.ts";
 import { diagnose } from "../diagnose.ts";
 import { gatherFacts } from "../facts.ts";
+import { headCommit } from "../git.ts";
 import { writeQualityFile } from "../qualityFile.ts";
 import { emptyState, readState, withDiagnosis, withPhase, writeState } from "../state.ts";
 import { exec } from "../util/exec.ts";
@@ -81,10 +82,8 @@ export const runBootstrap = async (options: BootstrapOptions): Promise<string> =
   }
 
   const after = diagnose(await gatherFacts(options.cwd));
-  const state = withPhase(
-    withDiagnosis((await readState(options.cwd)) ?? emptyState(), after),
-    "freeze",
-  );
+  const previous = (await readState(options.cwd)) ?? emptyState();
+  const state = withPhase(withDiagnosis(previous, after, await headCommit(options.cwd)), "freeze");
   await writeState(options.cwd, state);
   await writeQualityFile(options.cwd, state);
 

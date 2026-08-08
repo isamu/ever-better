@@ -11,6 +11,44 @@ requests, not questions.
 The list of things that stop and ask is short and is written down below — if something is not on
 it, do it.
 
+## The checklist and the log are in the repo, not in your head
+
+`QUALITY.md` carries three sections this mode depends on, all rendered from
+`.ever-better/state.json`:
+
+- **Worklist** — the phases as checkboxes, with the smallest remaining rules as sub-items. Work it
+  top to bottom. It is derived from the numbers beside it, so it cannot drift from them.
+- **Carried over** — refactors deliberately not made, each stamped with the commit it was seen at.
+- **Work log** — what was drained, deferred, or turned into an issue, and when.
+
+Record as you go, not at the end:
+
+```bash
+npx ever-better log --kind drained  --rule max-depth "6 violations, 1 real bug (unreachable branch)"
+npx ever-better log --kind deferred --rule max-lines "server/router.ts is 1400 lines; splitting is its own project"
+npx ever-better log --kind issue    --rule no-floating-promises "opened #42 — swallowed error, product decision"
+```
+
+The commit stamp is the point. A note saying "router.ts needs splitting" is useless six months and
+four hundred commits later unless a reader can see when it was true.
+
+## Coming back to a repository you have not touched in a while
+
+**Re-diagnose first.** `ever-better status` prints a `STALE` line, and `QUALITY.md` opens with a
+warning, when the diagnosis is more than thirty days old, more than fifty commits behind, or was
+taken on a commit no longer in this history (a rebase or force-push). All three mean the same
+thing: file names and counts in the ledger may describe code that has moved.
+
+```bash
+npx ever-better diagnose --write
+```
+
+The ratchet itself never goes stale — `eslint-suppressions.json` is maintained by ESLint against
+the current tree. It is the *diagnosis* that ages: gap list, file sizes, and every deferred note.
+
+Re-read **Carried over** after re-diagnosing and drop the entries that no longer describe anything.
+A stale checklist that nobody prunes is how the list stops being read at all.
+
 ## Before anything
 
 1. **Confirm the working tree is clean.** `git status --porcelain`. If it is not, stop and say so:

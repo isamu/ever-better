@@ -1,5 +1,7 @@
-import { findRegressions, improvements, totalViolations } from "../state.ts";
-import type { Gap, RuleBaseline, State } from "../types.ts";
+import { findRegressions, improvements, logOfKind, totalViolations } from "../state.ts";
+import type { Freshness } from "../freshness.ts";
+import type { Gap, LogEntry, RuleBaseline, State } from "../types.ts";
+import { buildWorklist, renderWorklist } from "./worklist.ts";
 
 export const QUALITY_FILE = "QUALITY.md";
 
@@ -63,6 +65,59 @@ const gapsChecklist = (gaps: readonly Gap[]): string[] => {
   ]);
 };
 
+const LOG_ENTRIES_SHOWN = 20;
+
+const shortCommit = (commit: string | null): string => (commit ? commit.slice(0, 8) : "unknown");
+
+/**
+ * Deferred work is the section that decays. Each entry carries the commit it was written at, so a
+ * reader can see at a glance whether the observation predates half the repository.
+ */
+const rulePrefix = (rule: string | undefined): string => (rule ? `\`${rule}\` — ` : "");
+
+const provenance = (entry: LogEntry): string =>
+  `_(${entry.at.slice(0, 10)}, ${shortCommit(entry.commit)})_`;
+
+const carriedOver = (state: State): string[] => {
+  const deferred = logOfKind(state, "deferred");
+  if (deferred.length === 0) return [];
+  return [
+    "## Carried over",
+    "",
+    "Refactors left undone, with the commit each was seen at. Re-check before acting on an old one.",
+    "",
+    ...deferred.map(
+      (entry) => `- [ ] ${rulePrefix(entry.rule)}${entry.text}  ${provenance(entry)}`,
+    ),
+    "",
+  ];
+};
+
+const logRow = (entry: LogEntry): string =>
+  `| ${entry.at.slice(0, 10)} | ${shortCommit(entry.commit)} | ${entry.kind} | ${entry.rule ?? ""} | ${entry.text} |`;
+
+const workLog = (state: State): string[] => {
+  const entries = (state.log ?? []).slice(-LOG_ENTRIES_SHOWN).reverse();
+  if (entries.length === 0) return [];
+  return [
+    "## Work log",
+    "",
+    "| Date | Commit | Kind | Rule | What |",
+    "| --- | --- | --- | --- | --- |",
+    ...entries.map(logRow),
+    "",
+  ];
+};
+
+const freshnessBanner = (freshness: Freshness): string[] =>
+  freshness.stale
+    ? [
+        `> **The diagnosis below is stale** — ${freshness.reason}.`,
+        "> Numbers and file names may describe code that has since moved.",
+        "",
+      ]
+    : [];
+
 const headline = (state: State): string[] => {
   const regressions = findRegressions(state);
   const gained = improvements(state);
@@ -93,14 +148,22 @@ export const extractNotes = (existing: string | null): string => {
  * Pure: same state and same notes render the same file, so the diff on every run is exactly the
  * numbers that moved.
  */
-export const renderQuality = (state: State, notes: string): string =>
+export const renderQuality = (state: State, notes: string, freshness: Freshness): string =>
   [
     "# Quality",
     "",
     "Maintained by [ever-better](https://github.com/isamu/ever-better). Numbers are rendered from",
     "`.ever-better/state.json`; edits outside the notes block are overwritten on the next run.",
     "",
+    ...freshnessBanner(freshness),
     ...headline(state),
+    "## Worklist",
+    "",
+    "Top to bottom. An unattended run works this list and nothing else.",
+    "",
+    ...renderWorklist(buildWorklist(state)),
+    "",
+    ...carriedOver(state),
     "## Ratchet",
     "",
     "Ceiling is the count at the last freeze. It may fall and must never rise.",
@@ -110,6 +173,7 @@ export const renderQuality = (state: State, notes: string): string =>
     "## Outstanding",
     "",
     ...gapsChecklist(state.diagnosis?.gaps ?? []),
+    ...workLog(state),
     "## Notes",
     "",
     NOTES_START,

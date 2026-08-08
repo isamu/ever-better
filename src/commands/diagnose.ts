@@ -1,5 +1,6 @@
 import { diagnose } from "../diagnose.ts";
 import { gatherFacts } from "../facts.ts";
+import { headCommit } from "../git.ts";
 import { writeQualityFile } from "../qualityFile.ts";
 import { renderReport } from "../render/report.ts";
 import { emptyState, readState, withDiagnosis, writeState } from "../state.ts";
@@ -15,7 +16,8 @@ export const runDiagnose = async (options: DiagnoseOptions): Promise<string> => 
   const diagnosis = diagnose(facts);
 
   if (options.write) {
-    const state = withDiagnosis((await readState(options.cwd)) ?? emptyState(), diagnosis);
+    const previous = (await readState(options.cwd)) ?? emptyState();
+    const state = withDiagnosis(previous, diagnosis, await headCommit(options.cwd));
     await writeState(options.cwd, state);
     await writeQualityFile(options.cwd, state);
   }
