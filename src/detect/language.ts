@@ -6,9 +6,9 @@ const JS_EXTENSIONS = new Set(["js", "jsx", "mjs", "cjs"]);
 /** Below this share of TypeScript, a repo with a tsconfig is still a JavaScript repo in practice. */
 const MIXED_THRESHOLD = 0.9;
 
-export const isTypeScriptFile = (file: SourceFile): boolean => TS_EXTENSIONS.has(file.ext);
+const isTypeScriptFile = (file: SourceFile): boolean => TS_EXTENSIONS.has(file.ext);
 
-export const isJavaScriptFile = (file: SourceFile): boolean => JS_EXTENSIONS.has(file.ext);
+const isJavaScriptFile = (file: SourceFile): boolean => JS_EXTENSIONS.has(file.ext);
 
 /**
  * Share of source files that are TypeScript. Returns 0 for an empty repo rather than NaN, so

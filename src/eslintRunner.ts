@@ -26,7 +26,7 @@ const packageRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "
 
 export const formatterPath = (): string => path.join(packageRoot, "formatters", "rule-counts.js");
 
-export type EslintInvocation = {
+type EslintInvocation = {
   command: string;
   /** Arguments that come before ours — the entry script when going through Node. */
   prefixArgs: string[];
@@ -49,7 +49,7 @@ const exists = async (candidate: string): Promise<boolean> => {
  * which then has to quote paths that may contain spaces. Going straight to the `.js` sidesteps
  * both and behaves identically on every platform.
  */
-export const findEslint = async (cwd: string): Promise<EslintInvocation | null> => {
+const findEslint = async (cwd: string): Promise<EslintInvocation | null> => {
   const entry = path.join(cwd, "node_modules", "eslint", "bin", "eslint.js");
   if (await exists(entry)) {
     return { command: process.execPath, prefixArgs: [entry], shell: false };

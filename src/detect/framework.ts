@@ -35,14 +35,6 @@ export const detectRuntime = (framework: Framework, packageJson: PackageJson | n
   return "vite" in deps || "webpack" in deps ? "both" : "node";
 };
 
-/** Extra file extensions ESLint must be told about, beyond `.ts` / `.js`. */
-export const frameworkExtensions = (framework: Framework): string[] => {
-  if (framework === "vue" || framework === "nuxt") return [".vue"];
-  if (framework === "svelte") return [".svelte"];
-  if (framework === "astro") return [".astro"];
-  return [];
-};
-
 /** Build output that must be ignored, or the first lint run reports thousands of generated files. */
 export const frameworkIgnores = (framework: Framework): string[] => {
   const shared = ["dist/**", "build/**", "coverage/**", "node_modules/**", ".vercel/**"];

@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 
-export const SUPPRESSIONS_FILE = "eslint-suppressions.json";
+const SUPPRESSIONS_FILE = "eslint-suppressions.json";
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null;
