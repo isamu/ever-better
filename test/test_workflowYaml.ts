@@ -4,10 +4,7 @@ import { load } from "js-yaml";
 import { renderCodexReviewWorkflow } from "../src/generate/codexReview.ts";
 import { renderDependabot } from "../src/generate/dependabot.ts";
 import { renderGateWorkflow } from "../src/generate/gateWorkflow.ts";
-import {
-  renderDeadCodeWorkflow,
-  renderDuplicationWorkflow,
-} from "../src/generate/scanWorkflows.ts";
+import { renderDeadCodeWorkflow, renderDuplicationWorkflow } from "../src/generate/scanWorkflows.ts";
 import { renderWorkflow } from "../src/generate/workflow.ts";
 
 const SCRIPTS = { lint: true, format: true, build: true, typecheck: true, test: true };
@@ -21,8 +18,7 @@ const GENERATED: readonly (readonly [string, string])[] = [
   ["dependabot.yml", renderDependabot("yarn")],
 ];
 
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === "object" && value !== null;
+const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null;
 
 /**
  * Every one of these is built by concatenating strings, so a stray quote or a mis-indented line
@@ -41,13 +37,19 @@ describe("generated YAML", () => {
       const parsed: unknown = load(contents);
       assert.ok(isRecord(parsed));
       assert.ok(isRecord(parsed["jobs"]), "no jobs");
-      assert.deepEqual(
-        parsed["permissions"],
-        { contents: "read" },
-        "permissions must start read-only",
-      );
+      assert.deepEqual(parsed["permissions"], { contents: "read" }, "permissions must start read-only");
     });
   }
+
+  // Both Windows failures this repo has had passed on Linux and macOS first, and neither was
+  // reproducible on a Mac. The matrix is the only thing that sees them.
+  it("ci.yml runs on all three platforms", () => {
+    const parsed: unknown = load(renderWorkflow({ packageManager: "yarn", scripts: SCRIPTS, nodeVersion: "24" }));
+    assert.ok(isRecord(parsed) && isRecord(parsed["jobs"]));
+    const job = Object.values(parsed["jobs"])[0];
+    assert.ok(isRecord(job) && isRecord(job["strategy"]) && isRecord(job["strategy"]["matrix"]));
+    assert.deepEqual(job["strategy"]["matrix"]["os"], ["ubuntu-latest", "macos-latest", "windows-latest"]);
+  });
 
   // Extra permissions belong on the JOB that needs them, never at the top of the file where they
   // apply to everything the workflow might grow.
