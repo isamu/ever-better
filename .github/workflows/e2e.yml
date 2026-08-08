@@ -1,0 +1,40 @@
+# The lifecycle against real ESLint in a real repository: bootstrap, freeze, reject a new
+# violation, fix one, watch the ceiling fall.
+#
+# Its own workflow rather than a step in `ci`, because it installs real packages and takes about
+# forty seconds — the unit suite runs in under a second and should not wait for it. Ubuntu only:
+# what it exercises is the tool's behaviour, and the platform-specific parts are already covered by
+# the three-runner matrix in `ci`.
+name: e2e
+
+on:
+  pull_request:
+    paths-ignore:
+      - "docs/**"
+      - "**/*.md"
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  e2e:
+    name: Lifecycle (real ESLint)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+
+      - run: yarn install --frozen-lockfile
+
+      - run: yarn build
+
+      - run: yarn test:e2e

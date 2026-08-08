@@ -1,0 +1,170 @@
+import assert from "node:assert/strict";
+import { spawn } from "node:child_process";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { after, before, describe, it } from "node:test";
+
+const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
+const cli = path.join(repoRoot, "dist", "cli.js");
+
+/** Installing real packages is the slow part, and the reason this is not in `yarn test`. */
+const TIMEOUT_MS = 600_000;
+
+type Run = { code: number; stdout: string; stderr: string };
+
+const run = (command: string, args: readonly string[], cwd: string): Promise<Run> =>
+  new Promise((resolve, reject) => {
+    const child = spawn(command, [...args], { cwd, shell: false });
+    const out: Buffer[] = [];
+    const err: Buffer[] = [];
+    child.stdout.on("data", (chunk: Buffer) => out.push(chunk));
+    child.stderr.on("data", (chunk: Buffer) => err.push(chunk));
+    child.on("error", reject);
+    child.on("close", (code) =>
+      resolve({
+        code: code ?? 1,
+        stdout: Buffer.concat(out).toString("utf8"),
+        stderr: Buffer.concat(err).toString("utf8"),
+      }),
+    );
+  });
+
+const everBetter = (args: readonly string[], cwd: string) =>
+  run(process.execPath, [cli, ...args], cwd);
+
+const MESSY_SOURCE = `export const parse = (input: any) => {
+  const out: any = {};
+  for (const part of input.split("&")) {
+    const [key, value] = part.split("=");
+    out[key] = value;
+  }
+  return out;
+};
+
+export const deep = (aaa: number, bbb: number, ccc: number, ddd: number): string => {
+  if (aaa > 0) {
+    if (bbb > 0) {
+      if (ccc > 0) {
+        if (ddd > 0) {
+          if (aaa + bbb > ccc) return "yes";
+        }
+      }
+    }
+  }
+  return "no";
+};
+`;
+
+/**
+ * The lifecycle, against real ESLint, in a real repository. Every claim this tool makes about the
+ * ratchet lives here — that old code is grandfathered, that new code is rejected, and that fixing
+ * something lowers the ceiling rather than breaking the build.
+ *
+ * Hand-verified through the whole of development; automated so a regression is caught by CI rather
+ * than by whoever runs it next.
+ */
+describe("lifecycle", { timeout: TIMEOUT_MS }, () => {
+  let repo = "";
+
+  before(async () => {
+    repo = await mkdtemp(path.join(tmpdir(), "ever-better-e2e-"));
+    await mkdir(path.join(repo, "src"), { recursive: true });
+    await run("git", ["init", "-q", "."], repo);
+    await writeFile(
+      path.join(repo, "package.json"),
+      `${JSON.stringify({ name: "e2e-fixture", private: true, version: "1.0.0", type: "module" }, null, 2)}\n`,
+    );
+    await writeFile(
+      path.join(repo, "tsconfig.json"),
+      `${JSON.stringify(
+        {
+          compilerOptions: {
+            target: "ES2022",
+            module: "nodenext",
+            moduleResolution: "nodenext",
+            strict: true,
+            noEmit: true,
+          },
+        },
+        null,
+        2,
+      )}\n`,
+    );
+    await writeFile(path.join(repo, "src", "messy.ts"), MESSY_SOURCE);
+  });
+
+  after(async () => {
+    await rm(repo, { recursive: true, force: true });
+  });
+
+  it("diagnoses a bare repository without throwing", async () => {
+    const result = await everBetter(["diagnose"], repo);
+    assert.equal(result.code, 0, result.stderr);
+    assert.match(result.stdout, /ESLint is not configured/);
+  });
+
+  it("bootstraps a working toolchain", async () => {
+    const result = await everBetter(["bootstrap"], repo);
+    assert.equal(result.code, 0, result.stderr);
+    const lint = await run(path.join(repo, "node_modules", ".bin", "eslint"), ["."], repo).catch(
+      () => null,
+    );
+    // 1 means violations found — the config loaded and the rules ran, which is the point.
+    assert.ok(
+      lint !== null && lint.code < 2,
+      `eslint could not run: ${lint?.stderr ?? "spawn failed"}`,
+    );
+  });
+
+  it("freezes today's violations as the ceiling", async () => {
+    const result = await everBetter(["freeze"], repo);
+    assert.equal(result.code, 0, result.stderr);
+    assert.match(result.stdout, /Baseline pinned: \d+ violations/);
+  });
+
+  it("passes check immediately after freezing", async () => {
+    const result = await everBetter(["check"], repo);
+    assert.equal(result.code, 0, result.stdout + result.stderr);
+    assert.match(result.stdout, /Clean\./);
+  });
+
+  it("rejects a violation added after the freeze", async () => {
+    await writeFile(path.join(repo, "src", "new.ts"), "export const sneaky = (x: any) => x;\n");
+    const result = await everBetter(["check"], repo);
+    assert.equal(result.code, 1, "a new violation must fail the gate");
+    assert.match(result.stdout, /unsuppressed error/);
+  });
+
+  it("passes again once the new violation is gone", async () => {
+    await rm(path.join(repo, "src", "new.ts"));
+    const result = await everBetter(["check"], repo);
+    assert.equal(result.code, 0, result.stdout + result.stderr);
+  });
+
+  it("lowers the ceiling when a grandfathered violation is fixed", async () => {
+    const before = await everBetter(["status"], repo);
+    const backlogBefore = Number(/backlog\s+(\d+)/.exec(before.stdout)?.[1] ?? "0");
+    assert.ok(backlogBefore > 0, "fixture should start with a backlog");
+
+    await writeFile(
+      path.join(repo, "src", "messy.ts"),
+      MESSY_SOURCE.replace(/export const deep[\s\S]*$/, ""),
+    );
+    const pruned = await everBetter(["prune"], repo);
+    assert.equal(pruned.code, 0, pruned.stderr);
+
+    const after = await everBetter(["status"], repo);
+    const backlogAfter = Number(/backlog\s+(\d+)/.exec(after.stdout)?.[1] ?? "0");
+    assert.ok(
+      backlogAfter < backlogBefore,
+      `ceiling did not fall: ${backlogBefore} -> ${backlogAfter}`,
+    );
+  });
+
+  it("refuses a second freeze, which would forgive everything added since", async () => {
+    const result = await everBetter(["freeze"], repo);
+    assert.match(result.stdout, /Already frozen/);
+  });
+});
