@@ -145,6 +145,25 @@ export const printConfig = async (
   }
 };
 
+/**
+ * Does ESLint still work? `--print-config` answers a different question — it resolves the config
+ * without ever loading a rule, so a rule that needs a type program prints happily and then makes
+ * every real run fatal. Only linting something proves the config is usable.
+ */
+export const canLint = async (cwd: string, filePath: string): Promise<boolean> => {
+  const eslint = await findEslint(cwd);
+  if (!eslint) return false;
+  try {
+    const result = await exec(eslint.command, [...eslint.prefixArgs, filePath], cwd, {
+      shell: eslint.shell,
+    });
+    // 0 = clean, 1 = violations found. Both mean the config loaded and the rules ran.
+    return result.code < FATAL_EXIT_CODE;
+  } catch {
+    return false;
+  }
+};
+
 /** Drops suppressions for violations that no longer exist, which is how the ceiling comes down. */
 export const pruneSuppressions = async (cwd: string): Promise<void> => {
   await runEslint(cwd, [".", "--prune-suppressions"], "eslint --prune-suppressions");
