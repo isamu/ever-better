@@ -18,11 +18,13 @@ describe("appendConfigBlocks", () => {
     assert.match(updated ?? "", /\);\s*$/);
   });
 
-  it("appends inside defineConfig([...])", () => {
+  it("appends INSIDE the array of defineConfig([...]), not after it", () => {
+    // Taking the last closer instead of the innermost makes the block a second argument to
+    // defineConfig — silently not a config at all.
     const source = "export default defineConfig([\n  base,\n]);\n";
-    const updated = appendConfigBlocks(source, BLOCK);
-    assert.match(updated ?? "", /max-depth/);
-    assert.match(updated ?? "", /\]\);\s*$/);
+    const updated = appendConfigBlocks(source, BLOCK) ?? "";
+    assert.match(updated, /\]\);\s*$/);
+    assert.ok(updated.indexOf("max-depth") < updated.indexOf("]);"));
   });
 
   it("does not double the separating comma", () => {

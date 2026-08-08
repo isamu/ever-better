@@ -7,14 +7,16 @@
  * closer and returns null rather than guessing when it cannot — the caller keeps a backup and
  * verifies the result by loading it, so a bad edit is caught rather than shipped.
  */
-const CLOSER = /([\])])\s*;?\s*$/;
+// The whole trailing run of closers, because the INNERMOST one closes the config list. Taking the
+// last instead puts the appended block outside the array — for `defineConfig([...])` that makes it
+// a second argument, which is silently not a config at all.
+const CLOSERS = /[\])]+\s*;?\s*$/;
 
 export const appendConfigBlocks = (source: string, blocks: readonly string[]): string | null => {
   if (blocks.length === 0) return null;
-  const match = CLOSER.exec(source);
+  const match = CLOSERS.exec(source);
   if (!match) return null;
-  const cutAt = source.lastIndexOf(match[1] ?? "");
-  if (cutAt < 0) return null;
+  const cutAt = match.index;
   const head = source.slice(0, cutAt).replace(/\s*$/, "");
   const separator = head.endsWith(",") ? "" : ",";
   return `${head}${separator}\n${blocks.join("\n")}\n${source.slice(cutAt)}`;
