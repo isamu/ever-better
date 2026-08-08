@@ -28,7 +28,20 @@ export default tseslint.config(
       "@typescript-eslint/no-non-null-assertion": "error",
       "@typescript-eslint/consistent-type-assertions": ["error", { assertionStyle: "never" }],
       "@typescript-eslint/no-unused-vars": ["error", { argsIgnorePattern: "^__" }],
+      "@typescript-eslint/prefer-readonly": "error",
       "no-console": "off",
+    },
+  },
+
+  {
+    rules: {
+      // typescript-eslint enables the first two for `.ts` only, which is why the generator states
+      // them for every file: a `.js`, `.jsx` or `.vue` repo is where `var` actually lives.
+      "no-var": "error",
+      "prefer-const": "error",
+      "no-param-reassign": "error",
+      "no-else-return": ["error", { allowElseIf: false }],
+      "sonarjs/no-collapsible-if": "error",
     },
   },
 
