@@ -126,7 +126,13 @@ block it was declared in. Both stay reported. Those are the hoisting bugs `var` 
 each one is a decision — hand it the block scope it should have had and check what changes.
 
 `--force` is correct here and only here: the rule set genuinely changed, so the ceiling has to be
-re-taken. Say so in the pull request.
+re-taken. Say so in the pull request — and in the ledger, which is where the next session looks:
+
+```bash
+npx ever-better log --kind note "migrated 214 files; 37 type errors fixed; strict:false for now, flags priced in #51; freeze --force because the rule set changed"
+```
+
+A `--force` nobody explained looks exactly like a `--force` used to make a red build green.
 
 Then delete `allowJs` and `checkJs` from the tsconfig — with no `.js` left, both are dead
 configuration that will confuse the next reader.

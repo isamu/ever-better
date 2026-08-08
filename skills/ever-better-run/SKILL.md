@@ -27,10 +27,18 @@ Record as you go, not at the end:
 npx ever-better log --kind drained  --rule max-depth "6 violations, 1 real bug (unreachable branch)"
 npx ever-better log --kind deferred --rule max-lines "server/router.ts is 1400 lines; splitting is its own project"
 npx ever-better log --kind issue    --rule no-floating-promises "opened #42 — swallowed error, product decision"
+npx ever-better log --kind note "eslint 8 -> 10 before freezing; the ceiling is from the new rule set"
 ```
 
 The commit stamp is the point. A note saying "router.ts needs splitting" is useless six months and
 four hundred commits later unless a reader can see when it was true.
+
+**Nothing writes these for you, and in this mode nobody else can.** The counts are recorded by
+`freeze` and `prune`; every reason behind them exists only if you write it. One entry per commit as
+you make it — a batch at the end stamps them all with the wrong commit — and one for each decision
+as well as each fix, including the tier you left off and the clone you chose not to extract. This
+table is the first thing the owner reads when they come back to a stack of pull requests, so it is
+worth writing as if it were the only thing they read.
 
 ## Coming back to a repository you have not touched in a while
 
