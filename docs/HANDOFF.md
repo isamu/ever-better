@@ -110,12 +110,18 @@ Keep the three-platform matrix. It is the only thing that sees this class of bug
 - **knip and jscpd are diagnosed but not installed.** `bootstrap` reports them as gaps and stops
   there. Their counters have a place in `state.json` (`counters`) and nothing writes it yet.
 - **No monorepo support.** One baseline per repository. The state shape leaves room for more.
-- **Not published to npm, and the plugin marketplace is untested.** `.claude-plugin/` is written to
-  the same shape as `receptron/mulmocast-claude-plugin`, but nobody has run
-  `/plugin marketplace add isamu/ever-better` against it.
-- **`ever-better check` in the generated workflow calls `npx ever-better`,** which will fail until
-  the package is on npm. Publishing, or documenting a local install, is a prerequisite for the
-  generated CI to work for anyone else.
+Published and verified on 2026-08-08:
+
+- **`ever-better@0.1.0` is on npm.** `npx ever-better@0.1.0 check` was run against the Vue fixture
+  from a clean fetch and behaved correctly, so the `npx ever-better check` step in every generated
+  workflow now resolves.
+- **The plugin installs.** `claude plugin validate . --strict` passes, and
+  `claude plugin marketplace add isamu/ever-better` followed by
+  `claude plugin install ever-better@ever-better` registers all three skills (~419 always-on tokens).
+
+Before the next release, run `npm pack --dry-run` and check the file list. The first publish
+attempt would have shipped without `formatters/rule-counts.js` — every counting command broken for
+installed users, and nothing in the test suite could see it.
 
 ## Suggested next steps, in order
 
