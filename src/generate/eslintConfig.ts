@@ -67,6 +67,11 @@ const HEADER = [
   "// `ever-better freeze` is recorded in eslint-suppressions.json. Old code is grandfathered;",
   "// new code is held to the whole standard from the first commit. Do not soften a rule to make",
   "// a red build green — the suppressions file already did that, once, on purpose.",
+  "//",
+  "// Type assertions are banned outright: `as`, `<T>x`, `!`, `@ts-ignore`, `@ts-nocheck`. Each is a",
+  "// claim the compiler could not check and that no reviewer can see. Write a type guard instead —",
+  "// `const isThing = (v: unknown): v is Thing => ...` — which is testable, narrows for every",
+  "// caller, and fails at the boundary where the data was actually wrong.",
   "",
 ];
 
@@ -162,6 +167,18 @@ const strictnessBlock = (options: EslintConfigOptions): string[] => {
     "      // `as` asserts what the compiler could not check, and it is invisible in review. Write a",
     "      // type guard instead — the guard is testable and the assertion is a promise.",
     '      "@typescript-eslint/consistent-type-assertions": ["error", { assertionStyle: "never" }],',
+    "      // The other doors out of the type system. `@ts-expect-error` survives only with a",
+    "      // written reason, because it is the one that fails loudly when it stops being needed.",
+    '      "@typescript-eslint/ban-ts-comment": [',
+    '        "error",',
+    "        {",
+    '          "ts-ignore": true,',
+    '          "ts-nocheck": true,',
+    '          "ts-check": false,',
+    '          "ts-expect-error": "allow-with-description",',
+    "          minimumDescriptionLength: 10,",
+    "        },",
+    "      ],",
     "    },",
     "  },",
   ];
@@ -203,6 +220,19 @@ const testBlock = (options: EslintConfigOptions): string[] => [
   "  },",
 ];
 
+/**
+ * A stale `eslint-disable` is an exception nobody re-examined. Reporting the ones that no longer
+ * suppress anything is the only way they ever get removed — and a disable comment left behind after
+ * a refactor is how a rule quietly stops applying to a file.
+ */
+const disableDirectiveBlock = (): string[] => [
+  "  {",
+  "    linterOptions: {",
+  '      reportUnusedDisableDirectives: "error",',
+  "    },",
+  "  },",
+];
+
 const securityImport = (runtime: Runtime): string[] =>
   runtime === "browser" ? [] : ['import security from "eslint-plugin-security";'];
 
@@ -219,6 +249,7 @@ export const renderEslintConfig = (options: EslintConfigOptions): string => {
     "",
     "export default tseslint.config(",
     ignoresLine(options.framework),
+    ...disableDirectiveBlock(),
     "",
     "  js.configs.recommended,",
     ...typedBlock(options),

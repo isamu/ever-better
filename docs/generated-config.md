@@ -24,6 +24,11 @@ Every rule is an error. Whatever exists when you freeze is grandfathered.
 // `ever-better freeze` is recorded in eslint-suppressions.json. Old code is grandfathered;
 // new code is held to the whole standard from the first commit. Do not soften a rule to make
 // a red build green — the suppressions file already did that, once, on purpose.
+//
+// Type assertions are banned outright: `as`, `<T>x`, `!`, `@ts-ignore`, `@ts-nocheck`. Each is a
+// claim the compiler could not check and that no reviewer can see. Write a type guard instead —
+// `const isThing = (v: unknown): v is Thing => ...` — which is testable, narrows for every
+// caller, and fails at the boundary where the data was actually wrong.
 
 import js from "@eslint/js";
 import globals from "globals";
@@ -34,6 +39,11 @@ import security from "eslint-plugin-security";
 
 export default tseslint.config(
   { ignores: ["dist/**", "build/**", "coverage/**", "node_modules/**", ".vercel/**"] },
+  {
+    linterOptions: {
+      reportUnusedDisableDirectives: "error",
+    },
+  },
 
   js.configs.recommended,
   // strictTypeChecked, not recommended: the type-aware rules that find real bugs are only in
@@ -62,6 +72,18 @@ export default tseslint.config(
       // `as` asserts what the compiler could not check, and it is invisible in review. Write a
       // type guard instead — the guard is testable and the assertion is a promise.
       "@typescript-eslint/consistent-type-assertions": ["error", { assertionStyle: "never" }],
+      // The other doors out of the type system. `@ts-expect-error` survives only with a
+      // written reason, because it is the one that fails loudly when it stops being needed.
+      "@typescript-eslint/ban-ts-comment": [
+        "error",
+        {
+          "ts-ignore": true,
+          "ts-nocheck": true,
+          "ts-check": false,
+          "ts-expect-error": "allow-with-description",
+          minimumDescriptionLength: 10,
+        },
+      ],
     },
   },
   {
@@ -115,6 +137,11 @@ export default tseslint.config(
 // `ever-better freeze` is recorded in eslint-suppressions.json. Old code is grandfathered;
 // new code is held to the whole standard from the first commit. Do not soften a rule to make
 // a red build green — the suppressions file already did that, once, on purpose.
+//
+// Type assertions are banned outright: `as`, `<T>x`, `!`, `@ts-ignore`, `@ts-nocheck`. Each is a
+// claim the compiler could not check and that no reviewer can see. Write a type guard instead —
+// `const isThing = (v: unknown): v is Thing => ...` — which is testable, narrows for every
+// caller, and fails at the boundary where the data was actually wrong.
 
 import js from "@eslint/js";
 import globals from "globals";
@@ -126,6 +153,11 @@ import pluginVue from "eslint-plugin-vue";
 
 export default tseslint.config(
   { ignores: ["dist/**", "build/**", "coverage/**", "node_modules/**", ".vercel/**"] },
+  {
+    linterOptions: {
+      reportUnusedDisableDirectives: "error",
+    },
+  },
 
   js.configs.recommended,
   // strictTypeChecked, not recommended: the type-aware rules that find real bugs are only in
@@ -186,6 +218,18 @@ export default tseslint.config(
       // `as` asserts what the compiler could not check, and it is invisible in review. Write a
       // type guard instead — the guard is testable and the assertion is a promise.
       "@typescript-eslint/consistent-type-assertions": ["error", { assertionStyle: "never" }],
+      // The other doors out of the type system. `@ts-expect-error` survives only with a
+      // written reason, because it is the one that fails loudly when it stops being needed.
+      "@typescript-eslint/ban-ts-comment": [
+        "error",
+        {
+          "ts-ignore": true,
+          "ts-nocheck": true,
+          "ts-check": false,
+          "ts-expect-error": "allow-with-description",
+          minimumDescriptionLength: 10,
+        },
+      ],
     },
   },
   {
@@ -239,6 +283,11 @@ export default tseslint.config(
 // `ever-better freeze` is recorded in eslint-suppressions.json. Old code is grandfathered;
 // new code is held to the whole standard from the first commit. Do not soften a rule to make
 // a red build green — the suppressions file already did that, once, on purpose.
+//
+// Type assertions are banned outright: `as`, `<T>x`, `!`, `@ts-ignore`, `@ts-nocheck`. Each is a
+// claim the compiler could not check and that no reviewer can see. Write a type guard instead —
+// `const isThing = (v: unknown): v is Thing => ...` — which is testable, narrows for every
+// caller, and fails at the boundary where the data was actually wrong.
 
 import js from "@eslint/js";
 import globals from "globals";
@@ -251,6 +300,11 @@ import next from "@next/eslint-plugin-next";
 
 export default tseslint.config(
   { ignores: ["dist/**", "build/**", "coverage/**", "node_modules/**", ".vercel/**", ".next/**", "out/**", "next-env.d.ts"] },
+  {
+    linterOptions: {
+      reportUnusedDisableDirectives: "error",
+    },
+  },
 
   js.configs.recommended,
   // strictTypeChecked, not recommended: the type-aware rules that find real bugs are only in
@@ -281,6 +335,18 @@ export default tseslint.config(
       // `as` asserts what the compiler could not check, and it is invisible in review. Write a
       // type guard instead — the guard is testable and the assertion is a promise.
       "@typescript-eslint/consistent-type-assertions": ["error", { assertionStyle: "never" }],
+      // The other doors out of the type system. `@ts-expect-error` survives only with a
+      // written reason, because it is the one that fails loudly when it stops being needed.
+      "@typescript-eslint/ban-ts-comment": [
+        "error",
+        {
+          "ts-ignore": true,
+          "ts-nocheck": true,
+          "ts-check": false,
+          "ts-expect-error": "allow-with-description",
+          minimumDescriptionLength: 10,
+        },
+      ],
     },
   },
   {
@@ -334,6 +400,11 @@ The type-aware tier is absent because it cannot run. Migrating unlocks the half 
 // `ever-better freeze` is recorded in eslint-suppressions.json. Old code is grandfathered;
 // new code is held to the whole standard from the first commit. Do not soften a rule to make
 // a red build green — the suppressions file already did that, once, on purpose.
+//
+// Type assertions are banned outright: `as`, `<T>x`, `!`, `@ts-ignore`, `@ts-nocheck`. Each is a
+// claim the compiler could not check and that no reviewer can see. Write a type guard instead —
+// `const isThing = (v: unknown): v is Thing => ...` — which is testable, narrows for every
+// caller, and fails at the boundary where the data was actually wrong.
 
 import js from "@eslint/js";
 import globals from "globals";
@@ -344,6 +415,11 @@ import security from "eslint-plugin-security";
 
 export default tseslint.config(
   { ignores: ["dist/**", "build/**", "coverage/**", "node_modules/**", ".vercel/**"] },
+  {
+    linterOptions: {
+      reportUnusedDisableDirectives: "error",
+    },
+  },
 
   js.configs.recommended,
   // Type-aware rules are off: this repo is not TypeScript yet. They are where the real

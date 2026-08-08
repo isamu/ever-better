@@ -225,6 +225,27 @@ describe("renderEslintConfig — readability and security tiers", () => {
     assert.match(renderEslintConfig(opts), /assertionStyle: "never"/);
   });
 
+  it("closes every other door out of the type system", () => {
+    // `as` alone is not enough: `as unknown as T`, `!`, `@ts-ignore` and `@ts-nocheck` are the
+    // same claim wearing different syntax. `@ts-expect-error` survives only with a written
+    // reason, because it is the one that fails loudly when it stops being needed.
+    const config = renderEslintConfig(opts);
+    assert.match(config, /"ts-ignore": true/);
+    assert.match(config, /"ts-nocheck": true/);
+    assert.match(config, /"ts-expect-error": "allow-with-description"/);
+    assert.match(config, /"@typescript-eslint\/no-non-null-assertion": "error"/);
+  });
+
+  it("reports a disable directive that no longer suppresses anything", () => {
+    // A stale eslint-disable is an exception nobody re-examined, and it is how a rule quietly
+    // stops applying to a file after a refactor.
+    assert.match(renderEslintConfig(opts), /reportUnusedDisableDirectives: "error"/);
+  });
+
+  it("says in the file itself what to write instead of a cast", () => {
+    assert.match(renderEslintConfig(opts), /Write a type guard instead/);
+  });
+
   it("uses both TypeChecked presets, which are disjoint", () => {
     const config = renderEslintConfig(opts);
     assert.match(config, /strictTypeChecked/);
