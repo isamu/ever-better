@@ -129,6 +129,17 @@ ever-better log --kind issue    --rule no-floating-promises "#42 を起票 — �
 
 現在の commit を添えて記録します。効くのは `deferred` です。`QUALITY.md` の **Carried over** チェックリストに、見た時点の commit 付きで出ます。「router.ts は分割が必要」というメモは、400コミット後には*いつ真だったのか*が分からなければ役に立たないからです。
 
+### `emit-diff`
+
+```bash
+ever-better emit-diff                  # HEAD と比較
+ever-better emit-diff --against main
+```
+
+作業ツリーと git ref をそれぞれコンパイルし、**生成された JavaScript** を比較します。
+
+型だけを動かすリファクタリング — 引数の型を狭める、`as` を消す、interface を分割する — はコンパイル時に消えます。出力がバイト単位で同一なら、その変更が振る舞いを変え得ないことが**証明**されます。どれだけテストを書いてもここまで強くは言えませんし、所要時間は数秒です。差分が出た場合は、出たファイルがそのまま「見るべき場所」になります。
+
 ### `status`
 
 現在のフェーズ、残りの件数、そして残件数が**少ない**ルール — つまり最初に片付けるべきルール — を表示します。診断から30日超・50コミット超、あるいは記録した commit がこの履歴に無い（rebase / force-push）場合は、先頭に `STALE` 行が出ます。ratchet 自体は陳腐化しません（ESLint が現ツリーに対して維持するため）が、gap 一覧・ファイルサイズ・見送りメモは陳腐化します。

@@ -168,6 +168,20 @@ renders into a **Carried over** checklist in `QUALITY.md` with the commit it was
 "router.ts needs splitting" is useless four hundred commits later unless a reader can tell when it
 was true.
 
+### `emit-diff`
+
+```bash
+ever-better emit-diff                  # against HEAD
+ever-better emit-diff --against main
+```
+
+Compiles the working tree and a git ref, and compares the emitted JavaScript.
+
+A refactor that only moves types — narrowing a parameter, deleting an `as`, splitting an interface
+— erases at compile time. Byte-identical output **proves** the change cannot alter behaviour, which
+no amount of test coverage states as strongly and which takes seconds rather than an afternoon.
+When the output does differ, the files it names are where to look.
+
 ### `status`
 
 Prints the current phase, the backlog, and the rules with the smallest remaining counts — which

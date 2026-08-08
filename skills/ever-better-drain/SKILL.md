@@ -68,11 +68,59 @@ This repo is the worked example: `gatherFacts` is the only function that touches
 detection, `diagnose` is pure over what it returns, and that is why the diagnosis has real tests
 and no fixtures on disk.
 
-### 5. Write the test before moving on
+### 5. Write the test — then make it fail on purpose
 
-Cover the case that was broken, plus the boundary either side of it. Then **break the fix on
-purpose and run the test** — a test that passes against the bug is worse than no test, and this is
-the only way to know.
+Cover the case that was broken, plus the boundary either side of it.
+
+**Then break the thing under test and run the test again.** Revert the fix, or flip a comparison,
+or return a constant. If the test still passes, it is testing nothing: it asserts on a value the
+bug never touched, or mocks the very code it claims to cover. Restore, and confirm it goes green.
+
+This costs thirty seconds and is the only thing that distinguishes a test from a decoration. A
+suite that never went red is a suite nobody has evidence for — the count went up and the coverage
+did not.
+
+The same applies to a rule you have just switched on: make one violation on purpose and confirm the
+lint reports it. A rule that is enabled and silently finds nothing reads exactly like a clean
+codebase.
+
+### 5b. For a type-only refactor, prove it rather than test it
+
+Narrowing a parameter, deleting an `as`, splitting an interface, adding a guard that replaces a
+cast — all of it erases at compile time. So compile before and after and compare the output:
+
+```bash
+npx ever-better emit-diff              # against HEAD
+npx ever-better emit-diff --against main
+```
+
+Byte-identical emitted JavaScript **proves** the change cannot alter behaviour. No amount of test
+coverage states that as strongly, and it takes seconds rather than an afternoon of writing tests
+for code you did not mean to change.
+
+When the output does differ, the files it names are exactly where to look — and usually the answer
+is that the refactor was not type-only after all, which is worth knowing before review rather than
+after.
+
+### 5c. Leave the code more readable than the rule required
+
+The rule is the trigger, not the goal. While you are in the function anyway, take the cheap wins —
+but only the cheap ones, and only in the same commit if they are genuinely mechanical:
+
+- **A name should not need a comment.** `elapsedMs`, not `t` with `// milliseconds`. Units belong
+  in the name; so does the unit of measure in a boolean — `hasExpired` beats `expired`.
+- **Delete the comment that restates the code.** Keep the one that says *why*, especially why the
+  obvious alternative was rejected. A comment that will not age is a comment about a constraint.
+- **Give an unexplained value a name.** A bare `86400` in a condition is a question; `SECONDS_PER_DAY`
+  is an answer.
+- **Return early.** Most `max-depth` and `complexity` findings are one guard clause away from
+  disappearing, and the version with early returns reads top to bottom instead of inside out.
+- **One job per function.** If you cannot name it without "and", that is two functions — and the
+  split is usually what makes the pure half testable.
+- **Shrink the scope.** A variable declared far from its use is a variable the reader has to carry.
+
+Do not turn a lint fix into a rewrite. If the readable version is a genuine redesign, that is an
+issue, not this commit.
 
 ### 6. Reclaim the ceiling
 
