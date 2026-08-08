@@ -5,10 +5,13 @@ import {
   eslintPackagesFor,
   renderEslintConfig,
 } from "./generate/eslintConfig.ts";
+import { renderDependabot } from "./generate/dependabot.ts";
 import { renderGitattributes } from "./generate/gitattributes.ts";
+import { renderKnipConfig } from "./generate/knipConfig.ts";
+import { renderDeadCodeWorkflow, renderDuplicationWorkflow } from "./generate/scanWorkflows.ts";
 import { appendGeneratedPaths, renderPrettierIgnore } from "./generate/prettierIgnore.ts";
 import { renderWorkflow } from "./generate/workflow.ts";
-import type { Diagnosis, PackageJson, ScriptCoverage } from "./types.ts";
+import type { Diagnosis, PackageJson, ScriptCoverage, SourceFile } from "./types.ts";
 
 export type BootstrapAction =
   | { kind: "install"; packages: string[] }
@@ -21,6 +24,9 @@ export type BootstrapPlanOptions = {
   diagnosis: Diagnosis;
   packageJson: PackageJson | null;
   rootEntries: readonly string[];
+  /** Needed for paths under a directory; `rootEntries` is the repository root only. */
+  allFiles: readonly string[];
+  sourceFiles: readonly SourceFile[];
   nodeVersion: string;
   /** Contents of an existing `.prettierignore`, so its generated paths can be appended. */
   prettierIgnore: string | null;
@@ -45,6 +51,9 @@ const missingPackages = (options: BootstrapPlanOptions): string[] => {
     if (typecheckCommand(framework).startsWith("vue-tsc")) wanted.push("vue-tsc");
   }
   if (tooling.testRunner === "none") wanted.push("vitest");
+  // knip is a dependency; jscpd is run through npx so it never enters the dependency graph — or
+  // knip's own inventory, where it would show up as an unused devDependency.
+  if (!tooling.knip) wanted.push("knip");
   return wanted.filter((name) => !have.has(name));
 };
 
@@ -57,6 +66,7 @@ const scriptsToAdd = (options: BootstrapPlanOptions): Record<string, string> => 
     additions["typecheck"] = typecheckCommand(options.diagnosis.framework);
   }
   if (!scripts.test && tooling.testRunner === "none") additions["test"] = "vitest run";
+  if (!tooling.knip) additions["knip"] = "knip";
   return additions;
 };
 
@@ -100,6 +110,16 @@ const filesToWrite = (options: BootstrapPlanOptions): BootstrapAction[] => {
     actions.push({ kind: "writeFile", path: ".gitattributes", contents: renderGitattributes() });
   }
 
+  actions.push(...scanActions(options));
+
+  if (!options.allFiles.includes(".github/dependabot.yml")) {
+    actions.push({
+      kind: "writeFile",
+      path: ".github/dependabot.yml",
+      contents: renderDependabot(diagnosis.packageManager),
+    });
+  }
+
   if (!diagnosis.ci.present) {
     actions.push({
       kind: "writeFile",
@@ -127,6 +147,35 @@ const prettierIgnoreAction = (options: BootstrapPlanOptions): BootstrapAction[] 
   return appended === null
     ? []
     : [{ kind: "writeFile", path: PRETTIER_IGNORE_FILE, contents: appended }];
+};
+
+/**
+ * The two report-only scans. They are added even when CI already exists, because they are separate
+ * workflow FILES — nothing has to be spliced into a workflow the repo already wrote.
+ */
+const scanActions = (options: BootstrapPlanOptions): BootstrapAction[] => {
+  const { diagnosis, rootEntries } = options;
+  const actions: BootstrapAction[] = [];
+  if (!diagnosis.tooling.knip && !rootEntries.includes("knip.json")) {
+    actions.push({
+      kind: "writeFile",
+      path: "knip.json",
+      contents: renderKnipConfig(options.packageJson, options.sourceFiles),
+    });
+    actions.push({
+      kind: "writeFile",
+      path: ".github/workflows/dead-code-scan.yml",
+      contents: renderDeadCodeWorkflow(diagnosis.packageManager, options.nodeVersion),
+    });
+  }
+  if (!diagnosis.tooling.jscpd) {
+    actions.push({
+      kind: "writeFile",
+      path: ".github/workflows/duplication-scan.yml",
+      contents: renderDuplicationWorkflow(options.nodeVersion),
+    });
+  }
+  return actions;
 };
 
 /** What the scripts WILL be once this plan is applied — the workflow must call those, not today's. */

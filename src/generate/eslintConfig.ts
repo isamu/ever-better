@@ -76,7 +76,9 @@ const typedBlock = (options: EslintConfigOptions): string[] => {
     ];
   }
   return [
-    "  tseslint.configs.recommendedTypeChecked,",
+    "  // strictTypeChecked, not recommended: the type-aware rules that find real bugs are only in",
+    "  // the TypeChecked presets, and the strict variant is where the `any` family lives.",
+    "  tseslint.configs.strictTypeChecked,",
     "  {",
     "    languageOptions: {",
     "      parserOptions: { projectService: true, tsconfigRootDir: import.meta.dirname },",

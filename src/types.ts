@@ -19,6 +19,8 @@ export type RuleStatus = "off" | "draining" | "enforced";
 export type PackageJson = {
   name?: string;
   type?: string;
+  main?: string;
+  bin?: Record<string, string>;
   packageManager?: string;
   scripts?: Record<string, string>;
   dependencies?: Record<string, string>;
@@ -47,6 +49,8 @@ export type RepoFacts = {
   probes: import("./probe/gather.ts").Probes;
   /** Repo-relative paths of files in the repository root (not recursive). */
   rootEntries: string[];
+  /** Every tracked, non-ignored file. `rootEntries` cannot answer questions about subdirectories. */
+  allFiles: string[];
   packageJson: PackageJson | null;
   sourceFiles: SourceFile[];
   workflows: WorkflowFile[];

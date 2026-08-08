@@ -82,6 +82,8 @@ export const runBootstrap = async (options: BootstrapOptions): Promise<string> =
     diagnosis,
     packageJson: facts.packageJson,
     rootEntries: facts.rootEntries,
+    allFiles: facts.allFiles,
+    sourceFiles: facts.sourceFiles,
     nodeVersion: options.nodeVersion,
     prettierIgnore: await readIfPresent(path.join(options.cwd, PRETTIER_IGNORE_FILE)),
   });

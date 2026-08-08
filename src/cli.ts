@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { parseArgs } from "node:util";
+import { DEFAULT_NODE_VERSION } from "./generate/actionVersions.ts";
 import process from "node:process";
 import { runBootstrap } from "./commands/bootstrap.ts";
 import { runCheck } from "./commands/check.ts";
@@ -8,8 +9,6 @@ import { runFreeze } from "./commands/freeze.ts";
 import { isLogKind, LOG_KIND_LIST, runLog } from "./commands/log.ts";
 import { runPrune } from "./commands/prune.ts";
 import { runStatus } from "./commands/status.ts";
-
-const DEFAULT_NODE_VERSION = "24";
 
 const USAGE = `ever-better — make a codebase that can only get better
 

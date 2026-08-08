@@ -18,8 +18,10 @@ const configOptions = {
 
 describe("renderEslintConfig", () => {
   it("emits the type-aware tier for a TypeScript repo", () => {
+    // strictTypeChecked, not recommendedTypeChecked: the rules that find real bugs live only in
+    // the TypeChecked presets, and the `any` family only in the strict one.
     const config = renderEslintConfig(configOptions);
-    assert.match(config, /recommendedTypeChecked/);
+    assert.match(config, /strictTypeChecked/);
     assert.match(config, /projectService: true/);
   });
 
@@ -33,7 +35,7 @@ describe("renderEslintConfig", () => {
 
   it("falls back to the untyped tier for a JavaScript repo", () => {
     const config = renderEslintConfig({ ...configOptions, typed: false });
-    assert.ok(!config.includes("recommendedTypeChecked"));
+    assert.ok(!config.includes("TypeChecked"));
     assert.ok(!config.includes("no-explicit-any"));
   });
 

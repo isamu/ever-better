@@ -1,3 +1,4 @@
+import { ACTION_VERSIONS } from "./actionVersions.ts";
 import type { PackageManager, ScriptCoverage } from "../types.ts";
 
 export type WorkflowOptions = {
@@ -21,8 +22,8 @@ const RUN: Record<PackageManager, string> = {
 };
 
 const SETUP: Partial<Record<PackageManager, string[]>> = {
-  pnpm: ["      - uses: pnpm/action-setup@v4", ""],
-  bun: ["      - uses: oven-sh/setup-bun@v2", ""],
+  pnpm: [`      - uses: ${ACTION_VERSIONS.pnpmSetup}`, ""],
+  bun: [`      - uses: ${ACTION_VERSIONS.bunSetup}`, ""],
 };
 
 const STEP_ORDER: readonly (keyof ScriptCoverage)[] = ["lint", "typecheck", "build", "test"];
@@ -59,12 +60,12 @@ export const renderWorkflow = (options: WorkflowOptions): string =>
     "      matrix:",
     "        os: [ubuntu-latest, macos-latest, windows-latest]",
     "    steps:",
-    "      - uses: actions/checkout@v5",
+    `      - uses: ${ACTION_VERSIONS.checkout}`,
     "        with:",
     "          persist-credentials: false",
     "",
     ...(SETUP[options.packageManager] ?? []),
-    "      - uses: actions/setup-node@v5",
+    `      - uses: ${ACTION_VERSIONS.setupNode}`,
     "        with:",
     `          node-version: "${options.nodeVersion}"`,
     "",
