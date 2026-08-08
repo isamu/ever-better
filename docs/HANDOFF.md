@@ -106,8 +106,16 @@ Keep the three-platform matrix. It is the only thing that sees this class of bug
 
 Everything from the original scope has shipped. What remains was never in it:
 
-- **No monorepo support.** One baseline per repository; the state shape leaves room for more.
-- **Python.** Assessed and deferred — see the section above.
+- **No monorepo support.** One baseline per repository — [#30](https://github.com/isamu/ever-better/issues/30).
+  Medium: ESLint's `--suppressions-location` means a per-package ceiling needs no new mechanism, so
+  what is left is workspace discovery and one design decision about the ledger's shape.
+- **Python.** [#31](https://github.com/isamu/ever-better/issues/31). Large but not a rewrite: Ruff
+  owns the primitives, and the ledger, renderer, `check` and ratchet are reusable behind an
+  ecosystem seam. The two hard parts are that Ruff has no external suppressions file (the ceiling
+  lives in the source) and that type checking has no first-party baseline at all.
+
+Both are sized in their issues. Neither is a prerequisite for the other, and both should wait until
+this has been run end to end on a repository that is not this one.
 
 ## The target state
 
