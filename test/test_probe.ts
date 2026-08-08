@@ -1,11 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import {
-  findWeakRules,
-  isRuleOff,
-  isRuleWarnOnly,
-  HIGH_VALUE_RULES,
-} from "../src/probe/effectiveRules.ts";
+import { findWeakRules, isRuleOff, isRuleWarnOnly, HIGH_VALUE_RULES } from "../src/probe/effectiveRules.ts";
 import { findMissingStrictness, isStrictOff } from "../src/probe/effectiveTsconfig.ts";
 import { sampleSourceFile } from "../src/probe/gather.ts";
 import type { SourceFile } from "../src/types.ts";

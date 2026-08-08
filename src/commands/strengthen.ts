@@ -8,18 +8,11 @@ import type { SourceFile } from "../types.ts";
 
 const BACKUP_SUFFIX = ".ever-better-backup";
 
-const CONFIG_NAMES = [
-  "eslint.config.js",
-  "eslint.config.mjs",
-  "eslint.config.cjs",
-  "eslint.config.ts",
-];
+const CONFIG_NAMES = ["eslint.config.js", "eslint.config.mjs", "eslint.config.cjs", "eslint.config.ts"];
 
-const findConfig = (rootEntries: readonly string[]): string | null =>
-  CONFIG_NAMES.find((name) => rootEntries.includes(name)) ?? null;
+const findConfig = (rootEntries: readonly string[]): string | null => CONFIG_NAMES.find((name) => rootEntries.includes(name)) ?? null;
 
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === "object" && value !== null;
+const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null;
 
 const pluginNames = (plugins: unknown): string[] => {
   if (Array.isArray(plugins)) return plugins.filter((name) => typeof name === "string");
@@ -35,8 +28,7 @@ const pluginNames = (plugins: unknown): string[] => {
  * nothing, and every plugin rule is then silently skipped. That reads as "the config was already
  * fine" rather than as a bug.
  */
-const loadedPlugins = (printed: Record<string, unknown> | null): string[] =>
-  pluginNames(printed?.["plugins"]).map((name) => name.split(":")[0] ?? name);
+const loadedPlugins = (printed: Record<string, unknown> | null): string[] => pluginNames(printed?.["plugins"]).map((name) => name.split(":")[0] ?? name);
 
 /**
  * Type-aware rules need `project` or `projectService`. Setting one without it makes ESLint fatal
@@ -64,10 +56,7 @@ const nothing = (message: string): StrengthenResult => ({ enabled: [], skipped: 
 
 const settableRules = (weak: readonly RuleVerdict[], printed: Record<string, unknown> | null) => {
   const typed = hasTypeInformation(printed);
-  return weak.filter(
-    (verdict) =>
-      isSettable(verdict.rule.name, printed) && (typed || verdict.rule.typeAware !== true),
-  );
+  return weak.filter((verdict) => isSettable(verdict.rule.name, printed) && (typed || verdict.rule.typeAware !== true));
 };
 
 /**
@@ -77,11 +66,7 @@ const settableRules = (weak: readonly RuleVerdict[], printed: Record<string, unk
  * config it must not silently mangle, and "ESLint still runs" is the only check that actually
  * proves the edit was valid. On any doubt the backup goes back.
  */
-export const strengthenEslintConfig = async (
-  cwd: string,
-  rootEntries: readonly string[],
-  sourceFiles: readonly SourceFile[],
-): Promise<StrengthenResult> => {
+export const strengthenEslintConfig = async (cwd: string, rootEntries: readonly string[], sourceFiles: readonly SourceFile[]): Promise<StrengthenResult> => {
   const configName = findConfig(rootEntries);
   if (!configName) return nothing("No flat ESLint config to strengthen.");
 
@@ -97,10 +82,7 @@ export const strengthenEslintConfig = async (
   const original = await readFile(configPath, "utf8");
   const block = renderRuleBlock(
     weak.map((verdict) => ({ name: verdict.rule.name, setting: verdict.rule.setting })),
-    [
-      "Added by ever-better. Flat config is an array and later entries win, so this",
-      "block overrides whatever came before it. Everything above is untouched.",
-    ],
+    ["Added by ever-better. Flat config is an array and later entries win, so this", "block overrides whatever came before it. Everything above is untouched."],
   );
   const updated = appendConfigBlocks(original, block);
   if (!updated) {

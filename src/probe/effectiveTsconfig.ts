@@ -48,10 +48,7 @@ export type FlagVerdict = {
  * Pure: given what `tsc --showConfig` resolved to — which is the value after every `extends` and
  * every framework preset — which strictness flags are still off.
  */
-export const findMissingStrictness = (
-  shown: ShownConfig | null,
-  wanted: readonly StrictnessFlag[] = STRICTNESS_FLAGS,
-): FlagVerdict[] => {
+export const findMissingStrictness = (shown: ShownConfig | null, wanted: readonly StrictnessFlag[] = STRICTNESS_FLAGS): FlagVerdict[] => {
   if (!shown) return [];
   const options = shown.compilerOptions ?? {};
   return wanted.filter((flag) => !isEnabled(options[flag.name])).map((flag) => ({ flag }));

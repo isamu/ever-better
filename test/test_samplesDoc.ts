@@ -5,12 +5,7 @@ import { fileURLToPath } from "node:url";
 import { describe, it } from "node:test";
 import { renderSamplesDoc } from "../src/generate/samplesDoc.ts";
 
-const docPath = path.resolve(
-  path.dirname(fileURLToPath(import.meta.url)),
-  "..",
-  "docs",
-  "generated-config.md",
-);
+const docPath = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "docs", "generated-config.md");
 
 describe("docs/generated-config.md", () => {
   it("matches what the generators produce today", async () => {

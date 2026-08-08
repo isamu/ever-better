@@ -10,10 +10,7 @@ const byLinesDescending = (a: SourceFile, b: SourceFile): number => b.lines - a.
  * The `max-lines` backlog, known before the rule is ever switched on. Reporting it during diagnose
  * is what makes the limit tier an informed choice rather than a number copied from a blog post.
  */
-export const summarizeSizes = (
-  sourceFiles: readonly SourceFile[],
-  limit: number = DEFAULT_FILE_LINE_LIMIT,
-): SizeDistribution => {
+export const summarizeSizes = (sourceFiles: readonly SourceFile[], limit: number = DEFAULT_FILE_LINE_LIMIT): SizeDistribution => {
   const over = sourceFiles.filter((file) => file.lines > limit);
   return {
     total: sourceFiles.length,

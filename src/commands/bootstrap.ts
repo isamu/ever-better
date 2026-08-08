@@ -1,11 +1,6 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
-import {
-  describeAction,
-  planBootstrap,
-  PRETTIER_IGNORE_FILE,
-  type BootstrapAction,
-} from "../bootstrapPlan.ts";
+import { describeAction, planBootstrap, PRETTIER_IGNORE_FILE, type BootstrapAction } from "../bootstrapPlan.ts";
 import { installCommand } from "../detect/packageManager.ts";
 import { diagnose } from "../diagnose.ts";
 import { gatherFacts } from "../facts.ts";
@@ -37,25 +32,17 @@ const writeGeneratedFile = async (cwd: string, relativePath: string, contents: s
   await writeFile(target, contents, "utf8");
 };
 
-const addScripts = async (
-  cwd: string,
-  scripts: Readonly<Record<string, string>>,
-): Promise<void> => {
+const addScripts = async (cwd: string, scripts: Readonly<Record<string, string>>): Promise<void> => {
   const target = path.join(cwd, "package.json");
   const text = await readFile(target, "utf8");
   const parsed: unknown = JSON.parse(text);
-  if (typeof parsed !== "object" || parsed === null)
-    throw new Error("package.json is not an object");
+  if (typeof parsed !== "object" || parsed === null) throw new Error("package.json is not an object");
   const existing = "scripts" in parsed && typeof parsed.scripts === "object" ? parsed.scripts : {};
   const updated = { ...parsed, scripts: { ...existing, ...scripts } };
   await writeFile(target, `${JSON.stringify(updated, null, 2)}\n`, "utf8");
 };
 
-const runInstall = async (
-  cwd: string,
-  manager: PackageManager,
-  packages: readonly string[],
-): Promise<void> => {
+const runInstall = async (cwd: string, manager: PackageManager, packages: readonly string[]): Promise<void> => {
   const command = installCommand(manager, packages).split(" ");
   const [binary, ...args] = command;
   if (!binary) throw new Error("empty install command");
@@ -67,11 +54,7 @@ const runInstall = async (
   }
 };
 
-const applyAction = async (
-  cwd: string,
-  manager: PackageManager,
-  action: BootstrapAction,
-): Promise<void> => {
+const applyAction = async (cwd: string, manager: PackageManager, action: BootstrapAction): Promise<void> => {
   if (action.kind === "install") return runInstall(cwd, manager, action.packages);
   if (action.kind === "addScripts") return addScripts(cwd, action.scripts);
   return writeGeneratedFile(cwd, action.path, action.contents);
@@ -92,14 +75,8 @@ export const runBootstrap = async (options: BootstrapOptions): Promise<string> =
 
   const lines = actions.map((action) => `  ${describeAction(action)}`);
   if (options.dryRun) {
-    const preview =
-      actions.length === 0 ? ["Nothing to install or generate."] : ["Would apply:", ...lines];
-    return [
-      ...preview,
-      "",
-      "Strictness is measured on a real run.",
-      "Re-run without --dry-run.",
-    ].join("\n");
+    const preview = actions.length === 0 ? ["Nothing to install or generate."] : ["Would apply:", ...lines];
+    return [...preview, "", "Strictness is measured on a real run.", "Re-run without --dry-run."].join("\n");
   }
 
   for (const action of actions) {
@@ -111,11 +88,7 @@ export const runBootstrap = async (options: BootstrapOptions): Promise<string> =
   const strictness = await applyStrictness(options.cwd, facts.sourceFiles);
 
   // Only meaningful when the repo brought its own config: a generated one already has every tier.
-  const strengthened = await strengthenEslintConfig(
-    options.cwd,
-    facts.rootEntries,
-    facts.sourceFiles,
-  );
+  const strengthened = await strengthenEslintConfig(options.cwd, facts.rootEntries, facts.sourceFiles);
 
   const after = diagnose(await gatherFacts(options.cwd));
   const previous = (await readState(options.cwd)) ?? emptyState();

@@ -31,8 +31,7 @@ const run = (command: string, args: readonly string[], cwd: string): Promise<Run
     );
   });
 
-const everBetter = (args: readonly string[], cwd: string) =>
-  run(process.execPath, [cli, ...args], cwd);
+const everBetter = (args: readonly string[], cwd: string) => run(process.execPath, [cli, ...args], cwd);
 
 const MESSY_SOURCE = `export const parse = (input: any) => {
   const out: any = {};
@@ -72,10 +71,7 @@ describe("lifecycle", { timeout: TIMEOUT_MS }, () => {
     repo = await mkdtemp(path.join(tmpdir(), "ever-better-e2e-"));
     await mkdir(path.join(repo, "src"), { recursive: true });
     await run("git", ["init", "-q", "."], repo);
-    await writeFile(
-      path.join(repo, "package.json"),
-      `${JSON.stringify({ name: "e2e-fixture", private: true, version: "1.0.0", type: "module" }, null, 2)}\n`,
-    );
+    await writeFile(path.join(repo, "package.json"), `${JSON.stringify({ name: "e2e-fixture", private: true, version: "1.0.0", type: "module" }, null, 2)}\n`);
     await writeFile(
       path.join(repo, "tsconfig.json"),
       `${JSON.stringify(
@@ -108,14 +104,9 @@ describe("lifecycle", { timeout: TIMEOUT_MS }, () => {
   it("bootstraps a working toolchain", async () => {
     const result = await everBetter(["bootstrap"], repo);
     assert.equal(result.code, 0, result.stderr);
-    const lint = await run(path.join(repo, "node_modules", ".bin", "eslint"), ["."], repo).catch(
-      () => null,
-    );
+    const lint = await run(path.join(repo, "node_modules", ".bin", "eslint"), ["."], repo).catch(() => null);
     // 1 means violations found — the config loaded and the rules ran, which is the point.
-    assert.ok(
-      lint !== null && lint.code < 2,
-      `eslint could not run: ${lint?.stderr ?? "spawn failed"}`,
-    );
+    assert.ok(lint !== null && lint.code < 2, `eslint could not run: ${lint?.stderr ?? "spawn failed"}`);
   });
 
   it("freezes today's violations as the ceiling", async () => {
@@ -148,19 +139,13 @@ describe("lifecycle", { timeout: TIMEOUT_MS }, () => {
     const backlogBefore = Number(/backlog\s+(\d+)/.exec(before.stdout)?.[1] ?? "0");
     assert.ok(backlogBefore > 0, "fixture should start with a backlog");
 
-    await writeFile(
-      path.join(repo, "src", "messy.ts"),
-      MESSY_SOURCE.replace(/export const deep[\s\S]*$/, ""),
-    );
+    await writeFile(path.join(repo, "src", "messy.ts"), MESSY_SOURCE.replace(/export const deep[\s\S]*$/, ""));
     const pruned = await everBetter(["prune"], repo);
     assert.equal(pruned.code, 0, pruned.stderr);
 
     const after = await everBetter(["status"], repo);
     const backlogAfter = Number(/backlog\s+(\d+)/.exec(after.stdout)?.[1] ?? "0");
-    assert.ok(
-      backlogAfter < backlogBefore,
-      `ceiling did not fall: ${backlogBefore} -> ${backlogAfter}`,
-    );
+    assert.ok(backlogAfter < backlogBefore, `ceiling did not fall: ${backlogBefore} -> ${backlogAfter}`);
   });
 
   it("refuses a second freeze, which would forgive everything added since", async () => {

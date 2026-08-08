@@ -7,14 +7,7 @@ export type MigrationPlan = {
   cycles: string[][];
 };
 
-const visit = (
-  file: string,
-  graph: ImportGraph,
-  done: Set<string>,
-  stack: Set<string>,
-  order: string[],
-  cycles: string[][],
-): void => {
+const visit = (file: string, graph: ImportGraph, done: Set<string>, stack: Set<string>, order: string[], cycles: string[][]): void => {
   if (done.has(file)) return;
   if (stack.has(file)) {
     cycles.push([...stack].slice([...stack].indexOf(file)));

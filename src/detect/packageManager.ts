@@ -20,10 +20,7 @@ const fromPackageManagerField = (field: string | undefined): PackageManager | nu
  * A repo can carry more than one lockfile after a migration, so the `packageManager` field wins
  * when present — it is the one a human declared rather than one a tool left behind.
  */
-export const detectPackageManager = (
-  rootEntries: readonly string[],
-  packageJson: PackageJson | null,
-): PackageManager => {
+export const detectPackageManager = (rootEntries: readonly string[], packageJson: PackageJson | null): PackageManager => {
   const declared = fromPackageManagerField(packageJson?.packageManager);
   if (declared) return declared;
   const found = LOCKFILES.find(([lockfile]) => rootEntries.includes(lockfile));

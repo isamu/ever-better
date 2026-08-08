@@ -44,10 +44,7 @@ export type RuleEntry = {
   setting: string;
 };
 
-export const renderRuleBlock = (
-  entries: readonly RuleEntry[],
-  comment: readonly string[],
-): string[] => [
+export const renderRuleBlock = (entries: readonly RuleEntry[], comment: readonly string[]): string[] => [
   "  {",
   ...comment.map((line) => `    // ${line}`),
   "    rules: {",

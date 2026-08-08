@@ -4,8 +4,7 @@ import type { CiCoverage, WorkflowFile } from "../types.ts";
 // FILENAMES like `windows-daily.yaml` and reported a runner the repo never used.
 const RUNNER_PATTERN = /(?:ubuntu|macos|windows)-(?:latest|\d[\w.]*)/g;
 
-const mentions = (content: string, script: string): boolean =>
-  new RegExp(`(yarn|npm run|pnpm|bun run)\\s+${script}\\b`).test(content);
+const mentions = (content: string, script: string): boolean => new RegExp(`(yarn|npm run|pnpm|bun run)\\s+${script}\\b`).test(content);
 
 /**
  * Read as text rather than parsed YAML on purpose: `runs-on` may be a matrix expression, a string,
@@ -14,9 +13,7 @@ const mentions = (content: string, script: string): boolean =>
  */
 export const detectCi = (workflows: readonly WorkflowFile[]): CiCoverage => {
   const combined = workflows.map((workflow) => workflow.content).join("\n");
-  const runners = [...new Set(combined.match(RUNNER_PATTERN) ?? [])].sort((a, b) =>
-    a.localeCompare(b),
-  );
+  const runners = [...new Set(combined.match(RUNNER_PATTERN) ?? [])].sort((a, b) => a.localeCompare(b));
   return {
     present: workflows.length > 0,
     runners,

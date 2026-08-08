@@ -5,19 +5,12 @@ import { fileURLToPath } from "node:url";
 import { describe, it } from "node:test";
 import { ACTION_VERSIONS, DEFAULT_NODE_VERSION } from "../src/generate/actionVersions.ts";
 
-const workflowDir = path.resolve(
-  path.dirname(fileURLToPath(import.meta.url)),
-  "..",
-  ".github",
-  "workflows",
-);
+const workflowDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", ".github", "workflows");
 
 const ownWorkflows = async (): Promise<string> => {
   const names = await readdir(workflowDir);
   const contents = await Promise.all(
-    names
-      .filter((name) => name.endsWith(".yml") || name.endsWith(".yaml"))
-      .map((name) => readFile(path.join(workflowDir, name), "utf8")),
+    names.filter((name) => name.endsWith(".yml") || name.endsWith(".yaml")).map((name) => readFile(path.join(workflowDir, name), "utf8")),
   );
   return contents.join("\n");
 };

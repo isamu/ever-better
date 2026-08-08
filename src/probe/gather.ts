@@ -10,8 +10,7 @@ export type Probes = {
   tsconfig: ShownConfig | null;
 };
 
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === "object" && value !== null && !Array.isArray(value);
+const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null && !Array.isArray(value);
 
 const parseObject = (text: string): Record<string, unknown> | null => {
   try {
@@ -28,9 +27,7 @@ const parseObject = (text: string): Record<string, unknown> | null => {
  * where the type-aware rules apply at all.
  */
 export const sampleSourceFile = (sourceFiles: readonly SourceFile[]): SourceFile | null => {
-  const candidates = sourceFiles.filter(
-    (file) => !file.path.endsWith(".d.ts") && !file.path.includes("test"),
-  );
+  const candidates = sourceFiles.filter((file) => !file.path.endsWith(".d.ts") && !file.path.includes("test"));
   const typed = candidates.filter((file) => file.ext === "ts" || file.ext === "tsx");
   return typed[0] ?? candidates[0] ?? sourceFiles[0] ?? null;
 };
@@ -47,10 +44,7 @@ const probeTsconfig = async (cwd: string): Promise<ShownConfig | null> => {
 };
 
 /** Both probes shell out, both tolerate absence, and neither is fatal. */
-export const gatherProbes = async (
-  cwd: string,
-  sourceFiles: readonly SourceFile[],
-): Promise<Probes> => {
+export const gatherProbes = async (cwd: string, sourceFiles: readonly SourceFile[]): Promise<Probes> => {
   const sample = sampleSourceFile(sourceFiles);
   return {
     rules: sample ? await printConfig(cwd, sample.path) : null,

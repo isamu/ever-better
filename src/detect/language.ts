@@ -25,10 +25,7 @@ export const typescriptFileRatio = (sourceFiles: readonly SourceFile[]): number 
  * remains that the type-aware rules cover only part of the codebase. That gap is what the JS→TS
  * migration phase closes, and it is invisible if you only check whether a tsconfig exists.
  */
-export const detectLanguageMode = (
-  hasTsconfig: boolean,
-  sourceFiles: readonly SourceFile[],
-): LanguageMode => {
+export const detectLanguageMode = (hasTsconfig: boolean, sourceFiles: readonly SourceFile[]): LanguageMode => {
   if (!hasTsconfig) return "javascript";
   return typescriptFileRatio(sourceFiles) >= MIXED_THRESHOLD ? "typescript" : "mixed";
 };

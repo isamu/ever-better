@@ -31,10 +31,7 @@ const rulesTable = (rules: Readonly<Record<string, RuleBaseline>>): string[] => 
   return [
     "| Rule | Ceiling | Now | Change | Status |",
     "| --- | ---: | ---: | ---: | --- |",
-    ...rows.map(
-      ([name, rule]) =>
-        `| \`${name}\` | ${rule.baseline} | ${rule.current} | ${delta(rule)} | ${STATUS_LABEL[rule.status] ?? rule.status} |`,
-    ),
+    ...rows.map(([name, rule]) => `| \`${name}\` | ${rule.baseline} | ${rule.current} | ${delta(rule)} | ${STATUS_LABEL[rule.status] ?? rule.status} |`),
     "",
   ];
 };
@@ -58,9 +55,7 @@ const gapsChecklist = (gaps: readonly Gap[]): string[] => {
   return byPhase.flatMap((phase) => [
     `### ${phase}`,
     "",
-    ...gaps
-      .filter((gap) => gap.phase === phase)
-      .map((gap) => `- [ ] **${gap.title}** — ${gap.detail}`),
+    ...gaps.filter((gap) => gap.phase === phase).map((gap) => `- [ ] **${gap.title}** — ${gap.detail}`),
     "",
   ]);
 };
@@ -75,8 +70,7 @@ const shortCommit = (commit: string | null): string => (commit ? commit.slice(0,
  */
 const rulePrefix = (rule: string | undefined): string => (rule ? `\`${rule}\` — ` : "");
 
-const provenance = (entry: LogEntry): string =>
-  `_(${entry.at.slice(0, 10)}, ${shortCommit(entry.commit)})_`;
+const provenance = (entry: LogEntry): string => `_(${entry.at.slice(0, 10)}, ${shortCommit(entry.commit)})_`;
 
 const carriedOver = (state: State): string[] => {
   const deferred = logOfKind(state, "deferred");
@@ -86,37 +80,21 @@ const carriedOver = (state: State): string[] => {
     "",
     "Refactors left undone, with the commit each was seen at. Re-check before acting on an old one.",
     "",
-    ...deferred.map(
-      (entry) => `- [ ] ${rulePrefix(entry.rule)}${entry.text}  ${provenance(entry)}`,
-    ),
+    ...deferred.map((entry) => `- [ ] ${rulePrefix(entry.rule)}${entry.text}  ${provenance(entry)}`),
     "",
   ];
 };
 
-const logRow = (entry: LogEntry): string =>
-  `| ${entry.at.slice(0, 10)} | ${shortCommit(entry.commit)} | ${entry.kind} | ${entry.rule ?? ""} | ${entry.text} |`;
+const logRow = (entry: LogEntry): string => `| ${entry.at.slice(0, 10)} | ${shortCommit(entry.commit)} | ${entry.kind} | ${entry.rule ?? ""} | ${entry.text} |`;
 
 const workLog = (state: State): string[] => {
   const entries = (state.log ?? []).slice(-LOG_ENTRIES_SHOWN).reverse();
   if (entries.length === 0) return [];
-  return [
-    "## Work log",
-    "",
-    "| Date | Commit | Kind | Rule | What |",
-    "| --- | --- | --- | --- | --- |",
-    ...entries.map(logRow),
-    "",
-  ];
+  return ["## Work log", "", "| Date | Commit | Kind | Rule | What |", "| --- | --- | --- | --- | --- |", ...entries.map(logRow), ""];
 };
 
 const freshnessBanner = (freshness: Freshness): string[] =>
-  freshness.stale
-    ? [
-        `> **The diagnosis below is stale** — ${freshness.reason}.`,
-        "> Numbers and file names may describe code that has since moved.",
-        "",
-      ]
-    : [];
+  freshness.stale ? [`> **The diagnosis below is stale** — ${freshness.reason}.`, "> Numbers and file names may describe code that has since moved.", ""] : [];
 
 const headline = (state: State): string[] => {
   const regressions = findRegressions(state);

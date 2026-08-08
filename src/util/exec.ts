@@ -22,21 +22,14 @@ export type ExecOptions = {
   shell?: boolean;
 };
 
-export const exec = async (
-  command: string,
-  args: readonly string[],
-  cwd: string,
-  options: ExecOptions = {},
-): Promise<ExecResult> =>
+export const exec = async (command: string, args: readonly string[], cwd: string, options: ExecOptions = {}): Promise<ExecResult> =>
   new Promise((resolve, reject) => {
     const child = spawn(command, [...args], { cwd, shell: options.shell ?? false });
     const out: Buffer[] = [];
     const err: Buffer[] = [];
     child.stdout.on("data", (chunk: Buffer) => collect(out, chunk, `${command} stdout`));
     child.stderr.on("data", (chunk: Buffer) => collect(err, chunk, `${command} stderr`));
-    child.on("error", (cause: Error) =>
-      reject(new Error(`failed to run \`${command}\` in ${cwd}: ${cause.message}`, { cause })),
-    );
+    child.on("error", (cause: Error) => reject(new Error(`failed to run \`${command}\` in ${cwd}: ${cause.message}`, { cause })));
     child.on("close", (code) =>
       resolve({
         code: code ?? 1,

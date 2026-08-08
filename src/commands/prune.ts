@@ -20,11 +20,7 @@ export const runPrune = async (options: PruneOptions): Promise<string> => {
   const after = await readSuppressionTotal(options.cwd);
 
   const counts = await runRuleCounts(options.cwd);
-  const state = applyRuleCounts(
-    (await readState(options.cwd)) ?? emptyState(),
-    counts.suppressed,
-    "freeze",
-  );
+  const state = applyRuleCounts((await readState(options.cwd)) ?? emptyState(), counts.suppressed, "freeze");
   await writeState(options.cwd, state);
   await writeQualityFile(options.cwd, state);
 

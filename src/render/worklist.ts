@@ -10,8 +10,7 @@ export type WorklistItem = {
 
 const NEXT_RULES_SHOWN = 5;
 
-const openBootstrapGaps = (state: State): number =>
-  (state.diagnosis?.gaps ?? []).filter((gap) => gap.phase === "bootstrap").length;
+const openBootstrapGaps = (state: State): number => (state.diagnosis?.gaps ?? []).filter((gap) => gap.phase === "bootstrap").length;
 
 const smallestBacklogs = (state: State): string[] =>
   Object.entries(state.rules)
@@ -70,7 +69,4 @@ const checkbox = (done: boolean): string => (done ? "[x]" : "[ ]");
 const suffix = (detail: string | undefined): string => (detail ? ` — ${detail}` : "");
 
 export const renderWorklist = (items: readonly WorklistItem[]): string[] =>
-  items.flatMap((item) => [
-    `- ${checkbox(item.done)} **${item.label}**${suffix(item.detail)}`,
-    ...(item.children ?? []).map((child) => `  - [ ] ${child}`),
-  ]);
+  items.flatMap((item) => [`- ${checkbox(item.done)} **${item.label}**${suffix(item.detail)}`, ...(item.children ?? []).map((child) => `  - [ ] ${child}`)]);

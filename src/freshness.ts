@@ -48,11 +48,7 @@ export const assessFreshness = (input: FreshnessInput): Freshness => {
       reason: `${input.commitsSince} commits since the diagnosis; re-run diagnose before trusting it`,
     };
   }
-  if (
-    input.headCommit &&
-    input.headCommit !== input.diagnosedCommit &&
-    input.commitsSince === null
-  ) {
+  if (input.headCommit && input.headCommit !== input.diagnosedCommit && input.commitsSince === null) {
     return { stale: true, reason: "HEAD moved since the diagnosis and the distance is unknown" };
   }
   return { stale: false, reason: "current" };

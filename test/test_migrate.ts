@@ -7,11 +7,7 @@ const known = (...files: string[]) => new Set(files);
 
 describe("resolveLocalImports", () => {
   it("resolves a relative import to a file in the repo", () => {
-    const found = resolveLocalImports(
-      "src/a.js",
-      'import { x } from "./b.js";\n',
-      known("src/a.js", "src/b.js"),
-    );
+    const found = resolveLocalImports("src/a.js", 'import { x } from "./b.js";\n', known("src/a.js", "src/b.js"));
     assert.deepEqual(found, ["src/b.js"]);
   });
 
@@ -21,29 +17,17 @@ describe("resolveLocalImports", () => {
   });
 
   it("resolves a directory to its index", () => {
-    const found = resolveLocalImports(
-      "src/a.js",
-      'import x from "./util";\n',
-      known("src/util/index.js"),
-    );
+    const found = resolveLocalImports("src/a.js", 'import x from "./util";\n', known("src/util/index.js"));
     assert.deepEqual(found, ["src/util/index.js"]);
   });
 
   it("follows require as well as import", () => {
-    const found = resolveLocalImports(
-      "src/a.js",
-      'const b = require("./b.js");\n',
-      known("src/b.js"),
-    );
+    const found = resolveLocalImports("src/a.js", 'const b = require("./b.js");\n', known("src/b.js"));
     assert.deepEqual(found, ["src/b.js"]);
   });
 
   it("follows a re-export", () => {
-    const found = resolveLocalImports(
-      "src/a.js",
-      'export { x } from "./b.js";\n',
-      known("src/b.js"),
-    );
+    const found = resolveLocalImports("src/a.js", 'export { x } from "./b.js";\n', known("src/b.js"));
     assert.deepEqual(found, ["src/b.js"]);
   });
 
@@ -53,11 +37,7 @@ describe("resolveLocalImports", () => {
   });
 
   it("ignores a relative specifier pointing outside the repo", () => {
-    const found = resolveLocalImports(
-      "src/a.js",
-      'import x from "./missing.js";\n',
-      known("src/a.js"),
-    );
+    const found = resolveLocalImports("src/a.js", 'import x from "./missing.js";\n', known("src/a.js"));
     assert.deepEqual(found, []);
   });
 

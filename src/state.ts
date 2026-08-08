@@ -22,12 +22,7 @@ export type BaselineMode = "observe" | "freeze" | "rebaseline";
 const statePath = (cwd: string): string => path.join(cwd, STATE_DIR, STATE_FILE);
 
 const isState = (value: unknown): value is State =>
-  typeof value === "object" &&
-  value !== null &&
-  "version" in value &&
-  value.version === 1 &&
-  "rules" in value &&
-  "counters" in value;
+  typeof value === "object" && value !== null && "version" in value && value.version === 1 && "rules" in value && "counters" in value;
 
 export const emptyState = (): State => ({
   version: 1,
@@ -66,11 +61,7 @@ export const writeState = async (cwd: string, state: State): Promise<void> => {
   await writeFile(statePath(cwd), `${JSON.stringify(stamped, null, 2)}\n`, "utf8");
 };
 
-export const withDiagnosis = (
-  state: State,
-  diagnosis: Diagnosis,
-  commit: string | null,
-): State => ({
+export const withDiagnosis = (state: State, diagnosis: Diagnosis, commit: string | null): State => ({
   ...state,
   diagnosis,
   diagnosedAt: new Date().toISOString(),
@@ -85,25 +76,16 @@ export const appendLog = (state: State, entry: Omit<LogEntry, "at">): State => (
   log: [...(state.log ?? []), { ...entry, at: new Date().toISOString() }].slice(-MAX_LOG_ENTRIES),
 });
 
-export const logOfKind = (state: State, kind: LogKind): LogEntry[] =>
-  (state.log ?? []).filter((entry) => entry.kind === kind);
+export const logOfKind = (state: State, kind: LogKind): LogEntry[] => (state.log ?? []).filter((entry) => entry.kind === kind);
 
 export const withPhase = (state: State, phase: Phase): State => ({ ...state, phase });
 
-export const nextBaseline = (
-  existing: number | undefined,
-  current: number,
-  mode: BaselineMode,
-): number => {
+export const nextBaseline = (existing: number | undefined, current: number, mode: BaselineMode): number => {
   if (existing === undefined || mode === "rebaseline") return current;
   return mode === "freeze" ? Math.min(existing, current) : existing;
 };
 
-export const applyRuleCounts = (
-  state: State,
-  counts: Readonly<Record<string, number>>,
-  mode: BaselineMode,
-): State => {
+export const applyRuleCounts = (state: State, counts: Readonly<Record<string, number>>, mode: BaselineMode): State => {
   const names = new Set([...Object.keys(state.rules), ...Object.keys(counts)]);
   const rules: Record<string, RuleBaseline> = {};
   for (const name of names) {
@@ -118,12 +100,7 @@ export const applyRuleCounts = (
   return { ...state, rules };
 };
 
-export const setCounter = (
-  state: State,
-  name: string,
-  current: number,
-  mode: BaselineMode,
-): State => {
+export const setCounter = (state: State, name: string, current: number, mode: BaselineMode): State => {
   const counter: Counter = {
     baseline: nextBaseline(state.counters[name]?.baseline, current, mode),
     current,
@@ -143,13 +120,10 @@ export const findRegressions = (state: State): Regression[] => {
     ...Object.entries(state.rules).map(([name, rule]) => ({ name, ...rule })),
     ...Object.entries(state.counters).map(([name, counter]) => ({ name, ...counter })),
   ];
-  return entries
-    .filter((entry) => entry.current > entry.baseline)
-    .map(({ name, baseline, current }) => ({ name, baseline, current }));
+  return entries.filter((entry) => entry.current > entry.baseline).map(({ name, baseline, current }) => ({ name, baseline, current }));
 };
 
-export const totalViolations = (state: State): number =>
-  Object.values(state.rules).reduce((sum, rule) => sum + rule.current, 0);
+export const totalViolations = (state: State): number => Object.values(state.rules).reduce((sum, rule) => sum + rule.current, 0);
 
 export const improvements = (state: State): Regression[] =>
   Object.entries(state.rules)

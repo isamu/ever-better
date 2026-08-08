@@ -52,8 +52,7 @@ export const frameworkIgnores = (framework: Framework): string[] => {
  * whose typecheck script says `tsc --noEmit` is checking the `.ts` files and silently skipping
  * every component.
  */
-export const typecheckCommand = (framework: Framework): string =>
-  framework === "vue" || framework === "nuxt" ? "vue-tsc --noEmit" : "tsc --noEmit";
+export const typecheckCommand = (framework: Framework): string => (framework === "vue" || framework === "nuxt" ? "vue-tsc --noEmit" : "tsc --noEmit");
 
 /** True when the generator has no rules for this framework's own file type. */
 export const hasUncoveredFileType = (framework: Framework, sourceFiles: readonly SourceFile[]) => {

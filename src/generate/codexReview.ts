@@ -106,5 +106,4 @@ const REVIEW_STEP = [
  * A second model reading the diff. The point is not that it is better than the first — it is that
  * it is different, and two reviewers with the same blind spot find the same nothing.
  */
-export const renderCodexReviewWorkflow = (nodeVersion: string): string =>
-  [...HEADER, ...KEY_CHECK, ...setupSteps(nodeVersion), ...REVIEW_STEP].join("\n");
+export const renderCodexReviewWorkflow = (nodeVersion: string): string => [...HEADER, ...KEY_CHECK, ...setupSteps(nodeVersion), ...REVIEW_STEP].join("\n");

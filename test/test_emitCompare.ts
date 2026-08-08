@@ -44,19 +44,13 @@ describe("describeComparison", () => {
   });
 
   it("points at the files to look at when something did move", () => {
-    const message = describeComparison(
-      compareEmit([file("a.js", "1")], [file("a.js", "2")]),
-      "main",
-    );
+    const message = describeComparison(compareEmit([file("a.js", "1")], [file("a.js", "2")]), "main");
     assert.match(message, /differs from main/);
     assert.match(message, /a\.js/);
   });
 
   it("omits a section that has nothing in it", () => {
-    const message = describeComparison(
-      compareEmit([file("a.js", "1")], [file("a.js", "2")]),
-      "HEAD",
-    );
+    const message = describeComparison(compareEmit([file("a.js", "1")], [file("a.js", "2")]), "HEAD");
     assert.ok(!message.includes("added:"));
     assert.ok(!message.includes("removed:"));
   });
