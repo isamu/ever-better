@@ -13,6 +13,10 @@ export type PrintedConfig = {
 export type HighValueRule = {
   name: string;
   why: string;
+  /** What to set it to when strengthening a config that already exists. */
+  setting: string;
+  /** Needs a type program. Setting one without `project`/`projectService` makes ESLint fatal. */
+  typeAware?: boolean;
 };
 
 /**
@@ -21,41 +25,87 @@ export type HighValueRule = {
  * was already strict.
  */
 export const HIGH_VALUE_RULES: readonly HighValueRule[] = [
-  { name: "@typescript-eslint/no-explicit-any", why: "`any` switches off every other type rule" },
+  {
+    name: "@typescript-eslint/no-explicit-any",
+    why: "`any` switches off every other type rule",
+    setting: '"error"',
+  },
   {
     name: "@typescript-eslint/no-unsafe-assignment",
     why: "unvalidated JSON and API responses flow in as `any`",
+    setting: '"error"',
+    typeAware: true,
   },
-  { name: "@typescript-eslint/no-unsafe-member-access", why: "reads through an unchecked `any`" },
-  { name: "@typescript-eslint/no-unsafe-call", why: "calls through an unchecked `any`" },
-  { name: "@typescript-eslint/no-unsafe-return", why: "leaks `any` back out to callers" },
-  { name: "@typescript-eslint/no-unsafe-argument", why: "passes `any` into a typed parameter" },
-  { name: "@typescript-eslint/no-floating-promises", why: "a forgotten await fails silently" },
+  {
+    name: "@typescript-eslint/no-unsafe-member-access",
+    why: "reads through an unchecked `any`",
+    setting: '"error"',
+    typeAware: true,
+  },
+  {
+    name: "@typescript-eslint/no-unsafe-call",
+    why: "calls through an unchecked `any`",
+    setting: '"error"',
+    typeAware: true,
+  },
+  {
+    name: "@typescript-eslint/no-unsafe-return",
+    why: "leaks `any` back out to callers",
+    setting: '"error"',
+    typeAware: true,
+  },
+  {
+    name: "@typescript-eslint/no-unsafe-argument",
+    why: "passes `any` into a typed parameter",
+    setting: '"error"',
+    typeAware: true,
+  },
+  {
+    name: "@typescript-eslint/no-floating-promises",
+    why: "a forgotten await fails silently",
+    setting: '"error"',
+    typeAware: true,
+  },
   {
     name: "@typescript-eslint/no-misused-promises",
     why: "an async callback where none is awaited",
+    setting: '"error"',
+    typeAware: true,
   },
-  { name: "@typescript-eslint/await-thenable", why: "awaiting a non-promise hides a missing call" },
+  {
+    name: "@typescript-eslint/await-thenable",
+    why: "awaiting a non-promise hides a missing call",
+    setting: '"error"',
+    typeAware: true,
+  },
   {
     name: "@typescript-eslint/consistent-type-assertions",
     why: "`as` asserts what the compiler could not check; it lives in the stylistic preset, not strict",
+    setting: '["error", { assertionStyle: "never" }]',
   },
-  { name: "@typescript-eslint/no-non-null-assertion", why: "`!` is an unchecked claim" },
+  {
+    name: "@typescript-eslint/no-non-null-assertion",
+    why: "`!` is an unchecked claim",
+    setting: '"error"',
+  },
   {
     name: "sonarjs/cognitive-complexity",
     why: "how hard a function is for a human, not a machine",
+    setting: '["error", 15]',
   },
   {
     name: "max-lines-per-function",
     why: "the guard that keeps a function comprehensible at a glance",
+    setting: '["error", { max: 60, skipBlankLines: true, skipComments: true }]',
   },
   {
     name: "max-lines",
     why: "per-file size; the per-function guards pass while a file reaches 2000 lines",
+    setting: '["error", { max: 600, skipBlankLines: true, skipComments: true }]',
   },
-  { name: "complexity", why: "branch count" },
-  { name: "max-depth", why: "nesting" },
-  { name: "max-params", why: "argument count" },
+  { name: "complexity", why: "branch count", setting: '["error", 20]' },
+  { name: "max-depth", why: "nesting", setting: '["error", 4]' },
+  { name: "max-params", why: "argument count", setting: '["error", 6]' },
 ];
 
 const OFF_LEVELS = new Set<number | string>([0, "off"]);

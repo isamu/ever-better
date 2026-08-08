@@ -12,6 +12,7 @@ import { gatherFacts } from "../facts.ts";
 import { headCommit } from "../git.ts";
 import { writeQualityFile } from "../qualityFile.ts";
 import { emptyState, readState, withDiagnosis, withPhase, writeState } from "../state.ts";
+import { strengthenEslintConfig } from "./strengthen.ts";
 import { applyStrictness } from "./strictness.ts";
 import { exec } from "../util/exec.ts";
 import type { PackageManager } from "../types.ts";
@@ -109,6 +110,13 @@ export const runBootstrap = async (options: BootstrapOptions): Promise<string> =
   // nothing to measure against until it is.
   const strictness = await applyStrictness(options.cwd, facts.sourceFiles);
 
+  // Only meaningful when the repo brought its own config: a generated one already has every tier.
+  const strengthened = await strengthenEslintConfig(
+    options.cwd,
+    facts.rootEntries,
+    facts.sourceFiles,
+  );
+
   const after = diagnose(await gatherFacts(options.cwd));
   const previous = (await readState(options.cwd)) ?? emptyState();
   const state = withPhase(withDiagnosis(previous, after, await headCommit(options.cwd)), "freeze");
@@ -122,6 +130,8 @@ export const runBootstrap = async (options: BootstrapOptions): Promise<string> =
     ...lines,
     "",
     strictness.message,
+    "",
+    strengthened.message,
     "",
     "Next: `ever-better freeze` to pin the baseline.",
   ].join("\n");
