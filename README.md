@@ -10,25 +10,29 @@ English | [日本語](README.ja.md)
 
 Make an existing codebase one that can **only get better**.
 
-Point it at a repository. It reports what quality tooling is missing, installs it, and records
-every violation that exists today as a ceiling. From that commit on, old code is grandfathered and
-new code is held to the whole rule set — and the ceiling can fall but never rise.
+It reports what quality tooling a repository is missing, installs it, and records every violation
+that exists today as a ceiling. From that commit on, old code is grandfathered and new code is held
+to the whole rule set — and the ceiling can fall but never rise.
 
-```bash
-npx ever-better diagnose     # read-only: what is missing, and what each gap costs
-npx ever-better bootstrap    # install it, generate the configs
-npx ever-better freeze       # pin today's violations as the ceiling
-npx ever-better check        # CI gate: fail if anything rose
-npx ever-better prune        # after a fix: reclaim the ceiling you earned
+## How to use it: hand a repository to Claude Code
+
+This is the primary interface. Install the plugin once, from any Claude Code session:
+
+```
+/plugin marketplace add isamu/ever-better
+/plugin install ever-better
 ```
 
-## Hand it to Claude Code
-
-This is how it is meant to be used. Install the plugin, point Claude Code at a repository and say:
+Then `cd` into the repository you want improved, start Claude Code **there**, and say:
 
 ```
 run ever-better on this repo
 ```
+
+That is the whole setup. The target repository needs nothing prepared in advance, and you do not
+have to install the CLI — the skills reach it through `npx`.
+
+### What that one sentence does
 
 It diagnoses, installs what is missing, formats, freezes the baseline, then works the backlog down
 one rule per pull request — fixing violations, extracting the pure functions that make the fixes
@@ -42,15 +46,27 @@ be wrong for this repo. Each issue names the options and which one it would pick
 What arrives, in order: a formatting PR, a tooling PR, a freeze PR, then one PR per rule. On an
 untouched repository that is more than a handful — worth knowing before you start it.
 
-```
-/plugin marketplace add isamu/ever-better
-/plugin install ever-better
-```
+### Asking for less than the whole thing
 
-The skills are `ever-better-run` (the unattended loop above), `ever-better` (entry point and
-routing), `ever-better-bootstrap`, `ever-better-freeze`, `ever-better-drain`, `ever-better-dry`.
+The sentence above starts the unattended run. Ask for something narrower and it routes to the skill
+that covers it — you never name a skill yourself:
 
-The CLI below is what those skills call, and it works on its own if you would rather drive.
+| What you say | What runs |
+| --- | --- |
+| "run ever-better on this repo", "clean this repo up" | the whole process, unattended — `ever-better-run` |
+| "what would ever-better do here", "where do I start with this codebase" | diagnose and route one phase at a time — `ever-better` |
+| "set up the conventions", "CLAUDE.md を整えて" | `ever-better-prepare` |
+| "migrate this to TypeScript", "ts化して" | `ever-better-migrate` |
+| "set up linting here", "lint を入れて" | `ever-better-bootstrap` |
+| "freeze the baseline", "grandfather the existing violations" | `ever-better-freeze` |
+| "drain the backlog", "リファクタリングして" | `ever-better-drain` |
+| "remove the duplication", "dead code を消して" | `ever-better-dry` |
+
+### Reading this README to an agent is not the same thing
+
+Pointing Claude Code at this page gives it the commands, not the process — which violation is a
+real bug, what deserves an issue rather than a fix, when to stop and ask, what belongs in the work
+log. That part is the skills, and the skills arrive with the plugin.
 
 ## Why this exists
 
@@ -67,7 +83,17 @@ them, keeping a readable ledger of where you started, and failing CI when a numb
 
 It does not reimplement the ratchet. It is not a linter. It runs *your* ESLint, with *your* config.
 
-## Install
+## Driving the CLI yourself
+
+The skills above call this CLI, and it works on its own if you would rather drive.
+
+```bash
+npx ever-better diagnose     # read-only: what is missing, and what each gap costs
+npx ever-better bootstrap    # install it, generate the configs
+npx ever-better freeze       # pin today's violations as the ceiling
+npx ever-better check        # CI gate: fail if anything rose
+npx ever-better prune        # after a fix: reclaim the ceiling you earned
+```
 
 ```bash
 npm install -g ever-better     # or run it with npx, or yarn add --dev ever-better
@@ -245,13 +271,6 @@ but the gap list, the file sizes and every deferred note do.
 **Worklist** of phases as checkboxes with the smallest remaining rules as sub-items, **Carried
 over** for refactors deliberately not made, the **Ratchet** table, and a **Work log**. Anything you
 write between the `<!-- ever-better:notes:start -->` markers survives.
-
-## Claude Code plugin
-
-Covered at the top — the plugin is the primary interface, and the CLI is what it calls. The split
-is deliberate: the CLI does what must be identical on every run (detect, install, count, render,
-gate), and the skills do what needs judgment (is this warning a real bug, is this duplication or
-coincidence, what deserves an issue).
 
 ## The phases
 
