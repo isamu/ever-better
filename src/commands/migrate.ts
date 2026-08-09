@@ -1,10 +1,11 @@
-import { readdir, readFile, rename, writeFile } from "node:fs/promises";
+import { readdir, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { gatherFacts } from "../facts.ts";
 import { renderJsTsconfig } from "../generate/tsconfigJs.ts";
 import { buildGraph } from "../migrate/importGraph.ts";
 import { migratedName, planMigration } from "../migrate/order.ts";
 import { exec } from "../util/exec.ts";
+import { readSources } from "../util/sources.ts";
 import type { SourceFile } from "../types.ts";
 
 export type MigrateOptions = {
@@ -81,10 +82,9 @@ export const runMigrate = async (options: MigrateOptions): Promise<string> => {
   if (javascript.length === 0) return "No JavaScript left to migrate.";
 
   const created = await ensureTsconfig(options.cwd, facts.rootEntries);
-  const sources = new Map(
-    await Promise.all(
-      javascript.map(async (file): Promise<[string, string]> => [file.path, await readFile(path.join(options.cwd, file.path), "utf8").catch(() => "")]),
-    ),
+  const sources = await readSources(
+    options.cwd,
+    javascript.map((file) => file.path),
   );
   if (options.all) {
     if (!(await hasTypescript(options.cwd))) {

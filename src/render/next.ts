@@ -14,10 +14,19 @@ const overflow = (total: number, shown: number): string[] => (total > shown ? [`
 const section = (title: string, rows: readonly string[], total: number, shown: number): string[] =>
   rows.length === 0 ? [] : ["", title, ...rows, ...overflow(total, shown)];
 
+/**
+ * Only when `--fan-in` gathered it, and only above zero: printing "imported by 0" on every row of a
+ * repository that was never asked for the graph reads as a measurement rather than as an absence.
+ */
+const reach = (plan: DrainPlan, file: string): string => {
+  const importers = plan.importers[file];
+  return importers === undefined || importers === 0 ? "" : `  (imported by ${importers})`;
+};
+
 const takeFirstRows = (plan: DrainPlan): string[] => {
   const shown = plan.takeFirst.slice(0, FILES_SHOWN);
   const width = widestOf(shown.map((entry) => entry.file));
-  return shown.map((entry) => `  ${String(entry.count).padStart(3)}  ${entry.file.padEnd(width)}  ${entry.rule}`);
+  return shown.map((entry) => `  ${String(entry.count).padStart(3)}  ${entry.file.padEnd(width)}  ${entry.rule}${reach(plan, entry.file)}`);
 };
 
 const ruleRows = (plan: DrainPlan): string[] => {
@@ -35,7 +44,9 @@ const tailRows = (plan: DrainPlan): string[] => {
 
 const heavyRows = (plan: DrainPlan): string[] => {
   const width = widestOf(plan.heaviest.map((file) => plural(file.violations, "violation")));
-  return plan.heaviest.map((file) => `  ${plural(file.violations, "violation").padStart(width)} across ${plural(file.rules, "rule")}   ${file.file}`);
+  return plan.heaviest.map(
+    (file) => `  ${plural(file.violations, "violation").padStart(width)} across ${plural(file.rules, "rule")}   ${file.file}${reach(plan, file.file)}`,
+  );
 };
 
 const headline = (plan: DrainPlan): string =>

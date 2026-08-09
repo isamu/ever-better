@@ -108,6 +108,11 @@ while twenty edits at the sites delete twenty findings and leave the cause. In o
 is validation, not annotation), and anything on an exported signature. Those are the `deferred` and
 `issue` entries, not this PR.
 
+`npx ever-better next --fan-in` measures the first of those instead of guessing it — every row gains
+how many files import it, so "a dozen files read this type" is a number. It is a flag because it
+reads every source file, and it changes no ordering: a widely imported file is only expensive for
+the rules that move types, and that judgement is yours.
+
 **A rule ESLint can fix is not this work.** `no-var`, `prefer-const`, `no-else-return`,
 `sonarjs/no-collapsible-if` and Prettier are all fixable: take the whole rule in one command —
 `npx eslint . --fix --rule '{"<rule>":"error"}'` — read the diff, prune, commit. What is left over

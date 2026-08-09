@@ -41,6 +41,7 @@ Options
   --against <ref>   emit-diff: git ref to compare against (default: HEAD)
   --file <path>     migrate: the one file to rename (omit to see the plan)
   --all             migrate: rename every JavaScript file in one pass
+  --fan-in          next: also count how many files import each one (reads every source file)
 `;
 
 const OPTIONS = {
@@ -56,6 +57,7 @@ const OPTIONS = {
   against: { type: "string", default: "HEAD" },
   file: { type: "string" },
   all: { type: "boolean", default: false },
+  "fan-in": { type: "boolean", default: false },
   help: { type: "boolean", default: false },
 } as const;
 
@@ -71,6 +73,7 @@ type Flags = {
   against: string;
   file: string | undefined;
   all: boolean;
+  fanIn: boolean;
   rule: string | undefined;
   rest: string[];
 };
@@ -84,7 +87,7 @@ const ALWAYS_OK: Record<string, (flags: Flags) => Promise<string>> = {
   freeze: (flags) => runFreeze({ cwd: flags.cwd, force: flags.force }),
   prune: (flags) => runPrune({ cwd: flags.cwd }),
   status: (flags) => runStatus({ cwd: flags.cwd, json: flags.json }),
-  next: (flags) => runNext({ cwd: flags.cwd, json: flags.json }),
+  next: (flags) => runNext({ cwd: flags.cwd, json: flags.json, fanIn: flags.fanIn }),
   catalog: (flags) => runCatalog({ cwd: flags.cwd }),
   migrate: (flags) => runMigrate({ cwd: flags.cwd, file: flags.file ?? null, all: flags.all }),
   "emit-diff": (flags) => runEmitDiff({ cwd: flags.cwd, against: flags.against }),
@@ -135,6 +138,7 @@ const main = async (): Promise<number> => {
     against: values.against,
     file: values.file,
     all: values.all,
+    fanIn: values["fan-in"],
     rule: values.rule,
     rest: positionals.slice(1),
   };

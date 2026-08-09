@@ -53,6 +53,16 @@ const listFiles = async (cwd: string): Promise<string[]> => {
   return all.filter((relativePath) => !isIgnored(relativePath));
 };
 
+const sourcePathsOf = (files: readonly string[]): string[] =>
+  files.filter((file) => SOURCE_EXTENSIONS.has(extensionOf(file)) && !CONFIG_FILE_PATTERN.test(file));
+
+/**
+ * Which paths this tool treats as source. Exported so a caller that only needs the list — the
+ * import graph, say — does not pay for `gatherFacts`, which also counts every line and shells out
+ * to `eslint --print-config` and `tsc --showConfig`. Two entry points, one definition.
+ */
+export const listSourcePaths = async (cwd: string): Promise<string[]> => sourcePathsOf(await listFiles(cwd));
+
 const readPackageJson = async (cwd: string): Promise<PackageJson | null> => {
   try {
     const text = await readFile(path.join(cwd, "package.json"), "utf8");
@@ -84,8 +94,7 @@ const rootEntriesOf = (files: readonly string[]): string[] => files.filter((file
 /** The only function in the codebase that touches the filesystem for detection purposes. */
 export const gatherFacts = async (cwd: string): Promise<RepoFacts> => {
   const files = await listFiles(cwd);
-  const sourcePaths = files.filter((file) => SOURCE_EXTENSIONS.has(extensionOf(file)) && !CONFIG_FILE_PATTERN.test(file));
-  const sourceFiles = await Promise.all(sourcePaths.map((file) => toSourceFile(cwd, file)));
+  const sourceFiles = await Promise.all(sourcePathsOf(files).map((file) => toSourceFile(cwd, file)));
   return {
     cwd,
     rootEntries: rootEntriesOf(files),

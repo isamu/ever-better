@@ -40,6 +40,8 @@ export type DrainPlan = {
   rules: RuleSpread[];
   directoryTails: DirectoryTail[];
   heaviest: HeavyFile[];
+  /** Files in the backlog to how many files import them. Empty unless `--fan-in` asked for it. */
+  importers: Record<string, number>;
 };
 
 const groupBy = <T>(items: readonly T[], key: (item: T) => string): Map<string, T[]> => {
@@ -115,10 +117,11 @@ export const heaviestFiles = (entries: readonly Suppression[], limit: number = H
     .sort((a, b) => b.violations - a.violations || b.rules - a.rules || a.file.localeCompare(b.file))
     .slice(0, limit);
 
-export const buildDrainPlan = (entries: readonly Suppression[]): DrainPlan => ({
+export const buildDrainPlan = (entries: readonly Suppression[], importers: Record<string, number> = {}): DrainPlan => ({
   totals: totalsOf(entries),
   takeFirst: cheapestFirst(entries),
   rules: ruleSpread(entries),
   directoryTails: directoryTails(entries),
   heaviest: heaviestFiles(entries),
+  importers,
 });
