@@ -28,8 +28,9 @@ export const runStatus = async (options: StatusOptions): Promise<string> => {
     `improved   ${improvements(state).length} rules`,
     `regressed  ${findRegressions(state).length} rules`,
     "",
-    draining.length > 0 ? "smallest remaining backlogs (drain these first):" : "backlog is empty.",
+    draining.length > 0 ? "smallest remaining backlogs:" : "backlog is empty.",
     ...draining.map(([name, rule]) => `  ${rule.current}  ${name}`),
+    ...(draining.length > 0 ? ["", "`ever-better next` ranks these by what they cost and what each one enforces."] : []),
     "",
   ].join("\n");
 };
