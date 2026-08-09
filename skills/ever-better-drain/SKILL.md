@@ -10,12 +10,33 @@ where the number comes down and the bugs come out.
 **Automate by default.** The only things that stop and ask are the ones where a wrong guess costs
 the owner real work — see "What becomes an issue" below. Everything else you fix, test and commit.
 
-## Before the loop: is this repository typed yet?
+## Before the loop
 
-If it is still JavaScript, stop and run **`ever-better-migrate`** first. Refactoring untyped code is
-done blind — the tier that finds the real bugs cannot run, so nothing but the tests disagrees with
-you — and every rename surfaces its type errors *after* the move, which changes the shape of what
-you just extracted. Migrate, then run the linter, read what it reports, and let that pick the work.
+Three questions, and each one changes the order you would otherwise work in — or says the backlog
+you are about to drain is not the real one.
+
+**Is this repository typed yet?** If it is still JavaScript, stop and run **`ever-better-migrate`**
+first. Refactoring untyped code is done blind — the tier that finds the real bugs cannot run, so
+nothing but the tests disagrees with you — and every rename surfaces its type errors *after* the
+move, which changes the shape of what you just extracted. Migrate, then run the linter, read what it
+reports, and let that pick the work.
+
+**Is the linter looking at the whole repository?** Worth asking whenever the repo brought its own
+ESLint config, because `bootstrap` never overwrites one — and a ceiling pinned over half a
+repository is not a ceiling. Three separate things pin the scope and fixing one alone changes
+nothing: `ignores` in the config, the **path argument** in the lint script (`eslint src` overrules
+whatever the config thinks about `backend/`), and any wrapper that calls something else again — a
+Makefile target, a CI step, a `|| true`. Ignore globs mislead the same way: `dist/**` without a
+leading `**/` matches the repo root only, so a nested `packages/*/dist` was never excluded. Do not
+read this off the config. Put one deliberate violation in each top-level source directory, run the
+repo's own lint command, and see which ones report it.
+
+**Is part of the backlog dead code?** A finding in a file nothing imports costs exactly what a real
+one costs and buries it in the list — in one frontend, a fifth of the files were unreachable from
+the entry point and carried 78 of the 555 findings. `knip` already ran in bootstrap: take its
+orphans first, because deleting a file removes findings with no fix for anyone to review.
+Reachability is computed by resolving import specifiers, never by grepping for the basename — a
+component named only inside a JSX comment reads as reachable to grep.
 
 ## The loop
 
@@ -27,17 +48,44 @@ asserts the code you just wrote. `ever-better status` and the worklist in `QUALI
 checklist — re-read them between steps rather than carrying the position in your head, which is how
 a step gets skipped and reported as done.
 
-### 1. Pick the rule
+### 1. Pick the rule — and the order to take them in
 
 ```bash
 npx ever-better status
 ```
 
-It lists the **smallest** remaining backlogs first. Take the top one, unless the user named a rule.
+It lists the **smallest** remaining backlogs first. Small first is deliberate: suppressions are
+recorded per file, so every file you take to zero is locked by `prune` on the way past, and a rule
+with no entries left can never come back at all. A half-drained large rule protects only the files
+already finished.
 
-Small first is deliberate: a rule that reaches zero is a rule that can never come back, because
-`prune` removes its last suppression and `check` then rejects the next one. A half-drained large
-rule protects nothing.
+Within that, cheapest and most durable first. This order was arrived at the long way, by draining a
+1,200-warning repository down rule by rule:
+
+1. **What the fixer can take.** `npx eslint . --fix --rule '{"<rule>":"error"}'`, one rule at a
+   time, and `--report-unused-disable-directives` in the same pass — `eslint-disable` comments rot,
+   and the ones that no longer suppress anything come out with the same command. No judgment, no
+   behaviour change, several rules to zero in an afternoon.
+2. **The rules whose count is a config bug rather than a code bug.** A large count with one uniform
+   shape is a config smell: find out what the rule's options actually resolve to before editing a
+   single site. 64 of one repo's 163 `no-unused-vars` findings were an `argsIgnorePattern` written
+   `^(_|e|err)$` — the `$` anchors the whole name, so it matched a bare `_` and nothing else — plus
+   caught errors, which ESLint 9 routes through `caughtErrors` and not through the args pattern at
+   all. `eslint --print-config <file>` answers this. Reading the config source does not.
+3. **The singletons, in one pass.** One rule per PR is the rule below, and a dozen rules holding one
+   or two findings each is where it costs more than it buys. Take them together and name in the body
+   which rules went to zero.
+4. **The small rules, one per PR.** The loop below, in the order `status` prints them.
+5. **The big rules by directory, not by rule.** Several hundred violations is not a pull request.
+   Split by directory and take them in the order a mistake there reaches furthest — startup, shared
+   libraries, auth and middleware ahead of leaf handlers and view components. An `any` in what
+   everything imports is not the same finding as an `any` in one route.
+6. **The refactor rules last** — cognitive complexity, nested conditionals, function and file
+   length. Every finding is a redesign rather than an edit, which is why most of what becomes an
+   issue comes from here. Reaching them last also means reaching them after the extractions in
+   steps 5 and 6c have already taken some of the count away.
+
+Take the top one, unless the user named a rule.
 
 ### 2. See the actual violations
 
