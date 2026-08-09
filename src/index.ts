@@ -5,5 +5,7 @@ export { renderEslintConfig } from "./generate/eslintConfig.ts";
 export { renderWorkflow } from "./generate/workflow.ts";
 export { renderQuality, extractNotes } from "./render/quality.ts";
 export { renderReport } from "./render/report.ts";
+export { renderNext } from "./render/next.ts";
+export { buildDrainPlan, cheapestFirst, directoryTails, heaviestFiles, ruleSpread, totalsOf } from "./drainOrder.ts";
 export { applyRuleCounts, emptyState, findRegressions, nextBaseline, readState, setCounter, writeState } from "./state.ts";
 export type * from "./types.ts";

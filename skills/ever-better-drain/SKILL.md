@@ -30,14 +30,21 @@ a step gets skipped and reported as done.
 ### 1. Pick the rule
 
 ```bash
-npx ever-better status
+npx ever-better next
 ```
 
-It lists the **smallest** remaining backlogs first. Take the top one, unless the user named a rule.
+It ranks the backlog by what the work costs rather than by how big the number is: the files one or
+two edits from clean, the rules whose violations sit in the fewest files, the directories where a
+rule survives in one last file, and the files heavy enough to leave alone for now. Take the top of
+the first list, unless the user named a rule.
 
-Small first is deliberate: a rule that reaches zero is a rule that can never come back, because
-`prune` removes its last suppression and `check` then rejects the next one. A half-drained large
-rule protects nothing.
+**The ranking is per file because the ratchet is per file.** A file with no suppression left for a
+rule fails on the next violation of it, whatever that rule's total is elsewhere — so two violations
+in one file buy more enforcement than twenty spread across twenty files, and the rule with 40
+violations in three files is less work than the one with 38 across thirty-one.
+
+`npx ever-better status` still answers the other question — which phase this is and how the whole
+backlog is moving.
 
 ### 2. See the actual violations
 
@@ -80,6 +87,26 @@ usually surfaces it:
 
 **When a fix changes behaviour, that is a bug, and a bug gets a test.** Say so in the commit
 message; do not fold it silently into a lint cleanup.
+
+**`no-explicit-any` and the `no-unsafe-*` family are attacked from the source, never from the
+site.** Types flow downhill: one annotation at the origin deletes the finding everywhere below it,
+while twenty edits at the sites delete twenty findings and leave the cause. In order:
+
+1. **The origin** — `JSON.parse`, `await response.json()`, a library that returns `any`, a config
+   read off disk. One type here usually collapses a whole cluster at once.
+2. **The container before the elements.** If the members of an array or a record are `any`, go and
+   find the type of the array and give it one — `Item[]`, not `any[]` fixed element by element. The
+   element annotations then have nothing left to say and come out with it.
+3. **`catch (e: any)`** is an access problem wearing a type: the body wants `e.message`. `unknown`
+   plus one `errorMessage(error: unknown): string` helper settles every site at once, and the helper
+   is pure, so it is a single test rather than fifty edits.
+4. **`as any` last.** It is not a type, it is an assertion that the checker was wrong, so removing
+   one costs evidence about what the value really is. Some turn out to be right — those are the ones
+   that deserve a named type rather than a deletion.
+
+**Leave, and say which:** a type a dozen files read, a shape only the runtime knows (the fix there
+is validation, not annotation), and anything on an exported signature. Those are the `deferred` and
+`issue` entries, not this PR.
 
 **A rule ESLint can fix is not this work.** `no-var`, `prefer-const`, `no-else-return`,
 `sonarjs/no-collapsible-if` and Prettier are all fixable: take the whole rule in one command —

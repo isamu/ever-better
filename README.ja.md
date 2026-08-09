@@ -75,6 +75,7 @@ npx ever-better diagnose     # 読み取りのみ: 何が足りないか、そ�
 npx ever-better bootstrap    # 導入して設定ファイルを生成
 npx ever-better freeze       # 今日の違反件数を天井として固定
 npx ever-better check        # CI のゲート: 件数が増えたら失敗
+npx ever-better next         # 何から潰すか、そしてそれが何を enforce するか
 npx ever-better prune        # 直した分だけ天井を下げる
 ```
 
@@ -140,6 +141,24 @@ bootstrap が書くファイルの実物は **[docs/generated-config.md](docs/ge
 ### `check`
 
 CI のゲート。抑制されていないエラーがある場合、または記録済みの件数が天井を超えた場合に失敗します。ワークフローの `lint` の後に追加してください。
+
+### `next`
+
+```bash
+ever-better next
+ever-better next --json
+```
+
+**潰す順番を、勘ではなく計算で出します。** suppressions ファイルは件数を**ファイル単位・ルール単位**で持っていて、ratchet も同じ粒度で効きます — あるファイルにそのルールの suppression が残っていなければ、そのファイルでは次の1件で落ちます（そのルールの総数が他にどれだけ残っていても関係ありません）。つまり問うべきは「どのルールが一番少ないか」ではなく「**どの修正が一番多くを enforce するか**」で、`next` はそれを4つのリストで答えます:
+
+| セクション | 何のためか |
+| --- | --- |
+| take these first | あと1〜2件で clean になるファイル。1回の修正で、そのファイルのそのルールが恒久的に enforce される |
+| rules by files to touch | 「3ファイルに40件」と「31ファイルに38件」は `status` では同じ大きさ、作業量は10倍違う |
+| the last files carrying a rule in their directory | 誰もやり切らなかったディレクトリの残り |
+| leave these until last | 件数がバックログではなく再設計になっているファイル |
+
+出しているのは「そのルールを**まだ持っている**最後のファイル」であって、「そのディレクトリの残りが clean」ではありません — ESLint が一度も見ていないファイルにもエントリは無く、このファイルの計算だけでは両者を区別できないからです。
 
 ### `prune`
 

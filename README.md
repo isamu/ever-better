@@ -92,6 +92,7 @@ npx ever-better diagnose     # read-only: what is missing, and what each gap cos
 npx ever-better bootstrap    # install it, generate the configs
 npx ever-better freeze       # pin today's violations as the ceiling
 npx ever-better check        # CI gate: fail if anything rose
+npx ever-better next         # what to drain first, and what each fix enforces
 npx ever-better prune        # after a fix: reclaim the ceiling you earned
 ```
 
@@ -179,6 +180,29 @@ lower the ceiling, or `--force` if a rule was genuinely reconfigured.
 
 The CI gate. Fails when there are unsuppressed violations, or when any recorded count rose above
 its ceiling. Add it to the workflow after `lint`.
+
+### `next`
+
+```bash
+ever-better next
+ever-better next --json
+```
+
+The drain order, computed rather than guessed. The suppressions file records a count **per file per
+rule**, and the ratchet works the same way — a file with no suppression left for a rule fails on the
+next violation of it, whatever that rule's total is elsewhere. So the useful question is not "which
+rule is smallest" but "which edit enforces the most", and `next` answers it in four lists:
+
+| Section | What it is for |
+| --- | --- |
+| take these first | files one or two violations from clean — one edit each, and that rule is enforced there for good |
+| rules by files to touch | 40 violations in 3 files and 38 across 31 are the same size in `status` and ten times apart in work |
+| the last files carrying a rule in their directory | the tail of a directory nobody finished |
+| leave these until last | files whose count is a redesign rather than a backlog |
+
+It reports the last files still *carrying* a rule, which is not the same claim as "the rest of that
+directory is clean": a file ESLint never looks at has no entry either, and no arithmetic over this
+file can tell the two apart.
 
 ### `prune`
 
