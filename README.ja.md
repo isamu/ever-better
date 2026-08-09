@@ -10,23 +10,26 @@
 
 既存のコードベースを、**良くなる方向にしか動かない**状態にするツール。
 
-リポジトリを指定すると、足りない品質ツールを診断して導入し、その時点の違反件数を「天井」として記録します。そのコミット以降、既存コードは免除され、新しく書いたコードだけが全ルールの対象になります。天井は下がることはあっても上がりません。
+足りない品質ツールを診断して導入し、その時点の違反件数を「天井」として記録します。そのコミット以降、既存コードは免除され、新しく書いたコードだけが全ルールの対象になります。天井は下がることはあっても上がりません。
 
-```bash
-npx ever-better diagnose     # 読み取りのみ: 何が足りないか、それが何を意味するか
-npx ever-better bootstrap    # 導入して設定ファイルを生成
-npx ever-better freeze       # 今日の違反件数を天井として固定
-npx ever-better check        # CI のゲート: 件数が増えたら失敗
-npx ever-better prune        # 直した分だけ天井を下げる
+## 使い方: リポジトリごと Claude Code に渡す
+
+これが主役の使い方です。プラグインの導入は最初の1回だけ、どの Claude Code セッションからでも構いません:
+
+```
+/plugin marketplace add isamu/ever-better
+/plugin install ever-better
 ```
 
-## Claude Code に丸投げする
-
-こちらが本来の使い方です。プラグインを入れて、Claude Code をリポジトリに向けてこう言うだけ:
+あとは、良くしたいリポジトリに `cd` して、**そこで** Claude Code を起動し、こう言うだけです:
 
 ```
 このレポに ever-better を回して
 ```
+
+準備はこれで全部です。対象リポジトリ側に事前設定は要りませんし、CLI を自分で入れる必要もありません（スキルが `npx` 経由で呼びます）。
+
+### この一言で何が起きるか
 
 診断し、足りないものを導入し、フォーマットし、ベースラインを固定し、そこから**1ルール = 1 PR**でバックログを削っていきます。違反を直し、直すために必要な pure 関数を切り出し、テストを書き、天井を下げながら進みます。
 
@@ -34,14 +37,24 @@ npx ever-better prune        # 直した分だけ天井を下げる
 
 届く PR の順番: フォーマット → ツール導入 → freeze → 以降1ルールずつ。手つかずのリポジトリなら数本では済みません。始める前に知っておく価値があります。
 
-```
-/plugin marketplace add isamu/ever-better
-/plugin install ever-better
-```
+### 全部ではなく一部だけ頼む
 
-スキルは `ever-better-run`（上の無人ループ）、`ever-better`（入口とルーティング）、`ever-better-bootstrap`、`ever-better-freeze`、`ever-better-drain`、`ever-better-dry`。
+上の一言は「無人で全部」の起動です。もっと狭く頼めば、その範囲のスキルに自動で振り分けられます（スキル名を自分で指定する必要はありません）:
 
-以下の CLI はこれらのスキルが呼ぶものですが、自分で動かしたい場合はそれだけでも使えます。
+| こう言うと | こうなる |
+| --- | --- |
+| 「このレポに ever-better を回して」「きれいにして」「全部やっておいて」 | 全工程を無人で — `ever-better-run` |
+| 「この repo の品質を上げたい」「何から手を付ければいい？」 | 診断してフェーズごとに案内 — `ever-better` |
+| 「CLAUDE.md を整えて」「規約を追加して」 | `ever-better-prepare` |
+| 「TypeScript にしたい」「ts化して」 | `ever-better-migrate` |
+| 「lint を入れて」「eslint 設定して」 | `ever-better-bootstrap` |
+| 「ベースラインを固定して」「既存のエラーは許して新しいのだけ止めたい」 | `ever-better-freeze` |
+| 「バックログを潰して」「リファクタリングして」 | `ever-better-drain` |
+| 「重複を消して」「dead code を消して」 | `ever-better-dry` |
+
+### この README を読ませるのとは別物です
+
+このページを Claude Code に読ませても、渡るのはコマンドだけで、**プロセスは渡りません** — この違反は本物のバグか、直すべきか issue にすべきか、どこで止まって聞くべきか、work log に何を書くか。その部分はスキルにあり、スキルはプラグインで入ります。
 
 ## なぜ必要か
 
@@ -53,7 +66,17 @@ ESLint はこれを本体の **bulk suppressions** で解決しました。`--su
 
 ratchet の再実装はしていません。linter でもありません。**あなたの** ESLint を、**あなたの** 設定で実行します。
 
-## インストール
+## CLI を自分で叩く
+
+上のスキルが呼んでいるのがこの CLI です。自分で動かしたい場合はそれだけでも使えます。
+
+```bash
+npx ever-better diagnose     # 読み取りのみ: 何が足りないか、それが何を意味するか
+npx ever-better bootstrap    # 導入して設定ファイルを生成
+npx ever-better freeze       # 今日の違反件数を天井として固定
+npx ever-better check        # CI のゲート: 件数が増えたら失敗
+npx ever-better prune        # 直した分だけ天井を下げる
+```
 
 ```bash
 npm install -g ever-better     # npx でも、yarn add --dev でも可
@@ -182,10 +205,6 @@ ever-better emit-diff --against main
 | `QUALITY.md` | 台帳から描画 | する — 人間向けのビュー |
 
 `QUALITY.md` は毎回再生成され、台帳から描画された4つのセクションを持ちます: フェーズをチェックボックスにし残件の少ないルールを子項目にした **Worklist**、意図的に見送ったリファクタリングの **Carried over**、**Ratchet** 表、そして **Work log**。`<!-- ever-better:notes:start -->` マーカーの間に書いたものは保持されます。
-
-## Claude Code プラグイン
-
-冒頭に書いたとおり、プラグインが主役で CLI はそれが呼ぶ道具です。この分担は意図的なもので、CLI は毎回同じ結果でなければならない作業（検出・導入・集計・描画・ゲート）を、スキルは判断が要る作業（この警告は本物のバグか、これは重複か偶然か、何を issue にすべきか）を担当します。
 
 ## フェーズ
 
