@@ -132,6 +132,17 @@ describe("heaviestFiles", () => {
       ["b.ts"],
     );
   });
+
+  /** The boundary: cheap entries that sum past the threshold are still cheap entries. */
+  it("does not turn several cheap rules in one file into a heavy file", () => {
+    const summing = [entry("a.ts", "one", 1), entry("a.ts", "two", 2)];
+    assert.deepEqual(heaviestFiles(summing), []);
+  });
+
+  it("still lists a file whose cheap rule sits beside a large one", () => {
+    const mixed = [entry("a.ts", "one", 1), entry("a.ts", "two", 30)];
+    assert.deepEqual(heaviestFiles(mixed), [{ file: "a.ts", rules: 2, violations: 31 }]);
+  });
 });
 
 describe("buildDrainPlan", () => {
