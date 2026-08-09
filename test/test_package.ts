@@ -4,6 +4,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, it } from "node:test";
 import { formatterPath } from "../src/eslintRunner.ts";
+import { exec } from "../src/util/exec.ts";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -45,5 +46,24 @@ describe("published package", () => {
   it("points bin at the built entry point", async () => {
     const { bin } = await readPackageJson();
     assert.equal(bin?.["ever-better"], "dist/cli.js");
+  });
+});
+
+/**
+ * A NUL is a legal character inside a string literal, so tsc, ESLint and Prettier all accept a
+ * source file containing one — and git then classifies that file as binary and shows `Bin 0 ->
+ * 4893 bytes` instead of a diff. The whole file becomes invisible to review while every check
+ * stays green, which is why nothing else in this toolchain can catch it.
+ */
+describe("sources are text", () => {
+  it("has no control bytes that make git treat a source file as binary", async () => {
+    const listed = await exec("git", ["ls-files", "-z", "*.ts", "*.js", "*.mjs", "*.json", "*.md"], repoRoot);
+    const files = listed.stdout.split("\0").filter((entry) => entry.length > 0);
+    assert.ok(files.length > 0, "git ls-files returned nothing");
+    const binary = await Promise.all(files.map(async (file) => ((await readFile(path.join(repoRoot, file), "utf8")).includes("\0") ? file : null)));
+    assert.deepEqual(
+      binary.filter((file) => file !== null),
+      [],
+    );
   });
 });
