@@ -204,6 +204,23 @@ It reports the last files still *carrying* a rule, which is not the same claim a
 directory is clean": a file ESLint never looks at has no entry either, and no arithmetic over this
 file can tell the two apart.
 
+```bash
+ever-better next --fan-in
+```
+
+`--fan-in` adds one number to those rows — how many files import each one — because the other half
+of "how hard is this" is how far the fix reaches. A `no-explicit-any` in a module twenty files
+import changes an exported shape, and the errors land in files the diff never opened.
+
+It is a flag rather than the default because it reads **every source file** in the repository to
+parse its imports: the weight of `migrate`, not of a command you run between edits. And it
+deliberately **reorders nothing** — fan-in makes a *type* fix expensive and says nothing about
+`max-depth`, where the fix is local however many files import the module. The number is reported;
+which rules it applies to is judgment, and judgment is the skills' half of this tool.
+
+The count is direct importers, not transitive reach, and only relative specifiers resolve — a file
+imported solely through a path alias reads low.
+
 ### `prune`
 
 After you fix a grandfathered violation, its suppression is stale. `prune` reclaims it, lowering

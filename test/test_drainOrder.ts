@@ -153,7 +153,17 @@ describe("buildDrainPlan", () => {
       rules: [],
       directoryTails: [],
       heaviest: [],
+      importers: {},
     });
+  });
+
+  /** `next` without `--fan-in` must not have read a source file, and the plan has to show that. */
+  it("carries no importer counts unless they were gathered", () => {
+    assert.deepEqual(buildDrainPlan(SAMPLE).importers, {});
+  });
+
+  it("passes gathered importer counts through untouched", () => {
+    assert.deepEqual(buildDrainPlan(SAMPLE, { "src/util/text.ts": 12 }).importers, { "src/util/text.ts": 12 });
   });
 
   it("carries every cheap entry, so the renderer can say how many it hid", () => {
