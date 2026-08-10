@@ -7,7 +7,7 @@ export type Runtime = "browser" | "node" | "both";
 
 export type EslintSetup = "flat" | "legacy" | "none";
 
-export type TestRunner = "vitest" | "jest" | "node:test" | "none";
+export type TestRunner = "vitest" | "jest" | "mocha" | "ava" | "tap" | "jasmine" | "node:test" | "none";
 
 /** `mixed` means TypeScript is configured but a meaningful share of sources are still `.js`. */
 export type LanguageMode = "typescript" | "mixed" | "javascript";

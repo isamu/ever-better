@@ -22,9 +22,22 @@ export const detectEslintSetup = (rootEntries: readonly string[]): EslintSetup =
   return "none";
 };
 
+/**
+ * Runners that are a dependency and nothing else — no config to generate, but their presence is the
+ * whole point: `bootstrap` installs vitest when it sees "none", so a repo that already tests with
+ * mocha gets a second runner added to it. Measured on debug-js/debug, which carries mocha in
+ * devDependencies and was reported as having no runner at all.
+ *
+ * A test script alone is still not evidence. `"test": "echo nope"` names no runner, and guessing
+ * from it would put this back to claiming tools that are not there.
+ */
+const DEPENDENCY_ONLY_RUNNERS = ["mocha", "ava", "tap", "jasmine"] as const;
+
 export const detectTestRunner = (packageJson: PackageJson | null): TestRunner => {
   if (hasDependency(packageJson, "vitest")) return "vitest";
   if (hasDependency(packageJson, "jest")) return "jest";
+  const named = DEPENDENCY_ONLY_RUNNERS.find((runner) => hasDependency(packageJson, runner));
+  if (named) return named;
   const testScript = packageJson?.scripts?.["test"] ?? "";
   if (testScript.includes("node --test") || testScript.includes("node:test")) return "node:test";
   return "none";
