@@ -277,10 +277,19 @@ describe("renderEslintConfig — readability and security tiers", () => {
     assert.match(renderEslintConfig(opts), /security\.configs\.recommended/);
   });
 
-  it("leaves the security tier out of a browser-only bundle", () => {
-    // Everything it looks for — child processes, non-literal fs paths — is Node-side.
+  it("keeps the security tier on a browser bundle, minus the rules that cannot fire", () => {
+    // detect-object-injection is the only rule in the whole config that sees a lookup answering
+    // out of the prototype chain, and that bug is not Node-side — six of them were in browser UI.
     const browser = renderEslintConfig({ ...opts, runtime: "browser" });
-    assert.ok(!browser.includes("eslint-plugin-security"));
+    assert.match(browser, /security\.configs\.recommended/);
+    assert.ok(!browser.includes('"security/detect-object-injection": "off"'));
+    assert.ok(!browser.includes('"security/detect-unsafe-regex": "off"'));
+    assert.match(browser, /"security\/detect-child-process": "off"/);
+    assert.match(browser, /"security\/detect-non-literal-fs-filename": "off"/);
+  });
+
+  it("leaves the Node-only opt-outs off a Node config", () => {
+    assert.ok(!renderEslintConfig(opts).includes('"security/detect-child-process": "off"'));
   });
 
   it("states no-var and prefer-const itself, because the preset scopes them to .ts", () => {

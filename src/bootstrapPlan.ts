@@ -40,7 +40,7 @@ const missingPackages = (options: BootstrapPlanOptions): string[] => {
   const have = installed(options.packageJson);
   const { framework, language, tooling } = options.diagnosis;
   const typed = language !== "javascript";
-  const wanted = [...eslintPackagesFor(framework, options.diagnosis.runtime), "prettier"];
+  const wanted = [...eslintPackagesFor(framework), "prettier"];
   if (typed) {
     wanted.push("typescript", "@types/node");
     // `tsc` cannot read an SFC at all, so a Vue repo typechecking with it silently skips every
