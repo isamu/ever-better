@@ -87,6 +87,17 @@ describe("detectTestRunner", () => {
   it("reports none rather than guessing", () => {
     assert.equal(detectTestRunner({ scripts: { test: "echo nope" } }), "none");
   });
+
+  it("names the runners that are only ever a dependency", () => {
+    // Reporting mocha as "none" is not a cosmetic mislabel: bootstrap installs vitest on "none",
+    // which puts a second runner into a repo that already tests. Measured on debug-js/debug.
+    assert.equal(detectTestRunner({ devDependencies: { mocha: "^11" } }), "mocha");
+    assert.equal(detectTestRunner({ devDependencies: { ava: "^6" } }), "ava");
+  });
+
+  it("prefers the runner a config would be generated for", () => {
+    assert.equal(detectTestRunner({ devDependencies: { mocha: "^11", vitest: "^4" } }), "vitest");
+  });
 });
 
 describe("detectTooling", () => {

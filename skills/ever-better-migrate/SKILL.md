@@ -83,15 +83,11 @@ the code dereferences it, that is a crash nobody had reproduced. Fix it, write t
 in the commit message rather than folding it into "migrate".
 
 If the count is large enough to be its own project, **loosen the tsconfig rather than stalling** —
-`strict: false` compiles, and:
-
-```bash
-npx ever-better strictness
-```
-
-prices each flag separately, so they can be switched on one at a time later with the cost known in
-advance. A repo that compiles loosely today and tightens on a schedule beats one that has been
-mid-migration for a month.
+`strict: false` compiles, and `bootstrap` has already priced each strictness flag separately, by
+enabling it in a temporary config that extends yours and counting the errors. Its report names the
+flags it enabled at zero cost and the ones it left off with what each would cost, so they can be
+switched on one at a time later with the price known in advance. A repo that compiles loosely today
+and tightens on a schedule beats one that has been mid-migration for a month.
 
 ### 5. Never reach for a cast
 

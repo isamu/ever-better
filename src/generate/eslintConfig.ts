@@ -40,16 +40,19 @@ const BASE_PACKAGES = [
  */
 
 /**
- * The security plugin only where its rules can apply: everything it looks for — child processes,
- * non-literal fs paths, unsafe regexes — is Node-side. On a browser-only bundle it is noise.
+ * The security plugin everywhere, because two of its rules are not Node-side and the browser is
+ * where both were measured. `detect-object-injection` is the only rule in this whole config that
+ * sees `obj[key]` answering out of the prototype chain — a lookup keyed on `"constructor"` returns
+ * a function, the `if (!found)` guard never fires, and no type says otherwise, since a
+ * `Record<string, T>` claims that key holds a `T`. Six of those were in a browser UI. And a
+ * super-linear regex freezes the tab, not the server.
+ *
+ * What is genuinely Node-side is turned off below rather than dropping the plugin: a rule that
+ * cannot fire costs nothing, and a rule that is missing costs six bugs.
  */
-const securityPackages = (runtime: Runtime): string[] => (runtime === "browser" ? [] : ["eslint-plugin-security"]);
+const securityPackages = (): string[] => ["eslint-plugin-security"];
 
-export const eslintPackagesFor = (framework: Framework, runtime: Runtime = "node"): string[] => [
-  ...BASE_PACKAGES,
-  ...securityPackages(runtime),
-  ...frameworkParts(framework, true).packages,
-];
+export const eslintPackagesFor = (framework: Framework): string[] => [...BASE_PACKAGES, ...securityPackages(), ...frameworkParts(framework, true).packages];
 
 /**
  * The config is written as ESM either way. In a package without `"type": "module"` — which is most
@@ -262,16 +265,41 @@ const testBlock = (options: EslintConfigOptions): string[] => [
  */
 const disableDirectiveBlock = (): string[] => ["  {", "    linterOptions: {", '      reportUnusedDisableDirectives: "error",', "    },", "  },"];
 
-const securityImport = (runtime: Runtime): string[] => (runtime === "browser" ? [] : ['import security from "eslint-plugin-security";']);
+const securityImport = (): string[] => ['import security from "eslint-plugin-security";'];
 
-const securityBlock = (runtime: Runtime): string[] => (runtime === "browser" ? [] : ["  security.configs.recommended,"]);
+/** Nothing in a bundle spawns a process, reads a path off disk or allocates a Buffer. */
+const NODE_ONLY_SECURITY_RULES = [
+  "security/detect-buffer-noassert",
+  "security/detect-child-process",
+  "security/detect-new-buffer",
+  "security/detect-no-csrf-before-method-override",
+  "security/detect-non-literal-fs-filename",
+  "security/detect-non-literal-require",
+  "security/detect-pseudoRandomBytes",
+];
+
+const securityBlock = (runtime: Runtime): string[] => {
+  const preset = "  security.configs.recommended,";
+  if (runtime !== "browser") return [preset];
+  return [
+    preset,
+    "  {",
+    "    // Kept on a browser bundle: detect-object-injection, which is the only rule here that",
+    "    // sees a lookup answering out of the prototype chain, and the regex rules, because a",
+    "    // super-linear pattern freezes the tab.",
+    "    rules: {",
+    ...NODE_ONLY_SECURITY_RULES.map((rule) => `      "${rule}": "off",`),
+    "    },",
+    "  },",
+  ];
+};
 
 export const renderEslintConfig = (options: EslintConfigOptions): string => {
   const framework = frameworkParts(options.framework, options.typed);
   return [
     ...HEADER,
     ...BASE_IMPORTS,
-    ...securityImport(options.runtime),
+    ...securityImport(),
     ...framework.imports,
     "",
     "export default tseslint.config(",

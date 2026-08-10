@@ -329,6 +329,19 @@ a new test, a deleted orphan — done, not asked about. Only a refactor needing 
 becomes a GitHub issue, and that issue says what the options are and which one the agent would
 pick.
 
+## Results, and what they do not yet show
+
+[`docs/RESULTS.md`](docs/RESULTS.md) collects what people froze and how much of it turned out to be
+defects rather than style. It has **two rows, and both are mine** — a 13-year-old JavaScript CLI and
+a current TypeScript app — which is enough to notice a pattern and nowhere near enough to claim one.
+
+Both, so far, produced the same bug: a lookup keyed on a string from outside, answered by the
+prototype chain, which no type system objects to.
+
+If you run this on anything, please add a row —
+[report a run](https://github.com/isamu/ever-better/issues/new?template=results.yml). Numbers only,
+no source. A run that found **zero** real bugs is the most useful row that table could get.
+
 ## Design
 
 The CLI does what is deterministic — detect, install, count, render, gate. The skills do what

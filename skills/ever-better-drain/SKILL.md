@@ -84,6 +84,19 @@ usually surfaces it:
 | `consistent-type-assertions` | an `as` asserting something that was never true |
 | `max-depth`, `complexity` | a branch nobody has read in years, often unreachable |
 | `no-unused-vars` | the leftover half of an abandoned refactor |
+| `security/detect-object-injection` | a lookup keyed on a string from outside, answered by the prototype chain |
+| `sonarjs/slow-regex`, `sonarjs/super-linear-regex` | a pattern that is fine on every input anyone tried, and hangs on the one nobody did |
+
+**The prototype lookup is worth hunting by hand, because it is the one bug the type system
+endorses.** `Record<string, Thing>` says every key holds a `Thing`, so `table[key]` typechecks as a
+`Thing` — while at runtime `key = "constructor"` returns a function nobody put there, `if (!found)`
+does not fire, and the not-found branch is dead code. It has now turned up in an unrelated pair of
+repositories: twice in a 13-year-old JavaScript CLI, six times in a current TypeScript UI. It is a
+property of the language, not of old code.
+
+Grep for the shape — any bracket access whose key is not a literal — and settle it once, one way,
+for the whole repository: `Object.create(null)`, `Object.hasOwn()`, or a `Map`. Which one is the
+owner's call; picking a different one per site is how it comes back.
 
 **When a fix changes behaviour, that is a bug, and a bug gets a test.** Say so in the commit
 message; do not fold it silently into a lint cleanup.
@@ -92,15 +105,25 @@ message; do not fold it silently into a lint cleanup.
 site.** Types flow downhill: one annotation at the origin deletes the finding everywhere below it,
 while twenty edits at the sites delete twenty findings and leave the cause. In order:
 
-1. **The origin** — `JSON.parse`, `await response.json()`, a library that returns `any`, a config
-   read off disk. One type here usually collapses a whole cluster at once.
-2. **The container before the elements.** If the members of an array or a record are `any`, go and
+1. **First check whether the type already exists.** On a real codebase this is the largest category
+   by a distance: the ORM already types the row it returns, the SDK already types its events, the
+   component library already types its props — and someone wrote `: any` over the top of it. There
+   is nothing to write. Deleting the annotation restores the type the compiler knew all along. Do
+   this whole group before writing a single new type, because it is both the biggest and the
+   cheapest, and it shrinks the count you are reasoning about.
+2. **The origin** — `JSON.parse`, `await response.json()`, a library that genuinely returns `any`, a
+   config read off disk. One type here usually collapses a whole cluster at once. Follow the flow
+   upstream rather than counting: a single `any` on one private method has been measured taking out
+   the types of an entire route, so one fix upstream beats twenty at the sites.
+3. **The container before the elements.** If the members of an array or a record are `any`, go and
    find the type of the array and give it one — `Item[]`, not `any[]` fixed element by element. The
    element annotations then have nothing left to say and come out with it.
-3. **`catch (e: any)`** is an access problem wearing a type: the body wants `e.message`. `unknown`
+4. **`catch (e: any)`** is an access problem wearing a type: the body wants `e.message`. `unknown`
    plus one `errorMessage(error: unknown): string` helper settles every site at once, and the helper
-   is pure, so it is a single test rather than fifty edits.
-4. **`as any` last.** It is not a type, it is an assertion that the checker was wrong, so removing
+   is pure, so it is a single test rather than fifty edits. Expect this to be the single largest
+   identical group in the repository — 169 sites in one measured case, all collapsing into one
+   four-line function.
+5. **`as any` last.** It is not a type, it is an assertion that the checker was wrong, so removing
    one costs evidence about what the value really is. Some turn out to be right — those are the ones
    that deserve a named type rather than a deletion.
 
@@ -112,6 +135,35 @@ is validation, not annotation), and anything on an exported signature. Those are
 how many files import it, so "a dozen files read this type" is a number. It is a flag because it
 reads every source file, and it changes no ordering: a widely imported file is only expensive for
 the rules that move types, and that judgement is yours.
+
+**When `no-explicit-any` is measured in the thousands, it is not the rule to start with.** Finding
+the ten violations that matter inside 1,413 is not a thing anyone does, and every other rule's
+findings sit underneath it. Leaving it `off` at the beginning is sequencing, not surrender: clear
+the mechanical tiers first — formatting, unused bindings, `var`, the `--fix`-able rules — and come
+back to it once the repository is in shape. Taken last it is where the largest single reduction
+comes from; taken first it is where the effort stops on day one.
+
+What `off` must not become is the end state. A rule switched off is a place nobody is checking, and
+`any` is not "the type is unknown" — it is a decision about the type that was never written down.
+
+**When you do come back to it, that rule needs a ratchet of its own inside the ratchet,** because
+the file-level suppressions do not stop the count climbing in a directory nobody has reached yet:
+
+- **Promote by directory.** Hold the rule at `off` where nothing has been done, `warn` where work is
+  in progress, and `error` on every directory that is finished. A finished directory cannot regress,
+  and the boundary moves one directory at a time instead of the whole repo moving at once.
+- **Slice an identical group.** 167 sites of the same shape went in as five PRs of roughly fifteen
+  to twenty. The constraint is not that a reviewer refuses the big diff — the reviewer is an agent
+  and will read all 167 without complaint. It is that recall falls as the diff grows, and every
+  hunk in a group like this looks plausible, so the one site whose shape is genuinely different is
+  exactly what a long review waves through. Slice for the accuracy of the review, not its capacity.
+- **Inventory the remainder rather than counting it.** Once the cheap groups are gone, write down
+  what each of the survivors actually needs — delete only, import a library type, write a new type,
+  needs a design change — and the number stops being a wall. In one measured case most of the
+  remaining hundred turned out to be delete-only, which is invisible while it is still a count.
+- **Prove the behaviour did not move.** A type-only PR must produce identical output; `emit-diff`
+  (step 6b) is the check. Changing behaviour while believing you were only fixing types is the
+  failure mode this whole tier has.
 
 **A rule ESLint can fix is not this work.** `no-var`, `prefer-const`, `no-else-return`,
 `sonarjs/no-collapsible-if` and Prettier are all fixable: take the whole rule in one command —

@@ -13,6 +13,12 @@ export type RuleCounts = {
   warnings: Record<string, number>;
   /** Violations held by `eslint-suppressions.json` — the backlog that has to fall. */
   suppressed: Record<string, number>;
+  /**
+   * A bounded sample of the errors ESLint could not attribute to a rule — parse and config
+   * failures. `--suppress-all` cannot record these, so they fail the build with no rule name to
+   * look up, and a count on its own does not say which file to open.
+   */
+  unattributed?: { file: string; line: number; message: string }[];
   files: number;
 };
 
