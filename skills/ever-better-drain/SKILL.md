@@ -143,8 +143,11 @@ climbing in a directory nobody has reached yet:
 - **Promote by directory.** Hold the rule at `off` where nothing has been done, `warn` where work is
   in progress, and `error` on every directory that is finished. A finished directory cannot regress,
   and the boundary moves one directory at a time instead of the whole repo moving at once.
-- **Slice an identical group.** 167 sites of the same shape is not reviewable as one diff; five PRs
-  of roughly fifteen to twenty are. Same rule, same shape, one PR per slice.
+- **Slice an identical group.** 167 sites of the same shape went in as five PRs of roughly fifteen
+  to twenty. The constraint is not that a reviewer refuses the big diff — the reviewer is an agent
+  and will read all 167 without complaint. It is that recall falls as the diff grows, and every
+  hunk in a group like this looks plausible, so the one site whose shape is genuinely different is
+  exactly what a long review waves through. Slice for the accuracy of the review, not its capacity.
 - **Inventory the remainder rather than counting it.** Once the cheap groups are gone, write down
   what each of the survivors actually needs — delete only, import a library type, write a new type,
   needs a design change — and the number stops being a wall. In one measured case most of the
