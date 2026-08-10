@@ -1,0 +1,75 @@
+name: "Report a run"
+description: "What ever-better froze on your repository, and what came out of it. Numbers only — no code needs to leave your machine."
+title: "results: <language> / <rough age> / <N> frozen"
+labels: ["results"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        There are two data points in the world right now — a 13-year-old JavaScript CLI and a
+        current TypeScript app — and both are mine. That is not enough to say anything general
+        about how many real bugs a frozen backlog is hiding.
+
+        Every field is optional. A row with three numbers in it is still worth more than nothing.
+
+        **Nothing here asks for source.** If a number would identify a private repository, round it
+        or leave it out.
+
+  - type: input
+    id: shape
+    attributes:
+      label: What kind of repository
+      description: "Language, roughly how old, roughly how big. No name needed."
+      placeholder: "TypeScript, ~3 years, 900 files, browser + Node"
+
+  - type: input
+    id: frozen
+    attributes:
+      label: How many violations froze
+      description: "The number `ever-better freeze` printed. If you widened the rule set later, say which number this is."
+      placeholder: "4,942 — first freeze, before sonarjs was added"
+
+  - type: input
+    id: now
+    attributes:
+      label: Where it stands now
+      description: "And how long it took to get there — days, and pull requests if you know."
+      placeholder: "741 after 5 days / 207 PRs"
+
+  - type: textarea
+    id: bugs
+    attributes:
+      label: Real bugs, if any
+      description: |
+        The part nobody can measure without you: how many of those violations turned out to be
+        actual defects, and which rule found each one. Link the fix if it is public.
+      placeholder: |
+        2  no-undef                      — two ReferenceErrors in error paths, never reachable in normal use
+        6  security/detect-object-injection — a lookup answering out of the prototype chain
+        1  sonarjs/super-linear-regex    — froze the tab on a long input
+        0  id-length                     — noise here, all of it
+
+  - type: textarea
+    id: wrong
+    attributes:
+      label: Where the tool was wrong
+      description: |
+        Rules that were simply incorrect for your repository, a diagnosis that missed something, a
+        step that stalled. This is as useful as the successes — more, probably.
+      placeholder: "detect-object-injection flagged 400 sites and every one was a literal key."
+
+  - type: dropdown
+    id: entry
+    attributes:
+      label: How you ran it
+      options:
+        - "Claude Code plugin"
+        - "Handed an agent the README URL"
+        - "CLI only"
+        - "Something else"
+
+  - type: markdown
+    attributes:
+      value: |
+        Results get collected in [`docs/RESULTS.md`](../blob/main/docs/RESULTS.md). Say so here if
+        you would rather your row stayed anonymous.
