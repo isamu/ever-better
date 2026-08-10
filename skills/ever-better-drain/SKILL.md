@@ -136,9 +136,18 @@ how many files import it, so "a dozen files read this type" is a number. It is a
 reads every source file, and it changes no ordering: a widely imported file is only expensive for
 the rules that move types, and that judgement is yours.
 
-**When `no-explicit-any` is measured in the thousands, it is not one PR.** A rule that big needs a
-ratchet of its own inside the ratchet, because the file-level suppressions do not stop the count
-climbing in a directory nobody has reached yet:
+**When `no-explicit-any` is measured in the thousands, it is not the rule to start with.** Finding
+the ten violations that matter inside 1,413 is not a thing anyone does, and every other rule's
+findings sit underneath it. Leaving it `off` at the beginning is sequencing, not surrender: clear
+the mechanical tiers first — formatting, unused bindings, `var`, the `--fix`-able rules — and come
+back to it once the repository is in shape. Taken last it is where the largest single reduction
+comes from; taken first it is where the effort stops on day one.
+
+What `off` must not become is the end state. A rule switched off is a place nobody is checking, and
+`any` is not "the type is unknown" — it is a decision about the type that was never written down.
+
+**When you do come back to it, that rule needs a ratchet of its own inside the ratchet,** because
+the file-level suppressions do not stop the count climbing in a directory nobody has reached yet:
 
 - **Promote by directory.** Hold the rule at `off` where nothing has been done, `warn` where work is
   in progress, and `error` on every directory that is finished. A finished directory cannot regress,
