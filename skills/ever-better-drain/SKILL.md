@@ -72,6 +72,39 @@ For a change that is *supposed* to alter behaviour — a bug the rule uncovered 
 the other way: write it, watch it fail, then fix. And for a refactor that is purely types, `emit-diff`
 in step 6b proves more than either (see below).
 
+**When the function is too big to characterise with a handful of tests, keep the old one and diff
+against it.** A few hand-written cases cover the branches you thought of, which on a 300-line
+function is not the set that matters. The old implementation already knows every answer, so make it
+the oracle rather than trying to restate it:
+
+```ts
+// The old body, renamed and otherwise untouched. Delete it in a later PR, not this one.
+const buildReportLegacy = (input: Input): Report => { /* … as it was … */ };
+
+const buildReport = (input: Input): Report => { /* … the split-up version … */ };
+
+// The whole proof: same input, same output, over inputs you did not choose by hand.
+for (const input of recordedInputs) {
+  assert.deepStrictEqual(buildReport(input), buildReportLegacy(input));
+}
+```
+
+Two things make or break this:
+
+- **The inputs must not come from you.** Cases you invent test the branches you already understand.
+  Capture real ones — log the arguments in production or in a test run and replay them, walk a
+  fixture directory, or generate them. The branch that breaks is the one nobody wrote down.
+- **The old body is copied, not called through.** If the new code delegates to the old code for the
+  hard part, the diff passes and proves nothing.
+
+Where outputs are not comparable with `deepStrictEqual` — they contain a timestamp, an id, a `Map`
+in insertion order — normalise both sides through the same function rather than loosening the
+assertion. An assertion that ignores a field stops covering it.
+
+**Say in the PR body how many inputs it ran against, and where they came from.** "Behaviour is
+unchanged" is a claim; "identical output over the 1,840 recorded calls in `fixtures/`" is a
+measurement, and the reviewer can tell which one they are reading.
+
 ### 4. Fix them — and notice what the fix reveals
 
 This is the part that is not mechanical. A lint rule is a proxy for a real problem, and the fix
