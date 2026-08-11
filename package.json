@@ -1,6 +1,6 @@
 {
   "name": "ever-better",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "Diagnose a repository, install the quality tooling it is missing, and pin a baseline that can only get better.",
   "keywords": [
     "eslint",
