@@ -76,6 +76,7 @@ npx ever-better bootstrap    # 導入して設定ファイルを生成
 npx ever-better freeze       # 今日の違反件数を天井として固定
 npx ever-better check        # CI のゲート: 件数が増えたら失敗
 npx ever-better next         # 何から潰すか、そしてそれが何を enforce するか
+npx ever-better report       # 指摘がどこにあるかを markdown で（CI のジョブサマリ向け）
 npx ever-better prune        # 直した分だけ天井を下げる
 ```
 
@@ -169,6 +170,21 @@ ever-better next --fan-in
 既定ではなくフラグなのは、import を解析するために**全ソースファイルを読む**からです（`migrate` と同じ重さで、編集の合間に叩くコマンドの重さではありません）。そして**並び順は一切変えません** — fan-in が高くつくのは*型*の修正であって、`max-depth` のように修正がそのファイル内で閉じるルールには何の関係もありません。数字は出す、どのルールで効くかの判断はスキル側 — この分担はツール全体と同じです。
 
 数えているのは直接の importer であって推移的な到達数ではなく、解決するのは相対指定だけです（path alias 経由でしか import されていないファイルは低く出ます）。
+
+### `report`
+
+```bash
+ever-better report
+ever-better report --json
+```
+
+バックログを**ルール × エリア**の表にした markdown を出します。`next` が「どの修正が一番多くを enforce するか」に答えるのに対し、こちらは「**このリポジトリの lint 負債はどういう形をしているのか**」に答えます。大きさではなく形です。
+
+stdout に出すのに加えて、`$GITHUB_STEP_SUMMARY` が設定されていればそこに**追記**します。これがワークフローを誰も編集せずに CI レポートになる仕組みです。生成される gate ワークフローは `check` の後に `if: always()` で実行します — **check が落ちた回こそ**バックログの形を知る価値が一番高いからです。
+
+warning に専用セクションがあるのが要点です。ESLint の suppressions が対象にするのは **error だけ**なので、warning は grandfather されず、放っておいても減りません。`state.json` が持っているのは warning 全体の合計1つだけでルール名は一切残らないため、**その内訳が存在する場所はここしかありません**。
+
+**これは gate ではありません。** 終了コードを変えませんし、サマリファイルに書けなくても失敗しません。ESLint が動かせない場合は `eslint-suppressions.json` だけにフォールバックし、その旨を出力に書きます —「warning が無い」と「誰も warning を見ていない」が同じ見た目になってはいけないからです。
 
 ### `prune`
 

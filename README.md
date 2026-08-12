@@ -93,6 +93,7 @@ npx ever-better bootstrap    # install it, generate the configs
 npx ever-better freeze       # pin today's violations as the ceiling
 npx ever-better check        # CI gate: fail if anything rose
 npx ever-better next         # what to drain first, and what each fix enforces
+npx ever-better report       # where the findings are, as markdown (for a CI job summary)
 npx ever-better prune        # after a fix: reclaim the ceiling you earned
 ```
 
@@ -220,6 +221,31 @@ which rules it applies to is judgment, and judgment is the skills' half of this 
 
 The count is direct importers, not transitive reach, and only relative specifiers resolve — a file
 imported solely through a path alias reads low.
+
+### `report`
+
+```bash
+ever-better report
+ever-better report --json
+```
+
+Markdown: the backlog as a **rule x area** table, so the shape of the debt is visible rather than
+just its size. Where `next` answers "which edit enforces the most", this answers "what does this
+repository's lint debt actually look like".
+
+It is written to stdout and **appended to `$GITHUB_STEP_SUMMARY`** when that is set, which is what
+makes it a CI report without anyone editing a workflow. The generated gate workflow runs it after
+`check` with `if: always()` — the run where `check` has just failed is the run where the backlog is
+worth most.
+
+Warnings get their own section, and that is the point of including them: ESLint's suppressions cover
+**errors only**, so a warning is never grandfathered and never drains. `state.json` keeps one grand
+total for the whole warning population and no rule ever appears in it; this is the only place that
+breakdown exists.
+
+**It is never a gate.** It cannot change an exit code, and it does not fail when the summary file
+cannot be written. If ESLint cannot run at all, it falls back to `eslint-suppressions.json` and says
+so in the output — "no warnings" and "nobody looked for warnings" must not render the same way.
 
 ### `prune`
 

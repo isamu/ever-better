@@ -58,4 +58,10 @@ export const renderGateWorkflow = (packageManager: PackageManager, nodeVersion: 
     "      - name: ever-better check",
     "        run: npx --yes ever-better check --no-write",
     "",
+    "      # `always()`: the run where check has just failed is the run where knowing what the",
+    "      # backlog looks like is worth most. A report is not a gate and never changes the result.",
+    "      - name: ever-better report",
+    "        if: always()",
+    "        run: npx --yes ever-better report",
+    "",
   ].join("\n");
