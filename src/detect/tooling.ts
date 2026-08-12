@@ -3,23 +3,64 @@ import type { EslintSetup, PackageJson, ScriptCoverage, TestRunner, ToolingPrese
 const FLAT_CONFIG_NAMES = ["eslint.config.js", "eslint.config.mjs", "eslint.config.cjs", "eslint.config.ts"];
 const LEGACY_CONFIG_PREFIX = ".eslintrc";
 
-const SECRET_SCANNERS = ["gitleaks", "trufflehog", "detect-secrets", "ggshield"];
+/** The command a scanner is invoked as, matched against what a line actually runs. */
+const SECRET_SCANNER_COMMANDS = new Set(["gitleaks", "trufflehog", "detect-secrets", "ggshield"]);
+
+/** The actions that run one, `owner/repo` lowercased, matched against a `uses:` value. */
+const SECRET_SCANNER_ACTIONS = new Set(["gitleaks/gitleaks-action", "trufflesecurity/trufflehog", "gitguardian/ggshield-action", "yelp/detect-secrets"]);
+
+/** Tokens that can stand in front of the real command without changing what it is. */
+const RUNNERS = new Set(["-", "npx", "sudo", "yarn", "pnpm", "bunx", "bun", "run"]);
+
+const commandOf = (tokens: readonly string[]): string | null => {
+  const [head, ...rest] = tokens;
+  if (head === undefined) return null;
+  return RUNNERS.has(head) ? commandOf(rest) : head;
+};
+
+const basename = (command: string): string => command.split("/").at(-1) ?? command;
+
+const usesAction = (line: string): boolean => {
+  const marker = line.indexOf("uses:");
+  if (marker === -1) return false;
+  const value =
+    line
+      .slice(marker + "uses:".length)
+      .trim()
+      .split("@")[0] ?? "";
+  return SECRET_SCANNER_ACTIONS.has(value.toLowerCase());
+};
+
+const runsCommand = (line: string): boolean => {
+  const afterRun = line.includes("run:") ? line.slice(line.indexOf("run:") + "run:".length) : line;
+  const command = commandOf(
+    afterRun
+      .trim()
+      .split(/\s+/)
+      .filter((token) => token.length > 0),
+  );
+  return command !== null && SECRET_SCANNER_COMMANDS.has(basename(command));
+};
 
 /**
- * A scanner has to be RUN, not merely mentioned. Substring-matching the whole workflow text counted
- * a comment explaining why there is no scanner, and a `.gitleaks.toml` sitting beside nothing that
- * reads it — both of which suppress the gap and leave a repository unscanned while this reports it
- * covered. For a security check that is the dangerous direction: a false gap is noise, a false
- * "already covered" is silence.
+ * Enumerates what counts as running a scanner rather than what does not, because the ban-list
+ * version lost three rounds in a row: it counted a comment, then a commented-out step, then
+ * `echo gitleaks`, then `uses: example/gitleaks-docs`. A language always has one more way to say a
+ * thing than anyone will list, so this asks the opposite question — is the command this line runs a
+ * scanner, or is this `uses:` one of the actions that runs one.
  *
- * Line-based rather than YAML-aware on purpose — nothing in this tool parses YAML — so a step
- * disabled with `if: false` still reads as coverage. Said out loud rather than left to be found.
+ * It fails CLOSED: anything unrecognised reads as "not scanned", which costs a workflow somebody
+ * did not need. The other direction leaves a repository unscanned while this reports it covered,
+ * and for a security check that is silence rather than noise.
+ *
+ * Line-based rather than YAML-aware — nothing in this tool parses YAML — so a step disabled with
+ * `if: false` still reads as coverage. Said out loud rather than left to be found.
  */
 const runsSecretScanner = (workflowText: string): boolean =>
   workflowText
     .split("\n")
-    .filter((line) => !line.trim().startsWith("#"))
-    .some((line) => (line.includes("uses:") || line.includes("run:")) && SECRET_SCANNERS.some((scanner) => line.includes(scanner)));
+    .map((line) => line.split("#")[0] ?? "")
+    .some((line) => usesAction(line) || runsCommand(line));
 
 const AGENT_INSTRUCTION_NAMES = ["CLAUDE.md", "AGENTS.md", "GEMINI.md", ".cursorrules"];
 

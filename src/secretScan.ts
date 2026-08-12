@@ -45,13 +45,17 @@ const joined = (headline: string, output: string): string => [headline, "", outp
  * them could not look" must not be reported as "nothing found".
  */
 export const combineScans = (verdicts: readonly SecretVerdict[]): SecretVerdict => {
-  const findings = verdicts.filter((verdict) => verdict.code === SECRET_FINDING_EXIT_CODE);
-  const failures = verdicts.filter((verdict) => verdict.code === SCAN_FAILED_EXIT_CODE);
-  if (failures.length > 0) return failures[0] ?? verdicts[0] ?? clean();
-  if (findings.length > 0) {
-    return { ok: false, code: SECRET_FINDING_EXIT_CODE, message: findings.map((verdict) => verdict.message).join("\n\n") };
-  }
-  return clean();
+  const bad = verdicts.filter((verdict) => !verdict.ok);
+  if (bad.length === 0) return clean();
+  const failed = bad.some((verdict) => verdict.code === SCAN_FAILED_EXIT_CODE);
+  // Every message survives, whichever code wins. A run that both found something and could not
+  // finish has two things worth acting on, and dropping the finding to report the failure loses
+  // the one that names a file.
+  return {
+    ok: false,
+    code: failed ? SCAN_FAILED_EXIT_CODE : SECRET_FINDING_EXIT_CODE,
+    message: bad.map((verdict) => verdict.message).join("\n\n"),
+  };
 };
 
 const clean = (): SecretVerdict => ({

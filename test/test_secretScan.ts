@@ -81,6 +81,13 @@ describe("combineScans", () => {
   it("reports the failure even when the other scan found something", () => {
     assert.equal(combineScans([found(), failed()]).code, 1);
   });
+
+  /** The failing code must not cost the finding that names a file. */
+  it("keeps every message, whichever code wins", () => {
+    const both = combineScans([found(), failed()]);
+    assert.match(both.message, /a finding/);
+    assert.match(both.message, /could not run/);
+  });
 });
 
 describe("renderSecretScanWorkflow", () => {
@@ -168,6 +175,35 @@ describe("secret scanning detection", () => {
 
   it("does not count a scanner named in a job name or an env var", () => {
     assert.equal(tooling([], "name: gitleaks (disabled)\nenv:\n  TRUFFLEHOG: 1").secretScanning, false);
+  });
+
+  /**
+   * The rule enumerates what counts as running a scanner rather than what does not, because the
+   * ban-list version lost three rounds: a comment, a commented-out step, `echo gitleaks`, then an
+   * unrelated action whose name merely starts with one.
+   */
+  it("does not count a scanner that is only an argument to something else", () => {
+    assert.equal(tooling([], "run: echo gitleaks").secretScanning, false);
+    assert.equal(tooling([], "run: yarn lint # gitleaks").secretScanning, false);
+    assert.equal(tooling([], "run: grep -r trufflehog .").secretScanning, false);
+  });
+
+  it("does not count an action that merely shares a prefix", () => {
+    assert.equal(tooling([], "uses: example/gitleaks-docs@v1").secretScanning, false);
+    assert.equal(tooling([], "uses: someone/not-trufflehog@main").secretScanning, false);
+  });
+
+  it("counts the real actions", () => {
+    assert.equal(tooling([], "uses: gitleaks/gitleaks-action@v2").secretScanning, true);
+    assert.equal(tooling([], "        uses: trufflesecurity/trufflehog@main").secretScanning, true);
+  });
+
+  /** The forms a workflow actually invokes it in, including inside a `run: |` block. */
+  it("counts an invocation however it is written", () => {
+    assert.equal(tooling([], "      - run: gitleaks git .").secretScanning, true);
+    assert.equal(tooling([], "run: npx gitleaks dir .").secretScanning, true);
+    assert.equal(tooling([], "run: sudo /usr/local/bin/gitleaks git .").secretScanning, true);
+    assert.equal(tooling([], "      run: |\n        gitleaks git . --redact").secretScanning, true);
   });
 
   /** Nearly every workflow mentions `secrets.GITHUB_TOKEN`; that is not a secret scanner. */
