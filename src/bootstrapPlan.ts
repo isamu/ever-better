@@ -68,7 +68,11 @@ const scriptsToAdd = (options: BootstrapPlanOptions): Record<string, string> => 
     additions["typecheck"] = typecheckCommand(options.diagnosis.framework);
   }
   if (!scripts.test && tooling.testRunner === "none") additions["test"] = "vitest run";
-  if (!tooling.knip) additions["knip"] = "knip";
+  // Keyed on the script, not on the knip dependency, because the two come apart in both
+  // directions: a repo with `knip --production` and no devDependency had its script replaced, and
+  // one with the dependency but no script got a dead-code workflow running `<pm> knip || true`
+  // against a script that does not exist — silently, forever, which reads as a clean inventory.
+  if (!options.packageJson?.scripts?.["knip"]) additions["knip"] = "knip";
   return additions;
 };
 

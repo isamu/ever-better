@@ -10,6 +10,7 @@ import { emptyState, readState, withDiagnosis, withPhase, writeState } from "../
 import { strengthenEslintConfig } from "./strengthen.ts";
 import { applyStrictness } from "./strictness.ts";
 import { exec } from "../util/exec.ts";
+import { detectJsonIndent } from "../util/jsonIndent.ts";
 import type { PackageManager } from "../types.ts";
 
 export type BootstrapOptions = {
@@ -39,7 +40,7 @@ const addScripts = async (cwd: string, scripts: Readonly<Record<string, string>>
   if (typeof parsed !== "object" || parsed === null) throw new Error("package.json is not an object");
   const existing = "scripts" in parsed && typeof parsed.scripts === "object" ? parsed.scripts : {};
   const updated = { ...parsed, scripts: { ...existing, ...scripts } };
-  await writeFile(target, `${JSON.stringify(updated, null, 2)}\n`, "utf8");
+  await writeFile(target, `${JSON.stringify(updated, null, detectJsonIndent(text))}\n`, "utf8");
 };
 
 const runInstall = async (cwd: string, manager: PackageManager, packages: readonly string[]): Promise<void> => {
