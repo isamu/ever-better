@@ -110,6 +110,21 @@ describe("renderLintReport", () => {
     assert.match(markdown, /\| `max-lines` \| 7 \| \*\*7\*\* \| █+ \|/);
   });
 
+  /** `max(1, …)` gives a one-finding rule a visible bar; applied to zero it invents one. */
+  it("draws no bar for a rule with nothing in it", () => {
+    const markdown = renderLintReport(buildLintReport(counts({ areas: { errors: {}, warnings: {}, suppressed: { src: { big: 5, none: 0 } } } }), []));
+    const rowFor = (rule: string): string => markdown.split("\n").find((line) => line.includes(`\`${rule}\``)) ?? "";
+    assert.match(rowFor("big"), /█/);
+    assert.doesNotMatch(rowFor("none"), /█/);
+  });
+
+  /** Every count zero means nothing to report, not a section with an empty table in it. */
+  it("drops a section whose every count is zero", () => {
+    const report = buildLintReport(counts({ areas: { errors: {}, warnings: {}, suppressed: { src: { none: 0 } } } }), []);
+    assert.deepEqual(report.sections, []);
+    assert.match(renderLintReport(report), /Nothing to report/);
+  });
+
   /** A table that silently showed its first rows would read as the whole list. */
   it("says how many rows and areas it did not show", () => {
     const suppressed = Object.fromEntries(Array.from({ length: 9 }, (_, index) => [`area${index}`, { [`rule${index}`]: index + 1 }]));

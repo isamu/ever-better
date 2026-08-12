@@ -4,7 +4,13 @@ const ROWS_SHOWN = 12;
 const AREAS_SHOWN = 6;
 const BAR_WIDTH = 24;
 
-const bar = (count: number, largest: number): string => "█".repeat(largest === 0 ? 0 : Math.max(1, Math.round((count / largest) * BAR_WIDTH)));
+/**
+ * The `max(1, …)` is so a rule with one finding beside a rule with five hundred still draws
+ * something — but it has to come after the zero check, or a row of zero draws a block and reads as
+ * the smallest non-empty rule in the table.
+ */
+const bar = (count: number, largest: number): string =>
+  count === 0 || largest === 0 ? "" : "█".repeat(Math.max(1, Math.round((count / largest) * BAR_WIDTH)));
 
 /** Columns beyond the cap are summed into one that says so, rather than dropped. */
 const columnsOf = (section: ReportSection): { headings: string[]; countsOf: (counts: readonly number[]) => number[] } => {
