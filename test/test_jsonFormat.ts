@@ -1,40 +1,63 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { detectJsonIndent } from "../src/util/jsonIndent.ts";
+import { stringifyLike } from "../src/util/jsonFormat.ts";
 
-const packageJson = (indent: string): string => `{\n${indent}"name": "x",\n${indent}"scripts": {\n${indent}${indent}"lint": "eslint ."\n${indent}}\n}\n`;
+const packageJson = (indent: string, ending = "\n"): string =>
+  ["{", `${indent}"name": "x",`, `${indent}"scripts": {`, `${indent}${indent}"lint": "eslint ."`, `${indent}}`, "}", ""].join(ending);
 
-describe("detectJsonIndent", () => {
-  it("finds two spaces", () => {
-    assert.equal(detectJsonIndent(packageJson("  ")), "  ");
+/** The property that matters: reading a file and writing it back changes nothing. */
+const roundTrips = (text: string): boolean => stringifyLike(text, JSON.parse(text)) === text;
+
+describe("stringifyLike", () => {
+  it("keeps two spaces", () => {
+    assert.ok(roundTrips(packageJson("  ")));
   });
 
-  it("finds four spaces", () => {
-    assert.equal(detectJsonIndent(packageJson("    ")), "    ");
+  it("keeps four spaces", () => {
+    assert.ok(roundTrips(packageJson("    ")));
   });
 
-  it("finds a tab", () => {
-    assert.equal(detectJsonIndent(packageJson("\t")), "\t");
+  it("keeps tabs", () => {
+    assert.ok(roundTrips(packageJson("\t")));
   });
 
-  /** A file checked out with CRLF still has the indentation after the newline pair. */
-  it("finds it through CRLF line endings", () => {
-    assert.equal(detectJsonIndent('{\r\n\t"name": "x"\r\n}\r\n'), "\t");
+  /**
+   * A Windows checkout without `.gitattributes` is CRLF throughout, and `JSON.stringify` only ever
+   * emits `\n` — so preserving the indentation alone still rewrote every line of the file.
+   */
+  it("keeps CRLF line endings", () => {
+    assert.ok(roundTrips(packageJson("\t", "\r\n")));
+    assert.ok(!stringifyLike(packageJson("  ", "\r\n"), { a: 1 }).includes("\n\n"));
+  });
+
+  /** `JSON.stringify` clips a string `space` to ten characters; indenting by depth does not. */
+  it("keeps an indent wider than JSON.stringify would accept", () => {
+    assert.ok(roundTrips(packageJson(" ".repeat(14))));
+    assert.equal(JSON.stringify({ a: 1 }, null, " ".repeat(14)).split("\n")[1], `${" ".repeat(10)}"a": 1`);
   });
 
   it("falls back to two spaces when there is nothing to preserve", () => {
-    assert.equal(detectJsonIndent('{"name":"x","version":"1.0.0"}'), "  ");
-    assert.equal(detectJsonIndent(""), "  ");
+    assert.equal(stringifyLike('{"name":"x"}', { name: "x" }), '{\n  "name": "x"\n}\n');
+    assert.equal(stringifyLike("", { a: 1 }), '{\n  "a": 1\n}\n');
   });
 
-  /** The outermost level is what the file is indented with; a nested one would double it. */
-  it("takes the first indented line rather than the deepest", () => {
-    assert.equal(detectJsonIndent('{\n  "a": {\n      "b": 1\n  }\n}\n'), "  ");
+  it("takes the outermost indent rather than the deepest", () => {
+    assert.ok(roundTrips('{\n  "a": {\n    "b": 1\n  }\n}\n'));
   });
 
-  it("round-trips: writing with what it found leaves the shape alone", () => {
-    const original = packageJson("\t");
-    const parsed: unknown = JSON.parse(original);
-    assert.equal(`${JSON.stringify(parsed, null, detectJsonIndent(original))}\n`, original);
+  /** An array's first indented line opens with `{` or a digit, never a quote. */
+  it("detects the indent of a file whose first indented line is not a string", () => {
+    assert.ok(roundTrips('[\n\t{\n\t\t"a": 1\n\t}\n]\n'));
+    assert.ok(roundTrips("[\n    1,\n    2\n]\n"));
+  });
+
+  /** A newline inside a value is escaped in JSON text, so it cannot be mistaken for a line break. */
+  it("does not reindent inside a string value", () => {
+    const written = stringifyLike(packageJson("\t"), { script: "a\n      b" });
+    assert.equal(written, '{\n\t"script": "a\\n      b"\n}\n');
+  });
+
+  it("adds the trailing newline even when the original lacked one", () => {
+    assert.ok(stringifyLike('{\n  "a": 1\n}', { a: 1 }).endsWith("1\n}\n"));
   });
 });

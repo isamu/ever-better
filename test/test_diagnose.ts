@@ -105,6 +105,17 @@ describe("planBootstrap", () => {
     assert.equal(scriptsFrom(withScript)["knip"], undefined);
   });
 
+  /**
+   * An empty script is how a script gets disabled without being deleted. Guarding on truthiness
+   * rather than on presence treated it as absent and replaced it — and the same guard was on
+   * `format:check`, which no finding mentioned.
+   */
+  it("never replaces a script that is present but empty", () => {
+    const emptied = facts({ packageJson: { scripts: { knip: "", "format:check": "" } } });
+    assert.equal(scriptsFrom(emptied)["knip"], undefined);
+    assert.equal(scriptsFrom(emptied)["format:check"], undefined);
+  });
+
   it("adds the knip script when knip is installed but nothing runs it", () => {
     // Otherwise the generated dead-code workflow runs `<pm> knip || true` against a missing
     // script: the scan reports nothing forever, which reads exactly like a clean inventory.

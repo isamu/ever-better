@@ -61,9 +61,15 @@ export const detectTooling = (rootEntries: readonly string[], packageJson: Packa
   };
 };
 
+/**
+ * Presence, not truthiness. `"knip": ""` is a script someone wrote — an empty one is how a script
+ * gets disabled without deleting it — and replacing it because it is falsy is the same overwrite as
+ * replacing a non-empty one.
+ */
+export const hasScript = (packageJson: PackageJson | null, name: string): boolean => typeof packageJson?.scripts?.[name] === "string";
+
 export const detectScripts = (packageJson: PackageJson | null): ScriptCoverage => {
-  const scripts = packageJson?.scripts ?? {};
-  const has = (name: string): boolean => typeof scripts[name] === "string";
+  const has = (name: string): boolean => hasScript(packageJson, name);
   return {
     lint: has("lint"),
     format: has("format"),
