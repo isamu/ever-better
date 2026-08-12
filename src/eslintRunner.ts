@@ -19,7 +19,23 @@ export type RuleCounts = {
    * look up, and a count on its own does not say which file to open.
    */
   unattributed?: { file: string; line: number; message: string }[];
+  /**
+   * The same three buckets broken down by top-level directory, which is the only place the shape of
+   * the debt is visible: `state.rules` holds suppressed violations per rule, and warnings — which
+   * ESLint cannot suppress and which therefore never drain — reach the ledger as a single total.
+   *
+   * Optional because it is only what the current formatter emits; a command reading it degrades to
+   * the rule totals rather than failing.
+   */
+  areas?: AreaCounts;
   files: number;
+};
+
+/** Area to rule to count. Bounded by areas x rules, so it never grows with the violation count. */
+type AreaCounts = {
+  errors: Record<string, Record<string, number>>;
+  warnings: Record<string, Record<string, number>>;
+  suppressed: Record<string, Record<string, number>>;
 };
 
 export const totalOf = (counts: Readonly<Record<string, number>>): number => Object.values(counts).reduce((sum, count) => sum + count, 0);

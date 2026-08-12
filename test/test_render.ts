@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 import { renderEslintConfig } from "../src/generate/eslintConfig.ts";
 import { renderCodexReviewWorkflow } from "../src/generate/codexReview.ts";
 import { renderWorkflow } from "../src/generate/workflow.ts";
+import { renderGateWorkflow } from "../src/generate/gateWorkflow.ts";
 import { extractNotes, NOTES_END, NOTES_START, renderQuality } from "../src/render/quality.ts";
 import { applyRuleCounts, emptyState } from "../src/state.ts";
 import type { Freshness } from "../src/freshness.ts";
@@ -346,5 +347,34 @@ describe("renderCodexReviewWorkflow", () => {
 
   it("cancels a superseded run rather than reviewing every push", () => {
     assert.match(workflow, /cancel-in-progress: true/);
+  });
+});
+
+describe("renderGateWorkflow", () => {
+  const gate = (): string => renderGateWorkflow("yarn", "24");
+
+  it("runs the gate", () => {
+    assert.match(gate(), /npx --yes ever-better check --no-write/);
+  });
+
+  /**
+   * The report step is deliberately `if: always()` — the run where `check` has just failed is the
+   * run where the shape of the backlog is worth most, and a step without it would be skipped on
+   * exactly that run.
+   */
+  it("still reports after the gate has failed", () => {
+    const yaml = gate();
+    const reportStep = yaml.slice(yaml.indexOf("- name: ever-better report"));
+    assert.match(reportStep, /if: always\(\)/);
+    assert.match(reportStep, /npx --yes ever-better report/);
+  });
+
+  it("keeps the report after the gate, so a failure is reported before it is explained", () => {
+    const yaml = gate();
+    assert.ok(yaml.indexOf("ever-better check --no-write") < yaml.indexOf("ever-better report"));
+  });
+
+  it("asks for no permissions beyond reading the repository", () => {
+    assert.match(gate(), /permissions:\n {2}contents: read/);
   });
 });

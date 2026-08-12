@@ -12,6 +12,7 @@ import { isLogKind, LOG_KIND_LIST, runLog } from "./commands/log.ts";
 import { runMigrate } from "./commands/migrate.ts";
 import { runNext } from "./commands/next.ts";
 import { runPrune } from "./commands/prune.ts";
+import { runReport } from "./commands/report.ts";
 import { runStatus } from "./commands/status.ts";
 
 const USAGE = `ever-better — make a codebase that can only get better
@@ -23,6 +24,7 @@ const USAGE = `ever-better — make a codebase that can only get better
   check       fail if anything rose above its ceiling (for CI)
   status      print the current backlog
   next        what to drain first, and what each one enforces
+  report      where the findings are, by rule and area (markdown, for CI)
   emit-diff   prove a type-only refactor changed no behaviour
   catalog     list the helpers that already exist, so nobody writes a sixth
   migrate     JavaScript to TypeScript, the whole repo or one file at a time
@@ -88,6 +90,7 @@ const ALWAYS_OK: Record<string, (flags: Flags) => Promise<string>> = {
   prune: (flags) => runPrune({ cwd: flags.cwd }),
   status: (flags) => runStatus({ cwd: flags.cwd, json: flags.json }),
   next: (flags) => runNext({ cwd: flags.cwd, json: flags.json, fanIn: flags.fanIn }),
+  report: (flags) => runReport({ cwd: flags.cwd, json: flags.json }),
   catalog: (flags) => runCatalog({ cwd: flags.cwd }),
   migrate: (flags) => runMigrate({ cwd: flags.cwd, file: flags.file ?? null, all: flags.all }),
   "emit-diff": (flags) => runEmitDiff({ cwd: flags.cwd, against: flags.against }),
