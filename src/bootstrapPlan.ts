@@ -1,5 +1,6 @@
 import { typecheckCommand } from "./detect/framework.ts";
 import { DEFAULT_FILE_LINE_LIMIT } from "./detect/sizes.ts";
+import { hasScript } from "./detect/tooling.ts";
 import { eslintConfigFileName, eslintPackagesFor, renderEslintConfig } from "./generate/eslintConfig.ts";
 import { CODEX_WORKFLOW_PATH, renderCodexReviewWorkflow } from "./generate/codexReview.ts";
 import { renderDependabot } from "./generate/dependabot.ts";
@@ -61,14 +62,18 @@ const scriptsToAdd = (options: BootstrapPlanOptions): Record<string, string> => 
   if (!scripts.format) additions["format"] = "prettier --write .";
   // For a human checking without writing. CI does not need it — `lint` covers formatting now
   // that Prettier runs as a rule.
-  if (!options.packageJson?.scripts?.["format:check"]) {
+  if (!hasScript(options.packageJson, "format:check")) {
     additions["format:check"] = "prettier --check .";
   }
   if (!scripts.typecheck && language !== "javascript") {
     additions["typecheck"] = typecheckCommand(options.diagnosis.framework);
   }
   if (!scripts.test && tooling.testRunner === "none") additions["test"] = "vitest run";
-  if (!tooling.knip) additions["knip"] = "knip";
+  // Keyed on the script, not on the knip dependency, because the two come apart in both
+  // directions: a repo with `knip --production` and no devDependency had its script replaced, and
+  // one with the dependency but no script got a dead-code workflow running `<pm> knip || true`
+  // against a script that does not exist — silently, forever, which reads as a clean inventory.
+  if (!hasScript(options.packageJson, "knip")) additions["knip"] = "knip";
   return additions;
 };
 

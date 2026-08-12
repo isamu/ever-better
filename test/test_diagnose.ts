@@ -91,6 +91,38 @@ describe("planBootstrap", () => {
     assert.ok(!written.includes("eslint.config.js"));
   });
 
+  const scriptsFrom = (input: RepoFacts): Record<string, string> => {
+    const action = planFor(input).find((step) => step.kind === "addScripts");
+    return action?.kind === "addScripts" ? action.scripts : {};
+  };
+
+  /**
+   * The knip script used to be keyed on the knip *dependency*, which comes apart from the script in
+   * both directions — and one of those directions silently overwrote something somebody wrote.
+   */
+  it("never replaces a knip script the repo already has", () => {
+    const withScript = facts({ packageJson: { scripts: { knip: "knip --production" } } });
+    assert.equal(scriptsFrom(withScript)["knip"], undefined);
+  });
+
+  /**
+   * An empty script is how a script gets disabled without being deleted. Guarding on truthiness
+   * rather than on presence treated it as absent and replaced it — and the same guard was on
+   * `format:check`, which no finding mentioned.
+   */
+  it("never replaces a script that is present but empty", () => {
+    const emptied = facts({ packageJson: { scripts: { knip: "", "format:check": "" } } });
+    assert.equal(scriptsFrom(emptied)["knip"], undefined);
+    assert.equal(scriptsFrom(emptied)["format:check"], undefined);
+  });
+
+  it("adds the knip script when knip is installed but nothing runs it", () => {
+    // Otherwise the generated dead-code workflow runs `<pm> knip || true` against a missing
+    // script: the scan reports nothing forever, which reads exactly like a clean inventory.
+    const withDependency = facts({ packageJson: { devDependencies: { knip: "^6" } } });
+    assert.equal(scriptsFrom(withDependency)["knip"], "knip");
+  });
+
   it("does not reinstall what is already a dependency", () => {
     const plan = planFor(facts({ packageJson: { devDependencies: { eslint: "^10", prettier: "^3" } } }));
     const install = plan.find((action) => action.kind === "install");
