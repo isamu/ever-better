@@ -188,6 +188,26 @@ describe("secret scanning detection", () => {
     assert.equal(tooling([], "run: grep -r trufflehog .").secretScanning, false);
   });
 
+  /**
+   * The only direction that is unacceptable: a line that runs nothing reading as covered. `uses:`
+   * has to be the line's own key, not text inside a command that echoes it.
+   */
+  it("does not count a command that merely prints a uses: line", () => {
+    assert.equal(tooling([], "run: 'echo uses: gitleaks/gitleaks-action@v2'").secretScanning, false);
+    assert.equal(tooling([], 'run: echo "uses: gitleaks/gitleaks-action@v2"').secretScanning, false);
+  });
+
+  /**
+   * Known false GAPS, pinned so they are a decision rather than an accident. Each runs a scanner
+   * and reads as unscanned, which costs a workflow nobody needed — the safe direction. Closing
+   * them means parsing a nested shell command or knowing what a docker image contains, which is
+   * the ban-list game again with a worse board.
+   */
+  it("misses a scanner buried in a nested shell or a container, and that is the safe way to be wrong", () => {
+    assert.equal(tooling([], "run: bash -c 'gitleaks git .'").secretScanning, false);
+    assert.equal(tooling([], "run: docker run zricethezav/gitleaks git .").secretScanning, false);
+  });
+
   it("does not count an action that merely shares a prefix", () => {
     assert.equal(tooling([], "uses: example/gitleaks-docs@v1").secretScanning, false);
     assert.equal(tooling([], "uses: someone/not-trufflehog@main").secretScanning, false);
@@ -203,6 +223,8 @@ describe("secret scanning detection", () => {
     assert.equal(tooling([], "      - run: gitleaks git .").secretScanning, true);
     assert.equal(tooling([], "run: npx gitleaks dir .").secretScanning, true);
     assert.equal(tooling([], "run: sudo /usr/local/bin/gitleaks git .").secretScanning, true);
+    assert.equal(tooling([], "run: FOO=bar gitleaks git .").secretScanning, true);
+    assert.equal(tooling([], "run: env gitleaks git .").secretScanning, true);
     assert.equal(tooling([], "      run: |\n        gitleaks git . --redact").secretScanning, true);
   });
 

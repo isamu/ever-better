@@ -10,25 +10,29 @@ const SECRET_SCANNER_COMMANDS = new Set(["gitleaks", "trufflehog", "detect-secre
 const SECRET_SCANNER_ACTIONS = new Set(["gitleaks/gitleaks-action", "trufflesecurity/trufflehog", "gitguardian/ggshield-action", "yelp/detect-secrets"]);
 
 /** Tokens that can stand in front of the real command without changing what it is. */
-const RUNNERS = new Set(["-", "npx", "sudo", "yarn", "pnpm", "bunx", "bun", "run"]);
+const RUNNERS = new Set(["-", "npx", "sudo", "env", "yarn", "pnpm", "bunx", "bun", "run"]);
+
+/** `FOO=bar gitleaks git .` — an assignment prefix is not the command either. */
+const isAssignment = (token: string): boolean => /^[A-Za-z_]\w*=/.test(token);
 
 const commandOf = (tokens: readonly string[]): string | null => {
   const [head, ...rest] = tokens;
   if (head === undefined) return null;
-  return RUNNERS.has(head) ? commandOf(rest) : head;
+  return RUNNERS.has(head) || isAssignment(head) ? commandOf(rest) : head;
 };
 
 const basename = (command: string): string => command.split("/").at(-1) ?? command;
 
+/**
+ * `uses:` has to be the line's own key rather than text that merely contains it. `run: echo "uses:
+ * gitleaks/gitleaks-action@v2"` runs nothing and read as covered — the one direction this must
+ * never get wrong.
+ */
+const USES_KEY = /^\s*(?:-\s+)?uses:\s*(\S+)/;
+
 const usesAction = (line: string): boolean => {
-  const marker = line.indexOf("uses:");
-  if (marker === -1) return false;
-  const value =
-    line
-      .slice(marker + "uses:".length)
-      .trim()
-      .split("@")[0] ?? "";
-  return SECRET_SCANNER_ACTIONS.has(value.toLowerCase());
+  const value = USES_KEY.exec(line)?.[1];
+  return value !== undefined && SECRET_SCANNER_ACTIONS.has((value.split("@")[0] ?? "").toLowerCase());
 };
 
 const runsCommand = (line: string): boolean => {
