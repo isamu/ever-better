@@ -28,23 +28,43 @@ const basename = (command: string): string => command.split("/").at(-1) ?? comma
  * gitleaks/gitleaks-action@v2"` runs nothing and read as covered — the one direction this must
  * never get wrong.
  */
-const USES_KEY = /^\s*(?:-\s+)?uses:\s*(\S+)/;
+const USES_KEY = /^[ \t]*(?:-[ \t]+)?uses:[ \t]*(\S+)/;
 
 const usesAction = (line: string): boolean => {
   const value = USES_KEY.exec(line)?.[1];
   return value !== undefined && SECRET_SCANNER_ACTIONS.has((value.split("@")[0] ?? "").toLowerCase());
 };
 
+/**
+ * `run:` as the line's own key, exactly like `uses:` — matching it anywhere let `name: run:
+ * gitleaks git .` read as coverage. A line with no `run:` key is taken whole, which is what makes a
+ * command inside a `run: |` block count.
+ */
+const RUN_KEY = /^[ \t]*(?:-[ \t]+)?run:(.*)$/;
+
 const runsCommand = (line: string): boolean => {
-  const afterRun = line.includes("run:") ? line.slice(line.indexOf("run:") + "run:".length) : line;
+  const body = RUN_KEY.exec(line)?.[1] ?? line;
   const command = commandOf(
-    afterRun
+    body
       .trim()
       .split(/\s+/)
       .filter((token) => token.length > 0),
   );
   return command !== null && SECRET_SCANNER_COMMANDS.has(basename(command));
 };
+
+const STEP_START = /^[ \t]*-[ \t]/;
+
+/** A step switched off still scans nothing, however completely it is written. */
+const DISABLED = /^[ \t]*(?:-[ \t]+)?if:[ \t]*(?:false|\$\{\{[ \t]*false[ \t]*\}\})[ \t]*$/;
+
+const intoSteps = (lines: readonly string[]): string[][] =>
+  lines.reduce<string[][]>((steps, line) => {
+    const current = steps.at(-1);
+    if (current === undefined || STEP_START.test(line)) return [...steps, [line]];
+    current.push(line);
+    return steps;
+  }, []);
 
 /**
  * Enumerates what counts as running a scanner rather than what does not, because the ban-list
@@ -57,14 +77,14 @@ const runsCommand = (line: string): boolean => {
  * did not need. The other direction leaves a repository unscanned while this reports it covered,
  * and for a security check that is silence rather than noise.
  *
- * Line-based rather than YAML-aware — nothing in this tool parses YAML — so a step disabled with
- * `if: false` still reads as coverage. Said out loud rather than left to be found.
+ * Grouped into steps by their leading `-` so a step switched off with `if: false` counts for
+ * nothing — that is still not YAML parsing, and a form it cannot see (a matrix that evaluates
+ * false, an `if` on the job) reads as coverage. The known gaps are pinned in the tests.
  */
 const runsSecretScanner = (workflowText: string): boolean =>
-  workflowText
-    .split("\n")
-    .map((line) => line.split("#")[0] ?? "")
-    .some((line) => usesAction(line) || runsCommand(line));
+  intoSteps(workflowText.split("\n").map((line) => line.split("#")[0] ?? ""))
+    .filter((step) => !step.some((line) => DISABLED.test(line)))
+    .some((step) => step.some((line) => usesAction(line) || runsCommand(line)));
 
 const AGENT_INSTRUCTION_NAMES = ["CLAUDE.md", "AGENTS.md", "GEMINI.md", ".cursorrules"];
 

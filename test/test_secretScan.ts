@@ -197,6 +197,28 @@ describe("secret scanning detection", () => {
     assert.equal(tooling([], 'run: echo "uses: gitleaks/gitleaks-action@v2"').secretScanning, false);
   });
 
+  /** `run:` has to be the line's own key too — `name: run: gitleaks git .` runs nothing. */
+  it("does not count a scanner inside another field's value", () => {
+    assert.equal(tooling([], "        name: run: gitleaks git .").secretScanning, false);
+  });
+
+  /** A step switched off scans nothing, however completely it is written. */
+  it("does not count a step disabled with if: false", () => {
+    assert.equal(tooling([], "      - if: false\n        uses: gitleaks/gitleaks-action@v2").secretScanning, false);
+    assert.equal(tooling([], "      - if: false\n        run: gitleaks git .").secretScanning, false);
+    assert.equal(tooling([], "      - if: ${{ false }}\n        run: gitleaks git .").secretScanning, false);
+    assert.equal(tooling([], "      - name: scan\n        if: false\n        run: gitleaks git .").secretScanning, false);
+  });
+
+  it("still counts a live step standing beside a disabled one", () => {
+    assert.equal(tooling([], "      - if: false\n        run: yarn lint\n      - run: gitleaks git .").secretScanning, true);
+  });
+
+  it("does not mistake a real condition for a disabled step", () => {
+    assert.equal(tooling([], "      - if: github.event_name == 'push'\n        run: gitleaks git .").secretScanning, true);
+    assert.equal(tooling([], "      - if: true\n        run: gitleaks git .").secretScanning, true);
+  });
+
   /**
    * Known false GAPS, pinned so they are a decision rather than an accident. Each runs a scanner
    * and reads as unscanned, which costs a workflow nobody needed — the safe direction. Closing
