@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import path from "node:path";
+import { pathToFileURL } from "node:url";
 import { describe, it } from "node:test";
 import { formatterPath } from "../src/eslintRunner.ts";
 
@@ -13,8 +14,14 @@ const isRecord = (value: unknown): value is Record<string, unknown> => typeof va
 
 const isFormatterModule = (value: unknown): value is { default: Formatter } => isRecord(value) && typeof value["default"] === "function";
 
+/**
+ * `pathToFileURL`, not the path. On Windows an absolute path starts with a drive letter, and the
+ * ESM loader reads `D:` as a URL scheme it does not support — a failure that cannot happen on the
+ * machine this was written on. ESLint itself takes the plain path via `--format`, so only the test
+ * needs the URL.
+ */
 const load = async (): Promise<Formatter> => {
-  const loaded: unknown = await import(path.resolve(formatterPath()));
+  const loaded: unknown = await import(pathToFileURL(formatterPath()).href);
   assert.ok(isFormatterModule(loaded), "the formatter has no default export");
   return loaded.default;
 };
