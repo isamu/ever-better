@@ -3,6 +3,89 @@ import type { EslintSetup, PackageJson, ScriptCoverage, TestRunner, ToolingPrese
 const FLAT_CONFIG_NAMES = ["eslint.config.js", "eslint.config.mjs", "eslint.config.cjs", "eslint.config.ts"];
 const LEGACY_CONFIG_PREFIX = ".eslintrc";
 
+/** The command a scanner is invoked as, matched against what a line actually runs. */
+const SECRET_SCANNER_COMMANDS = new Set(["gitleaks", "trufflehog", "detect-secrets", "ggshield"]);
+
+/** The actions that run one, `owner/repo` lowercased, matched against a `uses:` value. */
+const SECRET_SCANNER_ACTIONS = new Set(["gitleaks/gitleaks-action", "trufflesecurity/trufflehog", "gitguardian/ggshield-action", "yelp/detect-secrets"]);
+
+/** Tokens that can stand in front of the real command without changing what it is. */
+const RUNNERS = new Set(["-", "npx", "sudo", "env", "yarn", "pnpm", "bunx", "bun", "run"]);
+
+/** `FOO=bar gitleaks git .` — an assignment prefix is not the command either. */
+const isAssignment = (token: string): boolean => /^[A-Za-z_]\w*=/.test(token);
+
+const commandOf = (tokens: readonly string[]): string | null => {
+  const [head, ...rest] = tokens;
+  if (head === undefined) return null;
+  return RUNNERS.has(head) || isAssignment(head) ? commandOf(rest) : head;
+};
+
+const basename = (command: string): string => command.split("/").at(-1) ?? command;
+
+/**
+ * `uses:` has to be the line's own key rather than text that merely contains it. `run: echo "uses:
+ * gitleaks/gitleaks-action@v2"` runs nothing and read as covered — the one direction this must
+ * never get wrong.
+ */
+const USES_KEY = /^[ \t]*(?:-[ \t]+)?uses:[ \t]*(\S+)/;
+
+const usesAction = (line: string): boolean => {
+  const value = USES_KEY.exec(line)?.[1];
+  return value !== undefined && SECRET_SCANNER_ACTIONS.has((value.split("@")[0] ?? "").toLowerCase());
+};
+
+/**
+ * `run:` as the line's own key, exactly like `uses:` — matching it anywhere let `name: run:
+ * gitleaks git .` read as coverage. A line with no `run:` key is taken whole, which is what makes a
+ * command inside a `run: |` block count.
+ */
+const RUN_KEY = /^[ \t]*(?:-[ \t]+)?run:(.*)$/;
+
+const runsCommand = (line: string): boolean => {
+  const body = RUN_KEY.exec(line)?.[1] ?? line;
+  const command = commandOf(
+    body
+      .trim()
+      .split(/\s+/)
+      .filter((token) => token.length > 0),
+  );
+  return command !== null && SECRET_SCANNER_COMMANDS.has(basename(command));
+};
+
+const STEP_START = /^[ \t]*-[ \t]/;
+
+/** A step switched off still scans nothing, however completely it is written. */
+const DISABLED = /^[ \t]*(?:-[ \t]+)?if:[ \t]*(?:false|\$\{\{[ \t]*false[ \t]*\}\})[ \t]*$/;
+
+const intoSteps = (lines: readonly string[]): string[][] =>
+  lines.reduce<string[][]>((steps, line) => {
+    const current = steps.at(-1);
+    if (current === undefined || STEP_START.test(line)) return [...steps, [line]];
+    current.push(line);
+    return steps;
+  }, []);
+
+/**
+ * Enumerates what counts as running a scanner rather than what does not, because the ban-list
+ * version lost three rounds in a row: it counted a comment, then a commented-out step, then
+ * `echo gitleaks`, then `uses: example/gitleaks-docs`. A language always has one more way to say a
+ * thing than anyone will list, so this asks the opposite question — is the command this line runs a
+ * scanner, or is this `uses:` one of the actions that runs one.
+ *
+ * It fails CLOSED: anything unrecognised reads as "not scanned", which costs a workflow somebody
+ * did not need. The other direction leaves a repository unscanned while this reports it covered,
+ * and for a security check that is silence rather than noise.
+ *
+ * Grouped into steps by their leading `-` so a step switched off with `if: false` counts for
+ * nothing — that is still not YAML parsing, and a form it cannot see (a matrix that evaluates
+ * false, an `if` on the job) reads as coverage. The known gaps are pinned in the tests.
+ */
+const runsSecretScanner = (workflowText: string): boolean =>
+  intoSteps(workflowText.split("\n").map((line) => line.split("#")[0] ?? ""))
+    .filter((step) => !step.some((line) => DISABLED.test(line)))
+    .some((step) => step.some((line) => usesAction(line) || runsCommand(line)));
+
 const AGENT_INSTRUCTION_NAMES = ["CLAUDE.md", "AGENTS.md", "GEMINI.md", ".cursorrules"];
 
 export const allDependencies = (packageJson: PackageJson | null): Record<string, string> => ({
@@ -57,6 +140,10 @@ export const detectTooling = (rootEntries: readonly string[], packageJson: Packa
     testRunner: detectTestRunner(packageJson),
     knip: wiredUp("knip", "knip.json"),
     jscpd: wiredUp("jscpd", ".jscpd.json"),
+    // Named scanners rather than the word "secret", which appears in every workflow that reads
+    // `secrets.GITHUB_TOKEN`. GitHub's own push protection is a repository setting and cannot be
+    // seen from the contents at all — the gap text says so rather than leaving it to confuse.
+    secretScanning: runsSecretScanner(workflowText),
     agentInstructions: AGENT_INSTRUCTION_NAMES.filter((name) => rootEntries.includes(name)),
   };
 };

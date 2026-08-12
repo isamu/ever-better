@@ -8,6 +8,7 @@ import { GATE_WORKFLOW_PATH, renderGateWorkflow } from "./generate/gateWorkflow.
 import { renderGitattributes } from "./generate/gitattributes.ts";
 import { renderKnipConfig } from "./generate/knipConfig.ts";
 import { renderDeadCodeWorkflow, renderDuplicationWorkflow } from "./generate/scanWorkflows.ts";
+import { renderSecretScanWorkflow, SECRET_SCAN_WORKFLOW_PATH } from "./generate/secretScan.ts";
 import { appendGeneratedPaths, renderPrettierIgnore } from "./generate/prettierIgnore.ts";
 import { renderWorkflow } from "./generate/workflow.ts";
 import type { Diagnosis, PackageJson, ScriptCoverage, SourceFile } from "./types.ts";
@@ -208,6 +209,13 @@ const scanActions = (options: BootstrapPlanOptions): BootstrapAction[] => {
       kind: "writeFile",
       path: ".github/workflows/duplication-scan.yml",
       contents: renderDuplicationWorkflow(options.nodeVersion),
+    });
+  }
+  if (!diagnosis.tooling.secretScanning) {
+    actions.push({
+      kind: "writeFile",
+      path: SECRET_SCAN_WORKFLOW_PATH,
+      contents: renderSecretScanWorkflow(),
     });
   }
   return actions;

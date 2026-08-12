@@ -94,6 +94,7 @@ npx ever-better freeze       # pin today's violations as the ceiling
 npx ever-better check        # CI gate: fail if anything rose
 npx ever-better next         # what to drain first, and what each fix enforces
 npx ever-better report       # where the findings are, as markdown (for a CI job summary)
+npx ever-better secrets      # scan the whole history for committed credentials
 npx ever-better prune        # after a fix: reclaim the ceiling you earned
 ```
 
@@ -246,6 +247,44 @@ breakdown exists.
 **It is never a gate.** It cannot change an exit code, and it does not fail when the summary file
 cannot be written. If ESLint cannot run at all, it falls back to `eslint-suppressions.json` and says
 so in the output — "no warnings" and "nobody looked for warnings" must not render the same way.
+
+### `secrets`
+
+```bash
+ever-better secrets
+```
+
+Runs `gitleaks` over the **history and the working tree** and fails on any finding. `bootstrap` also
+writes `.github/workflows/secret-scan.yml`, so this is the check before you push rather than the
+gate.
+
+Both scans, because either alone passes a repository that is holding a secret: the history scan
+misses the key you pasted an hour ago and have not committed, and a working-tree scan misses the key
+that was committed and then deleted — which is still in every clone. A repository with no commits at
+all reports "no leaks found" from the history scan having read nothing.
+
+**This is the one thing here with no baseline, and that is the point.** Every other rule records
+what exists and holds the line. A committed key is already public — it is in every clone and on
+somebody's dashboard — so there is nothing to grandfather and the fix is rotation, not a commit. The
+output says so rather than implying that deleting the line helps.
+
+Three answers, not two, because gitleaks reports a finding and its own failure with the same exit
+code unless asked otherwise:
+
+| | |
+| --- | --- |
+| clean | exit 0 |
+| secrets found | exit **2**, and the finding, redacted |
+| **the scan could not run** | exit **1**, saying so — not a clean result |
+
+That last row matters more than it looks. Outside a git work tree `gitleaks detect` logs an error,
+scans **zero commits**, and exits 0 with "no leaks found" — a clean bill of health for a scan that
+read nothing. This refuses instead.
+
+The generated workflow carries the details that are easy to get wrong: the MIT CLI rather than
+`gitleaks-action` (which needs a licence key under a GitHub Organization), a checksum-verified
+download, `fetch-depth: 0` because a shallow clone misses the commit that leaked, and `--redact` so
+the secret does not land in a public log.
 
 ### `prune`
 
