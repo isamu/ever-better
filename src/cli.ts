@@ -13,6 +13,7 @@ import { runMigrate } from "./commands/migrate.ts";
 import { runNext } from "./commands/next.ts";
 import { runPrune } from "./commands/prune.ts";
 import { runReport } from "./commands/report.ts";
+import { runSecrets } from "./commands/secrets.ts";
 import { runStatus } from "./commands/status.ts";
 
 const USAGE = `ever-better — make a codebase that can only get better
@@ -25,6 +26,7 @@ const USAGE = `ever-better — make a codebase that can only get better
   status      print the current backlog
   next        what to drain first, and what each one enforces
   report      where the findings are, by rule and area (markdown, for CI)
+  secrets     scan the whole history for committed credentials (gitleaks)
   emit-diff   prove a type-only refactor changed no behaviour
   catalog     list the helpers that already exist, so nobody writes a sixth
   migrate     JavaScript to TypeScript, the whole repo or one file at a time
@@ -112,6 +114,10 @@ const dispatch = async (command: string, flags: Flags): Promise<Outcome> => {
   if (command === "check") {
     const result = await runCheck({ cwd: flags.cwd, write: !flags.noWrite });
     return { output: result.message, ok: result.ok };
+  }
+  if (command === "secrets") {
+    const verdict = await runSecrets({ cwd: flags.cwd });
+    return { output: verdict.message, ok: verdict.ok };
   }
   return { output: `Unknown command: ${command}\n\n${USAGE}`, ok: false };
 };

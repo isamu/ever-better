@@ -3,6 +3,8 @@ import type { EslintSetup, PackageJson, ScriptCoverage, TestRunner, ToolingPrese
 const FLAT_CONFIG_NAMES = ["eslint.config.js", "eslint.config.mjs", "eslint.config.cjs", "eslint.config.ts"];
 const LEGACY_CONFIG_PREFIX = ".eslintrc";
 
+const SECRET_SCANNERS = ["gitleaks", "trufflehog", "detect-secrets", "ggshield"];
+
 const AGENT_INSTRUCTION_NAMES = ["CLAUDE.md", "AGENTS.md", "GEMINI.md", ".cursorrules"];
 
 export const allDependencies = (packageJson: PackageJson | null): Record<string, string> => ({
@@ -57,6 +59,10 @@ export const detectTooling = (rootEntries: readonly string[], packageJson: Packa
     testRunner: detectTestRunner(packageJson),
     knip: wiredUp("knip", "knip.json"),
     jscpd: wiredUp("jscpd", ".jscpd.json"),
+    // Named scanners rather than the word "secret", which appears in every workflow that reads
+    // `secrets.GITHUB_TOKEN`. GitHub's own push protection is a repository setting and cannot be
+    // seen from the contents at all — the gap text says so rather than leaving it to confuse.
+    secretScanning: SECRET_SCANNERS.some((scanner) => workflowText.includes(scanner)) || rootEntries.includes(".gitleaks.toml"),
     agentInstructions: AGENT_INSTRUCTION_NAMES.filter((name) => rootEntries.includes(name)),
   };
 };

@@ -86,6 +86,17 @@ const toolingGaps = (diagnosis: Omit<Diagnosis, "gaps">): Gap[] => {
       phase: "split",
     });
   }
+  if (!diagnosis.tooling.secretScanning) {
+    gaps.push({
+      id: "secret-scan",
+      title: "Nothing would notice a committed credential",
+      detail:
+        "The one check with no baseline: a leaked key is already public, so it gates from the " +
+        "first run. GitHub's own push protection is a repository setting and cannot be seen from " +
+        "here, so ignore this if that is on.",
+      phase: "bootstrap",
+    });
+  }
   if (diagnosis.tooling.agentInstructions.length === 0) {
     gaps.push({
       id: "agent-instructions",

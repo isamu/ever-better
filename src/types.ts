@@ -62,6 +62,8 @@ export type ToolingPresence = {
   testRunner: TestRunner;
   knip: boolean;
   jscpd: boolean;
+  /** Anything that would notice a committed credential. Not drainable — see `secretScan.ts`. */
+  secretScanning: boolean;
   agentInstructions: string[];
 };
 

@@ -224,7 +224,7 @@ describe("planBootstrap", () => {
       workflows: [
         {
           path: ".github/workflows/ci.yml",
-          content: "run: yarn lint\nrun: npx jscpd .\nrun: npx ever-better check",
+          content: "run: yarn lint\nrun: npx jscpd .\nrun: npx ever-better check\nrun: gitleaks detect --source .",
         },
       ],
     });

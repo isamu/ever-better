@@ -5,6 +5,7 @@ import { renderGateWorkflow } from "./gateWorkflow.ts";
 import { renderGitattributes } from "./gitattributes.ts";
 import { renderKnipConfig } from "./knipConfig.ts";
 import { renderDeadCodeWorkflow, renderDuplicationWorkflow } from "./scanWorkflows.ts";
+import { renderSecretScanWorkflow } from "./secretScan.ts";
 import { renderWorkflow } from "./workflow.ts";
 import type { SourceFile } from "../types.ts";
 
@@ -100,6 +101,12 @@ export const WORKFLOW_SAMPLES: readonly Sample[] = [
     language: "yaml",
     note: "Report-only. knip has no base-branch diffing, so it cannot say what this PR orphaned.",
     contents: renderDeadCodeWorkflow("yarn", NODE),
+  },
+  {
+    title: ".github/workflows/secret-scan.yml",
+    language: "yaml",
+    note: "The one gate with no baseline. A committed key is already public, so there is nothing to grandfather and rotation is the only fix.",
+    contents: renderSecretScanWorkflow(),
   },
   {
     title: ".github/dependabot.yml",
