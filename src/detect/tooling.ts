@@ -5,6 +5,22 @@ const LEGACY_CONFIG_PREFIX = ".eslintrc";
 
 const SECRET_SCANNERS = ["gitleaks", "trufflehog", "detect-secrets", "ggshield"];
 
+/**
+ * A scanner has to be RUN, not merely mentioned. Substring-matching the whole workflow text counted
+ * a comment explaining why there is no scanner, and a `.gitleaks.toml` sitting beside nothing that
+ * reads it — both of which suppress the gap and leave a repository unscanned while this reports it
+ * covered. For a security check that is the dangerous direction: a false gap is noise, a false
+ * "already covered" is silence.
+ *
+ * Line-based rather than YAML-aware on purpose — nothing in this tool parses YAML — so a step
+ * disabled with `if: false` still reads as coverage. Said out loud rather than left to be found.
+ */
+const runsSecretScanner = (workflowText: string): boolean =>
+  workflowText
+    .split("\n")
+    .filter((line) => !line.trim().startsWith("#"))
+    .some((line) => (line.includes("uses:") || line.includes("run:")) && SECRET_SCANNERS.some((scanner) => line.includes(scanner)));
+
 const AGENT_INSTRUCTION_NAMES = ["CLAUDE.md", "AGENTS.md", "GEMINI.md", ".cursorrules"];
 
 export const allDependencies = (packageJson: PackageJson | null): Record<string, string> => ({
@@ -62,7 +78,7 @@ export const detectTooling = (rootEntries: readonly string[], packageJson: Packa
     // Named scanners rather than the word "secret", which appears in every workflow that reads
     // `secrets.GITHUB_TOKEN`. GitHub's own push protection is a repository setting and cannot be
     // seen from the contents at all — the gap text says so rather than leaving it to confuse.
-    secretScanning: SECRET_SCANNERS.some((scanner) => workflowText.includes(scanner)) || rootEntries.includes(".gitleaks.toml"),
+    secretScanning: runsSecretScanner(workflowText),
     agentInstructions: AGENT_INSTRUCTION_NAMES.filter((name) => rootEntries.includes(name)),
   };
 };

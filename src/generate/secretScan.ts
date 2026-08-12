@@ -76,6 +76,6 @@ export const renderSecretScanWorkflow = (): string =>
     `      # root is honoured automatically. Exit ${SECRET_FINDING_EXIT_CODE} means findings; 1 also means gitleaks could not`,
     "      # run at all, and telling those apart is what stops a broken scan reading as a leak.",
     "      - name: Run gitleaks over the full history",
-    `        run: gitleaks detect --source . --redact --verbose --exit-code ${SECRET_FINDING_EXIT_CODE}`,
+    `        run: gitleaks git . --redact --verbose --exit-code ${SECRET_FINDING_EXIT_CODE}`,
     "",
   ].join("\n");

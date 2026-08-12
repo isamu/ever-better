@@ -82,7 +82,7 @@ type Flags = {
   rest: string[];
 };
 
-type Outcome = { output: string; ok: boolean };
+type Outcome = { output: string; ok: boolean; code?: number };
 
 /** Commands that only ever succeed. `check` and `log` are the two that can fail, below. */
 const ALWAYS_OK: Record<string, (flags: Flags) => Promise<string>> = {
@@ -116,8 +116,10 @@ const dispatch = async (command: string, flags: Flags): Promise<Outcome> => {
     return { output: result.message, ok: result.ok };
   }
   if (command === "secrets") {
+    // Carries gitleaks' own code — 2 findings, 1 could-not-scan — because flattening both to 1 is
+    // the ambiguity this feature exists to remove, and a caller cannot get the distinction back.
     const verdict = await runSecrets({ cwd: flags.cwd });
-    return { output: verdict.message, ok: verdict.ok };
+    return { output: verdict.message, ok: verdict.ok, code: verdict.code };
   }
   return { output: `Unknown command: ${command}\n\n${USAGE}`, ok: false };
 };
@@ -152,9 +154,9 @@ const main = async (): Promise<number> => {
     rest: positionals.slice(1),
   };
 
-  const { output, ok } = await dispatch(command, flags);
+  const { output, ok, code } = await dispatch(command, flags);
   process.stdout.write(`${output}\n`);
-  return ok ? 0 : 1;
+  return code ?? (ok ? 0 : 1);
 };
 
 try {

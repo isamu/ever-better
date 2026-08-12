@@ -254,8 +254,14 @@ so in the output — "no warnings" and "nobody looked for warnings" must not ren
 ever-better secrets
 ```
 
-Runs `gitleaks` over the **whole history** and fails on any finding. `bootstrap` also writes
-`.github/workflows/secret-scan.yml`, so this is the check before you push rather than the gate.
+Runs `gitleaks` over the **history and the working tree** and fails on any finding. `bootstrap` also
+writes `.github/workflows/secret-scan.yml`, so this is the check before you push rather than the
+gate.
+
+Both scans, because either alone passes a repository that is holding a secret: the history scan
+misses the key you pasted an hour ago and have not committed, and a working-tree scan misses the key
+that was committed and then deleted — which is still in every clone. A repository with no commits at
+all reports "no leaks found" from the history scan having read nothing.
 
 **This is the one thing here with no baseline, and that is the point.** Every other rule records
 what exists and holds the line. A committed key is already public — it is in every clone and on
@@ -268,8 +274,8 @@ code unless asked otherwise:
 | | |
 | --- | --- |
 | clean | exit 0 |
-| secrets found | exit 1, and the finding, redacted |
-| **the scan could not run** | exit 1, saying so — not a clean result |
+| secrets found | exit **2**, and the finding, redacted |
+| **the scan could not run** | exit **1**, saying so — not a clean result |
 
 That last row matters more than it looks. Outside a git work tree `gitleaks detect` logs an error,
 scans **zero commits**, and exits 0 with "no leaks found" — a clean bill of health for a scan that

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { renderSecretScanWorkflow, SECRET_FINDING_EXIT_CODE, GITLEAKS } from "../src/generate/secretScan.ts";
-import { interpretGitleaks } from "../src/secretScan.ts";
+import { combineScans, FOUND_IN, interpretGitleaks } from "../src/secretScan.ts";
 import { detectTooling } from "../src/detect/tooling.ts";
 
 /**
@@ -18,8 +18,21 @@ describe("interpretGitleaks", () => {
   it("fails on findings, and says rotation rather than deletion", () => {
     const verdict = interpretGitleaks(SECRET_FINDING_EXIT_CODE, "RuleID: github-pat");
     assert.equal(verdict.ok, false);
-    assert.match(verdict.message, /Rotate them first/);
+    assert.equal(verdict.code, SECRET_FINDING_EXIT_CODE);
+    assert.match(verdict.message, /Rotate them/);
     assert.match(verdict.message, /RuleID: github-pat/);
+  });
+
+  /**
+   * A key in the history is public and rotation is the only fix; one that is merely uncommitted is
+   * not published yet, and telling someone to rotate it as though it were is advice they will learn
+   * to discount.
+   */
+  it("gives different advice for the working tree than for the history", () => {
+    const uncommitted = interpretGitleaks(SECRET_FINDING_EXIT_CODE, "", FOUND_IN.workingTree);
+    assert.match(uncommitted.message, /not committed yet/);
+    assert.doesNotMatch(uncommitted.message, /in every clone/);
+    assert.match(interpretGitleaks(SECRET_FINDING_EXIT_CODE, "", FOUND_IN.history).message, /in every clone/);
   });
 
   /** The distinction the whole exit-code choice exists for. */
@@ -33,6 +46,40 @@ describe("interpretGitleaks", () => {
   it("treats any other code as a failed scan rather than a pass", () => {
     assert.equal(interpretGitleaks(127, "command not found").ok, false);
     assert.equal(interpretGitleaks(-1, "killed").ok, false);
+  });
+
+  /** The distinction is only worth making if a caller can still read it. */
+  it("carries an exit code of its own rather than collapsing to failure", () => {
+    assert.equal(interpretGitleaks(0, "").code, 0);
+    assert.equal(interpretGitleaks(SECRET_FINDING_EXIT_CODE, "").code, SECRET_FINDING_EXIT_CODE);
+    assert.equal(interpretGitleaks(1, "").code, 1);
+    assert.equal(interpretGitleaks(126, "").code, 1);
+  });
+});
+
+describe("combineScans", () => {
+  const clean = () => interpretGitleaks(0, "");
+  const found = () => interpretGitleaks(SECRET_FINDING_EXIT_CODE, "a finding");
+  const failed = () => interpretGitleaks(1, "could not run");
+
+  it("passes only when every scan passed", () => {
+    assert.equal(combineScans([clean(), clean()]).code, 0);
+  });
+
+  it("reports findings from either scan", () => {
+    assert.equal(combineScans([clean(), found()]).code, SECRET_FINDING_EXIT_CODE);
+    assert.equal(combineScans([found(), clean()]).code, SECRET_FINDING_EXIT_CODE);
+  });
+
+  /** "One of them could not look" must never come back as "nothing found". */
+  it("lets a failed scan outrank a clean one", () => {
+    assert.equal(combineScans([clean(), failed()]).code, 1);
+    assert.match(combineScans([clean(), failed()]).message, /not a clean result/);
+  });
+
+  /** A scan that could not run might be the one holding the other finding. */
+  it("reports the failure even when the other scan found something", () => {
+    assert.equal(combineScans([found(), failed()]).code, 1);
   });
 });
 
@@ -69,8 +116,17 @@ describe("renderSecretScanWorkflow", () => {
    */
   it("runs the CLI rather than the action", () => {
     assert.doesNotMatch(yaml(), /uses:.*gitleaks/);
-    assert.match(yaml(), /run: gitleaks detect/);
+    assert.match(yaml(), /run: gitleaks git \./);
     assert.match(yaml(), /not gitleaks-action/);
+  });
+
+  /**
+   * `git` and `dir`, not `detect`: 8.30's own `--help` lists the first two and not the third, so
+   * the alias this was adapted from is on its way out. A pinned version means it still works today,
+   * and a bump that removes it would fail the job rather than silently scan nothing.
+   */
+  it("uses a subcommand gitleaks still documents", () => {
+    assert.doesNotMatch(yaml(), /gitleaks detect/);
   });
 
   it("asks for no more than reading the repository, and does not keep the token", () => {
@@ -91,8 +147,27 @@ describe("secret scanning detection", () => {
     assert.equal(tooling([], "uses: trufflesecurity/trufflehog@main").secretScanning, true);
   });
 
-  it("sees a gitleaks config at the root", () => {
-    assert.equal(tooling([".gitleaks.toml"], "").secretScanning, true);
+  /**
+   * A config file is not a scanner. `.gitleaks.toml` beside nothing that reads it scans exactly
+   * nothing, and counting it suppressed the gap — for a security check, a false "already covered"
+   * is silence where a false gap is only noise.
+   */
+  it("does not count a config file with nothing running it", () => {
+    assert.equal(tooling([".gitleaks.toml"], "").secretScanning, false);
+  });
+
+  it("does not count a comment that merely mentions a scanner", () => {
+    assert.equal(tooling([], "# we should add gitleaks one day\nrun: yarn lint").secretScanning, false);
+  });
+
+  /** The case the comment filter is actually for: a step commented out rather than deleted. */
+  it("does not count a commented-out scanner step", () => {
+    assert.equal(tooling([], "steps:\n  # - run: gitleaks git .\n  - run: yarn lint").secretScanning, false);
+    assert.equal(tooling([], "  #- uses: trufflesecurity/trufflehog@main").secretScanning, false);
+  });
+
+  it("does not count a scanner named in a job name or an env var", () => {
+    assert.equal(tooling([], "name: gitleaks (disabled)\nenv:\n  TRUFFLEHOG: 1").secretScanning, false);
   });
 
   /** Nearly every workflow mentions `secrets.GITHUB_TOKEN`; that is not a secret scanner. */
