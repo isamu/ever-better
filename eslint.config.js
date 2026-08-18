@@ -9,6 +9,16 @@ import prettierRecommended from "eslint-plugin-prettier/recommended";
 export default tseslint.config(
   { ignores: ["dist/**", "node_modules/**", "templates/**", "test/fixtures/**"] },
 
+  {
+    linterOptions: {
+      reportUnusedDisableDirectives: "error",
+      // The generator emits this, so this repository lives under it too. An `eslint-disable`
+      // comment removes a violation from the linter and from eslint-suppressions.json alike —
+      // an exemption no count can see and `prune` can never reclaim.
+      noInlineConfig: true,
+    },
+  },
+
   js.configs.recommended,
   tseslint.configs.recommendedTypeChecked,
   sonarjs.configs.recommended,

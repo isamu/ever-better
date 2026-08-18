@@ -81,6 +81,14 @@ an error. Every rule can be an error from day one without a single existing line
 `ever-better` is the part around that: knowing which rules to add in the first place, installing
 them, keeping a readable ledger of where you started, and failing CI when a number goes up.
 
+**It is also the only exemption the generated config allows.** `eslint-disable` comments are
+switched off (`noInlineConfig`), along with `@ts-ignore`, `@ts-nocheck`, `as`, `!` and `any` — not
+out of severity, but because a disable comment removes the violation from the linter *and* from
+`eslint-suppressions.json`. Nothing counts it, `status` and `report` cannot see it, and `prune` can
+never reclaim it: a permanent exemption in a tool whose one promise is that the ceiling can fall but
+never rise. Grandfathering something means freezing it, where it becomes a number obliged to come
+down.
+
 It does not reimplement the ratchet. It is not a linter. It runs *your* ESLint, with *your* config.
 
 ## Driving the CLI yourself

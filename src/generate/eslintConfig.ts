@@ -73,6 +73,10 @@ const HEADER = [
   "// claim the compiler could not check and that no reviewer can see. Write a type guard instead —",
   "// `const isThing = (v: unknown): v is Thing => ...` — which is testable, narrows for every",
   "// caller, and fails at the boundary where the data was actually wrong.",
+  "//",
+  "// `eslint-disable` comments are off as well, via `noInlineConfig` below. They are a different",
+  "// kind of escape: the violation vanishes from the linter AND from eslint-suppressions.json, so",
+  "// nothing counts it and `prune` can never reclaim it. Grandfather things by freezing them.",
   "",
 ];
 
@@ -259,11 +263,33 @@ const testBlock = (options: EslintConfigOptions): string[] => [
 ];
 
 /**
- * A stale `eslint-disable` is an exception nobody re-examined. Reporting the ones that no longer
- * suppress anything is the only way they ever get removed — and a disable comment left behind after
- * a refactor is how a rule quietly stops applying to a file.
+ * Two halves of the same problem, and only one of them was closed before.
+ *
+ * `reportUnusedDisableDirectives` catches a directive that suppresses NOTHING — the fossil left
+ * after a refactor, which is how a rule quietly stops applying to a file.
+ *
+ * `noInlineConfig` catches the opposite and worse case: a directive doing its job. In a ratcheted
+ * repository the two escape hatches are not comparable — `eslint-suppressions.json` records a
+ * count that `status`, `next` and `report` can see and `prune` can reclaim, while a disable comment
+ * removes the violation from the linter entirely, so `--suppress-all` never records it either. It
+ * is a permanent exemption that nothing counts, in a tool whose one promise is that the ceiling can
+ * fall but never rise.
+ *
+ * Set this BEFORE freezing: every violation an existing comment was hiding becomes visible exactly
+ * once, lands in the ceiling, and drains like the rest. Legitimate inline configuration goes with
+ * it, which is the same trade this file makes everywhere else — exceptions are granted once, in
+ * writing, and counted.
  */
-const disableDirectiveBlock = (): string[] => ["  {", "    linterOptions: {", '      reportUnusedDisableDirectives: "error",', "    },", "  },"];
+const disableDirectiveBlock = (): string[] => [
+  "  {",
+  "    linterOptions: {",
+  '      reportUnusedDisableDirectives: "error",',
+  "      // An `eslint-disable` comment is an exemption the ratchet cannot see or reclaim. The",
+  "      // suppressions file is the sanctioned way to grandfather something, because it is counted.",
+  "      noInlineConfig: true,",
+  "    },",
+  "  },",
+];
 
 const securityImport = (): string[] => ['import security from "eslint-plugin-security";'];
 

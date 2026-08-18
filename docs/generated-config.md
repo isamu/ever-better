@@ -29,6 +29,10 @@ Every rule is an error. Whatever exists when you freeze is grandfathered.
 // claim the compiler could not check and that no reviewer can see. Write a type guard instead —
 // `const isThing = (v: unknown): v is Thing => ...` — which is testable, narrows for every
 // caller, and fails at the boundary where the data was actually wrong.
+//
+// `eslint-disable` comments are off as well, via `noInlineConfig` below. They are a different
+// kind of escape: the violation vanishes from the linter AND from eslint-suppressions.json, so
+// nothing counts it and `prune` can never reclaim it. Grandfather things by freezing them.
 
 import js from "@eslint/js";
 import globals from "globals";
@@ -42,6 +46,9 @@ export default tseslint.config(
   {
     linterOptions: {
       reportUnusedDisableDirectives: "error",
+      // An `eslint-disable` comment is an exemption the ratchet cannot see or reclaim. The
+      // suppressions file is the sanctioned way to grandfather something, because it is counted.
+      noInlineConfig: true,
     },
   },
 
@@ -166,6 +173,10 @@ export default tseslint.config(
 // claim the compiler could not check and that no reviewer can see. Write a type guard instead —
 // `const isThing = (v: unknown): v is Thing => ...` — which is testable, narrows for every
 // caller, and fails at the boundary where the data was actually wrong.
+//
+// `eslint-disable` comments are off as well, via `noInlineConfig` below. They are a different
+// kind of escape: the violation vanishes from the linter AND from eslint-suppressions.json, so
+// nothing counts it and `prune` can never reclaim it. Grandfather things by freezing them.
 
 import js from "@eslint/js";
 import globals from "globals";
@@ -180,6 +191,9 @@ export default tseslint.config(
   {
     linterOptions: {
       reportUnusedDisableDirectives: "error",
+      // An `eslint-disable` comment is an exemption the ratchet cannot see or reclaim. The
+      // suppressions file is the sanctioned way to grandfather something, because it is counted.
+      noInlineConfig: true,
     },
   },
 
@@ -336,6 +350,10 @@ export default tseslint.config(
 // claim the compiler could not check and that no reviewer can see. Write a type guard instead —
 // `const isThing = (v: unknown): v is Thing => ...` — which is testable, narrows for every
 // caller, and fails at the boundary where the data was actually wrong.
+//
+// `eslint-disable` comments are off as well, via `noInlineConfig` below. They are a different
+// kind of escape: the violation vanishes from the linter AND from eslint-suppressions.json, so
+// nothing counts it and `prune` can never reclaim it. Grandfather things by freezing them.
 
 import js from "@eslint/js";
 import globals from "globals";
@@ -351,6 +369,9 @@ export default tseslint.config(
   {
     linterOptions: {
       reportUnusedDisableDirectives: "error",
+      // An `eslint-disable` comment is an exemption the ratchet cannot see or reclaim. The
+      // suppressions file is the sanctioned way to grandfather something, because it is counted.
+      noInlineConfig: true,
     },
   },
 
@@ -477,6 +498,10 @@ The type-aware tier is absent because it cannot run. Migrating unlocks the half 
 // claim the compiler could not check and that no reviewer can see. Write a type guard instead —
 // `const isThing = (v: unknown): v is Thing => ...` — which is testable, narrows for every
 // caller, and fails at the boundary where the data was actually wrong.
+//
+// `eslint-disable` comments are off as well, via `noInlineConfig` below. They are a different
+// kind of escape: the violation vanishes from the linter AND from eslint-suppressions.json, so
+// nothing counts it and `prune` can never reclaim it. Grandfather things by freezing them.
 
 import js from "@eslint/js";
 import globals from "globals";
@@ -490,6 +515,9 @@ export default tseslint.config(
   {
     linterOptions: {
       reportUnusedDisableDirectives: "error",
+      // An `eslint-disable` comment is an exemption the ratchet cannot see or reclaim. The
+      // suppressions file is the sanctioned way to grandfather something, because it is counted.
+      noInlineConfig: true,
     },
   },
 
