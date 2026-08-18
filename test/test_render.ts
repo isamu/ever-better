@@ -242,6 +242,20 @@ describe("renderEslintConfig — readability and security tiers", () => {
     assert.match(renderEslintConfig(opts), /reportUnusedDisableDirectives: "error"/);
   });
 
+  /**
+   * The opposite and worse case: a directive doing its job. Measured against real ESLint — a live
+   * `eslint-disable` removes the violation from the linter, so `--suppress-all` never records it
+   * and no count in this tool can ever see or reclaim it. The suppressions file is the sanctioned
+   * exemption precisely because it is counted.
+   */
+  it("switches off inline directives, which the ratchet cannot see", () => {
+    assert.match(renderEslintConfig(opts), /noInlineConfig: true/);
+  });
+
+  it("says in the file why an eslint-disable is not the way to grandfather something", () => {
+    assert.match(renderEslintConfig(opts), /nothing counts it and `prune` can never reclaim it/);
+  });
+
   it("says in the file itself what to write instead of a cast", () => {
     assert.match(renderEslintConfig(opts), /Write a type guard instead/);
   });
