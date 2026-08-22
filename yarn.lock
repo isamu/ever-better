@@ -725,9 +725,9 @@ glob-parent@^6.0.2:
     is-glob "^4.0.3"
 
 globals@^17.7.0, globals@^17.9.0:
-  version "17.10.0"
-  resolved "https://registry.yarnpkg.com/globals/-/globals-17.10.0.tgz#f9dbd847ae99e236f98b13095e2426ac3b25a45c"
-  integrity sha512-V0kztuWST2k8A/VbxAY8+L+7+Rgo3fyA24IHRLrZp7HOzJjV0gHSaZUjK9lpP/IrBSNite2tZ1prhRkinRu1CA==
+  version "17.11.0"
+  resolved "https://registry.yarnpkg.com/globals/-/globals-17.11.0.tgz#d643485bb30220d7751e511cf4f68c73d3870d87"
+  integrity sha512-Z2I8hM+PbJDXQDq3Icgpzv+mPdwr68iZUU9d5WW4FuXfDUQfkZaZuvjMv42/5crNyw154+9+VWXbYrUgDXbxNw==
 
 ignore@^5.2.0:
   version "5.3.2"
