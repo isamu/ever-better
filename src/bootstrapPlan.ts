@@ -33,7 +33,8 @@ export type BootstrapPlanOptions = {
 const DEFAULT_TEST_GLOB = "test/**";
 
 /** The only Prettier setting worth writing: version 3 already defaults `trailingComma` to `"all"`. */
-const DEFAULT_PRINT_WIDTH = 160;
+/** Also what `renderKnipConfig` formats to, so the generated JSON is what Prettier would write. */
+export const DEFAULT_PRINT_WIDTH = 160;
 
 const installed = (packageJson: PackageJson | null): Set<string> =>
   new Set([...Object.keys(packageJson?.dependencies ?? {}), ...Object.keys(packageJson?.devDependencies ?? {})]);

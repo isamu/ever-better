@@ -171,10 +171,7 @@ const readabilityBlock = (): string[] => [
   "    rules: {",
   "      // A loop counter and a discarded binding are not what this is aimed at; a variable called",
   "      // `d` holding a customer record is. `js`, `fs`, `os` are the conventional module aliases.",
-  '      "id-length": [',
-  '        "error",',
-  '        { min: 3, exceptions: ["_", "i", "j", "k", "id", "ok", "to", "up", "js", "fs", "os"] },',
-  "      ],",
+  '      "id-length": ["error", { min: 3, exceptions: ["_", "i", "j", "k", "id", "ok", "to", "up", "js", "fs", "os"] }],',
   "    },",
   "  },",
 ];

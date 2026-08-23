@@ -134,10 +134,7 @@ export default tseslint.config(
     rules: {
       // A loop counter and a discarded binding are not what this is aimed at; a variable called
       // `d` holding a customer record is. `js`, `fs`, `os` are the conventional module aliases.
-      "id-length": [
-        "error",
-        { min: 3, exceptions: ["_", "i", "j", "k", "id", "ok", "to", "up", "js", "fs", "os"] },
-      ],
+      "id-length": ["error", { min: 3, exceptions: ["_", "i", "j", "k", "id", "ok", "to", "up", "js", "fs", "os"] }],
     },
   },
   {
@@ -311,10 +308,7 @@ export default tseslint.config(
     rules: {
       // A loop counter and a discarded binding are not what this is aimed at; a variable called
       // `d` holding a customer record is. `js`, `fs`, `os` are the conventional module aliases.
-      "id-length": [
-        "error",
-        { min: 3, exceptions: ["_", "i", "j", "k", "id", "ok", "to", "up", "js", "fs", "os"] },
-      ],
+      "id-length": ["error", { min: 3, exceptions: ["_", "i", "j", "k", "id", "ok", "to", "up", "js", "fs", "os"] }],
     },
   },
   {
@@ -459,10 +453,7 @@ export default tseslint.config(
     rules: {
       // A loop counter and a discarded binding are not what this is aimed at; a variable called
       // `d` holding a customer record is. `js`, `fs`, `os` are the conventional module aliases.
-      "id-length": [
-        "error",
-        { min: 3, exceptions: ["_", "i", "j", "k", "id", "ok", "to", "up", "js", "fs", "os"] },
-      ],
+      "id-length": ["error", { min: 3, exceptions: ["_", "i", "j", "k", "id", "ok", "to", "up", "js", "fs", "os"] }],
     },
   },
   {
@@ -569,10 +560,7 @@ export default tseslint.config(
     rules: {
       // A loop counter and a discarded binding are not what this is aimed at; a variable called
       // `d` holding a customer record is. `js`, `fs`, `os` are the conventional module aliases.
-      "id-length": [
-        "error",
-        { min: 3, exceptions: ["_", "i", "j", "k", "id", "ok", "to", "up", "js", "fs", "os"] },
-      ],
+      "id-length": ["error", { min: 3, exceptions: ["_", "i", "j", "k", "id", "ok", "to", "up", "js", "fs", "os"] }],
     },
   },
   {
@@ -594,13 +582,8 @@ Entry points only where the file exists — knip prints a hint for every pattern
 ```json
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
-  "entry": [
-    "src/index.ts",
-    "test/**/*.{ts,tsx,js,jsx}"
-  ],
-  "project": [
-    "src/**/*.ts"
-  ],
+  "entry": ["src/index.ts", "test/**/*.{ts,tsx,js,jsx}"],
+  "project": ["src/**/*.ts"],
   "rules": {
     "exports": "warn",
     "types": "warn",

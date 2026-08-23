@@ -1,5 +1,8 @@
 import type { PackageJson, SourceFile } from "../types.ts";
 
+/** What `bootstrap` writes into `.prettierrc.json`, and so what this output has to fit. */
+const PRINT_WIDTH = 160;
+
 const SOURCE_DIRS = ["src", "server", "lib", "app", "common"];
 const TEST_DIRS = ["test", "tests", "__tests__", "spec"];
 const ENTRY_NAMES = ["index", "main", "cli"];
@@ -39,6 +42,45 @@ const projectPatterns = (sourceFiles: readonly SourceFile[]): string[] => {
   return (dirs.length > 0 ? dirs : ["src"]).map((dir) => `${dir}/**/*.${suffix}`);
 };
 
+const OPENS_ARRAY = ": [";
+
+const isCloser = (line: string): boolean => line.trim() === "]" || line.trim() === "],";
+
+const entryOf = (line: string): string => line.trim().replace(/,$/, "");
+
+/**
+ * `JSON.stringify(_, 2)` puts every array element on its own line; Prettier keeps an array on one
+ * line when it fits. The file this generates is checked by the `format:check` script `bootstrap`
+ * itself adds, so the two have to agree — a tool whose own output fails its own scripts is not one
+ * anybody keeps running.
+ *
+ * An array that does not fit is emitted EXACTLY as it arrived, not rebuilt from its parts: the
+ * first version of this reconstructed those lines and prefixed every element with the field name.
+ * Prettier leaves a too-long array one element per line, which is what `JSON.stringify` already
+ * wrote.
+ */
+export const collapseShortArrays = (json: string, width: number): string =>
+  json
+    .split("\n")
+    .reduce<{ out: string[]; buffered: string[] | null }>(
+      (acc, line) => {
+        const buffered = acc.buffered;
+        if (buffered === null) {
+          if (!line.endsWith(OPENS_ARRAY)) return { ...acc, out: [...acc.out, line] };
+          return { out: acc.out, buffered: [line] };
+        }
+        const collected = [...buffered, line];
+        if (!isCloser(line)) return { ...acc, buffered: collected };
+
+        const opener = buffered[0] ?? "";
+        const entries = buffered.slice(1).map(entryOf);
+        const one = `${opener.slice(0, -1)}[${entries.join(", ")}]${line.trim().endsWith(",") ? "," : ""}`;
+        return { out: [...acc.out, ...(one.length <= width ? [one] : collected)], buffered: null };
+      },
+      { out: [], buffered: null },
+    )
+    .out.join("\n");
+
 /**
  * Every rule is `warn`, which is what keeps the exit code at zero. knip reports the whole
  * inventory and has no base-branch diffing, so it can never say what THIS pull request orphaned —
@@ -64,5 +106,5 @@ export const renderKnipConfig = (packageJson: PackageJson | null, sourceFiles: r
       binaries: "warn",
     },
   };
-  return `${JSON.stringify(config, null, 2)}\n`;
+  return `${collapseShortArrays(JSON.stringify(config, null, 2), PRINT_WIDTH)}\n`;
 };
