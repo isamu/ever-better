@@ -145,6 +145,16 @@ describe("detectCi", () => {
   });
 
   /** `run:` under `with:` is an action's input, not a step — it executes nothing in this workflow. */
+  /** A quoted span is data: splitting a command chain inside one invented a command that never ran. */
+  it("does not split a command chain inside a quoted string", () => {
+    assert.equal(detectCi(workflow('      - run: echo "not running; yarn lint"')).runsLint, false);
+    assert.equal(detectCi(workflow("      - run: echo 'a && yarn lint'")).runsLint, false);
+  });
+
+  it("still reads a real command that carries a quoted argument", () => {
+    assert.equal(detectCi(workflow('      - run: yarn lint --format "json"')).runsLint, true);
+  });
+
   it("does not count a run: that is an action input", () => {
     assert.equal(detectCi(workflow("      - uses: acme/action@v1\n        with:\n          run: yarn lint")).runsLint, false);
   });
