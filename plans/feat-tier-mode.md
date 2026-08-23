@@ -48,7 +48,7 @@ lands on files outside the type program — a generated `eslint.config.js`, any 
 aborts the run: *"you have used a rule which requires type information"*. It survived a fixture with
 only `no-var` and died on the first real bootstrapped repository, which is what the e2e is for.
 
-So the generated file steps aside instead. `eslint-tier.config.js` exports `[]` when it sees
+So the generated file steps aside instead. `eslint-tier.config.mjs` exports `[]` when it sees
 `EVER_BETTER_TIER_RECOMPUTE`, and `tier` sets that for its own scan: `--suppress-all` into a
 temporary location, read the file-by-rule counts out of it, delete it. Nothing global is overridden,
 the file that yields is one this tool owns, and ESLint still computes the failing set — nothing here
@@ -56,7 +56,7 @@ reimplements it.
 
 ## Where the list lives
 
-A generated file — `eslint-tier.config.js` — wholly owned by this tool and safe to overwrite, the
+A generated file — `eslint-tier.config.mjs`, or `.cjs` beside an `eslint.config.cjs` — wholly owned by this tool and safe to overwrite, the
 way `eslint-suppressions.json` is. The user's own config is edited **once**, to import and spread it
 last so it wins, and never again. Repeatedly rewriting a file somebody else owns is the thing
 `bootstrap` already refuses to do.

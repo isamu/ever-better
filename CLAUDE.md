@@ -77,7 +77,7 @@ type-aware rule forced on lands on files outside the type program, and ESLint ab
 with *"you have used a rule which requires type information"*. A generated `eslint.config.js` is
 enough to trigger it.
 
-The generated `eslint-tier.config.js` therefore exports `[]` when it sees `EVER_BETTER_TIER_RECOMPUTE`,
+The generated `eslint-tier.config.mjs` therefore exports `[]` when it sees `EVER_BETTER_TIER_RECOMPUTE`,
 and `tier` sets that for its own scan. Nothing global is overridden, and the file that steps aside
 is one the tool owns.
 
@@ -175,3 +175,16 @@ A bug in `src/generate/` reaches every repository that runs `bootstrap`, and it 
 in this repo's own lint. Two already did: the generated config produced an unsuppressable parse
 error on itself, and a `node:test` repo got a config that flagged every `describe`. Both are now
 pinned by tests in `test/test_render.ts`. Add one for every rule the generator emits.
+
+## A generated file that Node has to load is never a bare `.js`
+
+`.js` means "whatever the nearest package.json says". `bootstrap` writes `eslint.config.mjs` for a
+package without `"type": "module"` for exactly that reason, and the tier list has to follow the same
+rule: an ESM `eslint-tier.config.js` in a typeless package is read as CommonJS, which Node below
+20.19 refuses outright — the repository is left with no working linter, and `tier` reports success.
+Above 20.19 it survives only because module-syntax detection reparses it, warning on every run.
+
+The same trap has a second half: an `eslint.config.cjs` cannot be wired with an `import` statement.
+`tierConfigFileName` picks the extension from the config it is wiring, and `renderTierConfig` emits
+`module.exports` for `.cjs`. Both were verified by running ESLint in a fixture of each shape, because
+neither failure surfaces as an exception — ESLint says *"Oops! Something went wrong"* and exits.

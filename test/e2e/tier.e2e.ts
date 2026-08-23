@@ -100,6 +100,31 @@ describe("tier lifecycle", { timeout: TIMEOUT_MS }, () => {
     assert.deepEqual(await ledger(repo), [], "the refused run wrote the violation into the ledger");
   });
 
+  /**
+   * A `.cjs` config takes `require`, and the generated file has to be CommonJS to match. Wiring it
+   * with ESM syntax does not fail loudly — ESLint reports the config as unloadable and the
+   * repository is left with no linter at all, which is what this asserts against.
+   */
+  it("wires a CommonJS config with require and generates a .cjs list", async () => {
+    await rm(path.join(repo, LEDGER));
+    await rm(path.join(repo, "eslint.config.js"));
+    await rm(path.join(repo, "eslint-tier.config.mjs"), { force: true });
+    await writeFile(path.join(repo, "eslint.config.cjs"), 'module.exports = [{ rules: { "no-var": "error" } }];\n');
+    await writeFile(path.join(repo, "src", "old.js"), "var loose = 1;\nmodule.exports = { loose };\n");
+
+    const result = await everBetter(["tier"], repo);
+    assert.equal(result.code, 0, result.stderr);
+
+    const generated = await readFile(path.join(repo, "eslint-tier.config.cjs"), "utf8");
+    assert.match(generated, /module\.exports = recomputing \? \[\] : exceptions;/);
+    assert.doesNotMatch(generated, /^import /m);
+    assert.match(await readFile(path.join(repo, "eslint.config.cjs"), "utf8"), /^const everBetterTier = require\("\.\/eslint-tier\.config\.cjs"\);/);
+
+    const lint = await run(path.join(repo, "node_modules", ".bin", "eslint"), ["."], repo);
+    assert.ok(!lint.stderr.includes("Oops"), `eslint could not load the config it was given:\n${lint.stderr}`);
+    assert.equal(await eslintErrors(repo), 0, "the tiered violation is still an error");
+  });
+
   it("refuses a ledger it cannot read rather than starting over", async () => {
     await writeFile(path.join(repo, LEDGER), '[{"file":"src/old.ts","rul');
     const result = await everBetter(["tier"], repo);

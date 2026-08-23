@@ -303,7 +303,7 @@ ever-better tier
 
 **The other way to start, and an alternative to `freeze` rather than a layer on it.** Every rule
 stays an error; the file-and-rule pairs failing today are downgraded to **warn** in a generated
-`eslint-tier.config.js`. Fix what a file is listed for, run it again, and the entry disappears — the
+`eslint-tier.config.mjs`. Fix what a file is listed for, run it again, and the entry disappears — the
 rules get stricter without anyone editing a config.
 
 | | `freeze` | `tier` |
@@ -326,9 +326,16 @@ the list can rot internally, held only by the total.
 warning population; running both counts it once in a precise ledger and once in a coarse one.
 
 The generated file is wholly owned by the tool and safe to overwrite, the way
-`eslint-suppressions.json` is; your own config is edited **once**, to spread it last so it wins.
+`eslint-suppressions.json` is; your own config is edited **once**, to spread it last so it wins. It is
+`eslint-tier.config.mjs`, or `eslint-tier.config.cjs` beside an `eslint.config.cjs` — never a bare
+`.js`, which would mean CommonJS in a package that does not declare `"type": "module"`.
 
-**Commit both generated files.** `eslint-tier.config.js` is what ESLint reads; `.ever-better/tier.json`
+One run at a time: `tier` takes `.ever-better/tier.lock` for the whole read-scan-write, because two
+overlapping runs would each publish a list computed before the other's fixes landed and the later
+write would re-open what the earlier one drained. A lock whose process is gone is taken over, so a
+crashed run cannot wedge the repository.
+
+**Commit both generated files.** `eslint-tier.config.mjs` is what ESLint reads; `.ever-better/tier.json`
 is the list the next run compares against. A missing ledger means there is nothing to compare to, so
 the run takes a fresh tier — and an empty ledger is **not** the same as a missing one. A repository
 whose list has drained to nothing is the strictest state there is, and a violation appearing there is

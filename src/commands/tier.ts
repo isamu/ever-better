@@ -2,9 +2,10 @@ import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
 import { suppressInto } from "../eslintRunner.ts";
-import { importsTier, renderTierConfig, SPREAD_BLOCK, TIER_CONFIG_FILE, withTierImport } from "../generate/tierConfig.ts";
+import { importsTier, renderTierConfig, SPREAD_BLOCK, tierConfigFileName, withTierImport } from "../generate/tierConfig.ts";
 import { appendConfigBlocks } from "../generate/eslintAppend.ts";
 import { parseSuppressions } from "../suppressionsFile.ts";
+import { isProcessAlive } from "../util/pid.ts";
 import { drained, parseLedger, refused, ruleNames, tierList, type Ledger, type TierEntry, type TierPair } from "../tier.ts";
 
 export type TierOptions = {
@@ -17,6 +18,8 @@ export type TierResult = {
 };
 
 const LEDGER = path.join(".ever-better", "tier.json");
+
+const LOCK = path.join(".ever-better", "tier.lock");
 
 const CONFIG_NAMES = ["eslint.config.js", "eslint.config.mjs", "eslint.config.cjs", "eslint.config.ts"];
 
@@ -50,8 +53,12 @@ const failingSet = async (cwd: string): Promise<TierEntry[]> => {
 /** Whole-file replacement, so an interrupt leaves the previous file rather than half of one. */
 const writeAtomic = async (target: string, contents: string): Promise<void> => {
   const staging = `${target}.tmp-${process.pid}`;
-  await writeFile(staging, contents, "utf8");
-  await rename(staging, target);
+  try {
+    await writeFile(staging, contents, "utf8");
+    await rename(staging, target);
+  } finally {
+    await rm(staging, { force: true });
+  }
 };
 
 const found = (pairs: readonly TierPair[]): string[] => pairs.slice(0, 10).map((pair) => `  ${pair.file}  ${pair.rule}`);
@@ -67,19 +74,33 @@ const refusal = (pairs: readonly TierPair[]): TierResult => ({
   ].join("\n"),
 });
 
-/** Edited once and never again: rewriting a file somebody else owns on every run is what `bootstrap` refuses to do. */
-const wireConfig = async (cwd: string): Promise<string | null> => {
-  for (const candidate of CONFIG_NAMES) {
-    const target = path.join(cwd, candidate);
-    const source = await readFile(target, "utf8").catch(() => null);
-    if (source === null) continue;
-    if (importsTier(source)) return null;
-    const spread = appendConfigBlocks(source, [SPREAD_BLOCK.join("\n")]);
-    if (spread === null) return `Could not edit ${candidate} — add \`...everBetterTier\` last yourself.`;
-    await writeAtomic(target, withTierImport(spread));
-    return `Wired ${candidate} to spread the generated list last, so it wins.`;
+type EslintConfig = { name: string; source: string };
+
+const findConfig = async (cwd: string): Promise<EslintConfig | null> => {
+  for (const name of CONFIG_NAMES) {
+    const source = await readFile(path.join(cwd, name), "utf8").catch(() => null);
+    if (source !== null) return { name, source };
   }
-  return "No ESLint config found. Run `ever-better bootstrap` first.";
+  return null;
+};
+
+/** Edited once and never again: rewriting a file somebody else owns on every run is what `bootstrap` refuses to do. */
+const wireConfig = async (cwd: string, config: EslintConfig, tierConfigName: string): Promise<string | null> => {
+  if (importsTier(config.source)) return null;
+  const spread = appendConfigBlocks(config.source, [SPREAD_BLOCK.join("\n")]);
+  if (spread === null) return `Could not edit ${config.name} — add \`...everBetterTier\` last yourself.`;
+  await writeAtomic(path.join(cwd, config.name), withTierImport(spread, tierConfigName));
+  return `Wired ${config.name} to spread the generated list last, so it wins.`;
+};
+
+const healMissing = async (cwd: string, config: EslintConfig, tierConfigName: string): Promise<void> => {
+  if (!importsTier(config.source)) return;
+  const target = path.join(cwd, tierConfigName);
+  const present = await readFile(target, "utf8").then(
+    () => true,
+    () => false,
+  );
+  if (!present) await writeAtomic(target, renderTierConfig([], tierConfigName));
 };
 
 const INVALID_LEDGER = [
@@ -90,22 +111,70 @@ const INVALID_LEDGER = [
   "to take a new tier.",
 ].join("\n");
 
-export const runTier = async (options: TierOptions): Promise<TierResult> => {
+const NO_CONFIG = "No ESLint config found. Run `ever-better bootstrap` first.";
+
+const isErrno = (value: unknown): value is { code?: unknown } => typeof value === "object" && value !== null;
+
+const held = (holder: string): TierResult => ({
+  ok: false,
+  message: [
+    `Another \`ever-better tier\` (pid ${holder}) is running in this repository.`,
+    "",
+    "Two runs would each publish a list computed before the other's fixes landed, and the later write",
+    `wins — re-opening an exception the earlier one had drained. If no such process exists, delete`,
+    `${LOCK}.`,
+  ].join("\n"),
+});
+
+/**
+ * One run at a time. Not for the file writes, which are atomic on their own, but for the whole
+ * read-scan-write: two overlapping runs each publish a snapshot taken before the other's fixes, and
+ * the loser's exceptions come back from the dead.
+ *
+ * A lock left by a killed process would wedge the repository, so a lock whose pid is gone is taken
+ * over. `process.kill(pid, 0)` tests for existence without signalling, on Windows too.
+ */
+const acquire = async (cwd: string): Promise<string | null> => {
+  const lock = path.join(cwd, LOCK);
+  await mkdir(path.dirname(lock), { recursive: true });
+  const mine = String(process.pid);
+  try {
+    await writeFile(lock, `${mine}\n`, { flag: "wx" });
+    return null;
+  } catch (cause) {
+    if (!isErrno(cause) || cause.code !== "EEXIST") throw cause;
+  }
+  const holder = (await readFile(lock, "utf8").catch(() => "")).trim();
+  if (holder !== "" && isProcessAlive(Number(holder))) return holder;
+  // The holder is gone. Replacing the file is safe: whoever wrote it is not coming back.
+  await writeFile(lock, `${mine}\n`, "utf8");
+  return null;
+};
+
+const take = async (options: TierOptions): Promise<TierResult> => {
+  const config = await findConfig(options.cwd);
+  if (config === null) return { ok: false, message: NO_CONFIG };
+  const tierConfigName = tierConfigFileName(config.name);
+
   const ledger = await readLedger(options.cwd);
   if (ledger === null) return { ok: false, message: INVALID_LEDGER };
 
-  const before = ledger.present ? ledger.entries : [];
-  const now = await failingSet(options.cwd);
+  // The config may already import a generated file that is not there — gitignored, or deleted on the
+  // assumption that anything generated is disposable. ESLint then cannot load the config at all, and
+  // the scan that would rewrite the file is the thing that fails. An empty list is what the scan sees
+  // anyway, so writing one first heals it.
+  await healMissing(options.cwd, config, tierConfigName);
 
+  const now = await failingSet(options.cwd);
   const regressed = refused(ledger, now);
   if (regressed.length > 0) return refusal(regressed);
 
-  const cleared = drained(before, now);
+  const cleared = drained(ledger.present ? ledger.entries : [], now);
   // The ledger goes first. Interrupted between the two, the generated config is the older and more
   // permissive of the pair, while the ledger the next run compares against is the stricter one.
   await writeAtomic(path.join(options.cwd, LEDGER), `${JSON.stringify(now, null, 2)}\n`);
-  await writeAtomic(path.join(options.cwd, TIER_CONFIG_FILE), renderTierConfig(now));
-  const wired = await wireConfig(options.cwd);
+  await writeAtomic(path.join(options.cwd, tierConfigName), renderTierConfig(now, tierConfigName));
+  const wired = await wireConfig(options.cwd, config, tierConfigName);
 
   return {
     ok: true,
@@ -114,7 +183,17 @@ export const runTier = async (options: TierOptions): Promise<TierResult> => {
       ...(ledger.present ? [`${cleared.length} pair(s) drained since the last run.`] : ["Everything else is an error from this commit on."]),
       ...(wired === null ? [] : [wired]),
       "",
-      `Commit ${TIER_CONFIG_FILE} and ${LEDGER} together — they are the same statement twice.`,
+      `Commit ${tierConfigName} and ${LEDGER} together — they are the same statement twice.`,
     ].join("\n"),
   };
+};
+
+export const runTier = async (options: TierOptions): Promise<TierResult> => {
+  const holder = await acquire(options.cwd);
+  if (holder !== null) return held(holder);
+  try {
+    return await take(options);
+  } finally {
+    await rm(path.join(options.cwd, LOCK), { force: true });
+  }
 };
