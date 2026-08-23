@@ -32,8 +32,10 @@ there is no `state.json` and `check` answers *"No baseline"*. Measured, after th
 - **`ever-better tier --check`** is the gate that reads it, and writes nothing: a check that edits
   the repository it is checking cannot run on a pull request.
 
-What is lost against `freeze` is **granularity**: per rule and per file counts. A file already on
-the list can rot internally, held only by the warning total.
+Nothing is lost against `freeze` in granularity — that was the first draft's other wrong claim. The
+ledger carries a count per file and per rule, so a file already on the list cannot rot internally:
+its count may fall and may not rise. What is lost is `prune`'s per-violation reclamation ceremony;
+re-running `tier` does the same job in one step.
 
 ## The mechanism that makes re-running possible
 

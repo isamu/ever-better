@@ -295,8 +295,28 @@ describe("wiring the repository's own config", () => {
   it("does not read a spread inside a comment as wiring", () => {
     assert.equal(spreadsTier("export default [\n  // ...everBetterTier,\n];\n"), false);
     assert.equal(spreadsTier("export default [\n  /**\n   * ...everBetterTier\n   */\n];\n"), false);
+    assert.equal(spreadsTier("export default [\n  /* ...everBetterTier, */\n];\n"), false, "a block comment on one line");
     assert.equal(spreadsTier("export default [\n  ...everBetterTier, // last so it wins\n];\n"), true);
     assert.equal(spreadsTier("export default [...everBetterTier];\n"), true);
+  });
+
+  /** Indentation and quote style are legal. Missing an import because of either declares it twice. */
+  it("finds an import however it is written", () => {
+    assert.equal(hasTierImport('  import everBetterTier from "./eslint-tier.config.mjs";\n'), true);
+    assert.equal(hasTierImport("import everBetterTier from './eslint-tier.config.mjs';\n"), true);
+    assert.equal(hasTierImport('\timport everBetterTier from "./eslint-tier.config.js";\n'), true);
+  });
+
+  /**
+   * The stuck state this prevents: a second declaration of the same binding is a syntax error, and
+   * no later run can repair it — the line it would add is the one the detector already sees.
+   */
+  it("never leaves two bindings, whatever the existing one looks like", () => {
+    ['  import everBetterTier from "./eslint-tier.config.mjs";', "import everBetterTier from './eslint-tier.config.js';"].forEach((existing) => {
+      const rewritten = withTierImport(`${existing}\nexport default [];\n`, "eslint-tier.config.mjs");
+      assert.equal(rewritten.split("\n").filter((line) => line.includes("everBetterTier")).length, 1, existing);
+      assert.equal(importsTier(rewritten, "eslint-tier.config.mjs"), true, existing);
+    });
   });
 
   it("names the generated file a config actually imports, which need not be the current one", () => {

@@ -65,3 +65,30 @@ describe("renderRuleBlock", () => {
     assert.match(block, /\/\/ why/);
   });
 });
+
+describe("appending past a trailing comment", () => {
+  /**
+   * The comma separating the previous entry from the appended one has to land after the ENTRY. Put
+   * at the end of the text it lands after a trailing comment — harmlessly inside a `//` one, and
+   * outside a `/* … *\/` one, where it leaves a hole in the config array that ESLint refuses to load.
+   */
+  it("puts the comma after the last entry, not after a block comment", () => {
+    const appended = appendConfigBlocks("export default [\n  { rules: {} },\n  /* off for now */\n];\n", ["  BLOCK,"]);
+    assert.ok(appended !== null);
+    assert.doesNotMatch(appended, /\*\/,/);
+    assert.match(appended, /\{ rules: \{\} \},/);
+    assert.match(appended, /\/\* off for now \*\/\n {2}BLOCK,/);
+  });
+
+  it("still adds the comma when the last entry has none", () => {
+    const appended = appendConfigBlocks("export default [\n  { rules: {} }\n];\n", ["  BLOCK,"]);
+    assert.ok(appended !== null);
+    assert.match(appended, /\{ rules: \{\} \},\n {2}BLOCK,/);
+  });
+
+  it("adds none after an empty array", () => {
+    const appended = appendConfigBlocks("export default [\n];\n", ["  BLOCK,"]);
+    assert.ok(appended !== null);
+    assert.doesNotMatch(appended, /\[,/);
+  });
+});

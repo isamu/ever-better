@@ -1,3 +1,4 @@
+import { withoutComments } from "./configText.ts";
 import type { TierEntry } from "../tier.ts";
 
 /**
@@ -120,17 +121,25 @@ export const renderTierConfig = (entries: readonly TierEntry[], tierConfigName: 
 export const tierImportLine = (tierConfigName: string): string =>
   tierConfigName.endsWith(".cjs") ? `const ${IDENTIFIER} = require("./${tierConfigName}");` : `import ${IDENTIFIER} from "./${tierConfigName}";`;
 
-const isImportLine = (line: string): boolean => line.startsWith(`import ${IDENTIFIER} from`) || line.startsWith(`const ${IDENTIFIER} = require(`);
+/** Indentation and quote style are legal, so neither may decide whether an import is found. */
+const isImportLine = (code: string): boolean => {
+  const trimmed = code.trim();
+  const declares = trimmed.startsWith(`import ${IDENTIFIER} `) || trimmed.startsWith(`const ${IDENTIFIER} `);
+  return declares && TIER_CONFIG_NAMES.some((name) => trimmed.includes(name));
+};
 
-/** Whether any generated list is wired in, whichever file it names. */
-export const hasTierImport = (source: string): boolean => source.split("\n").some(isImportLine);
+/** Whether any generated list is wired in, whichever file it names and however it is written. */
+export const hasTierImport = (source: string): boolean => withoutComments(source).split("\n").some(isImportLine);
 
 /**
  * Wired to THIS file, not merely wired. A config left pointing at a name an earlier run generated
  * keeps applying that file's exceptions while the ledger and the new file say something else — the
  * two drift apart silently, and the older one is the more permissive.
  */
-export const importsTier = (source: string, tierConfigName: string): boolean => source.split("\n").includes(tierImportLine(tierConfigName));
+export const importsTier = (source: string, tierConfigName: string): boolean =>
+  withoutComments(source)
+    .split("\n")
+    .some((code) => code.trim() === tierImportLine(tierConfigName));
 
 /**
  * The import is half the wiring; this is the half that does anything. A config that imports the list
@@ -139,24 +148,25 @@ export const importsTier = (source: string, tierConfigName: string): boolean => 
  * disguise of one that looks edited.
  */
 export const spreadsTier = (source: string): boolean =>
-  source.split("\n").some((line) => {
-    const code = line.split("//")[0] ?? "";
-    // A spread commented out is somebody turning the tier off by hand, and reading it as wiring
-    // records a tier that is not in force. `*` catches the block-comment continuation lines.
-    return !code.trim().startsWith("*") && code.includes(`...${IDENTIFIER}`);
-  });
+  withoutComments(source)
+    .split("\n")
+    .some((code) => code.includes(`...${IDENTIFIER}`));
 
 /** The generated file a config actually imports, which is not always the one this run would write. */
 export const importedTierName = (source: string): string | null => {
-  const line = source.split("\n").find(isImportLine);
+  const line = withoutComments(source).split("\n").find(isImportLine);
   if (line === undefined) return null;
   return TIER_CONFIG_NAMES.find((name) => line.includes(`./${name}`)) ?? null;
 };
 
-/** Repoints an existing import rather than adding a second one: two bindings is a syntax error. */
+/**
+ * Every existing import of the generated list goes, and exactly one canonical line replaces it. That
+ * is what makes this safe to run twice: prepending on top of an import a detector happened to miss
+ * declares the same binding a second time, which is a syntax error — and one no later run can
+ * repair, because the line it just added is the one the detector does see.
+ */
 export const withTierImport = (source: string, tierConfigName: string): string => {
-  const lines = source.split("\n");
-  const at = lines.findIndex(isImportLine);
-  if (at === -1) return `${tierImportLine(tierConfigName)}\n${source}`;
-  return [...lines.slice(0, at), tierImportLine(tierConfigName), ...lines.slice(at + 1)].join("\n");
+  const code = withoutComments(source).split("\n");
+  const kept = source.split("\n").filter((_, at) => !isImportLine(code[at] ?? ""));
+  return [tierImportLine(tierConfigName), ...kept].join("\n");
 };

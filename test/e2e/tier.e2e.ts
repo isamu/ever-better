@@ -292,6 +292,45 @@ describe("tier lifecycle", { timeout: TIMEOUT_MS }, () => {
   });
 
   /**
+   * Indentation is legal, and missing an import because of it declares the binding a second time —
+   * a syntax error, and a stuck one: the line the next run would add is the one the detector sees.
+   * A spread inside a block comment is the mirror image, blocking the append forever.
+   */
+  it("repairs a config whose wiring the text does not present the expected way", async () => {
+    const cases = [
+      {
+        name: "an indented import",
+        source: ' import everBetterTier from "./eslint-tier.config.mjs";\nexport default [{ rules: { "no-var": "error" } }, ...everBetterTier];\n',
+      },
+      { name: "a spread inside a block comment", source: 'export default [\n  { rules: { "no-var": "error" } },\n  /* ...everBetterTier, */\n];\n' },
+    ];
+
+    await rm(path.join(repo, "eslint.config.cjs"), { force: true });
+    await rm(path.join(repo, "src", "old.js"), { force: true });
+    await writeFile(path.join(repo, "src", "odd.js"), "var loose = 1;\nexport { loose };\n");
+
+    try {
+      for (const shape of cases) {
+        await rm(path.join(repo, LEDGER), { force: true });
+        await rm(path.join(repo, "eslint-tier.config.mjs"), { force: true });
+        await writeFile(path.join(repo, "eslint.config.js"), shape.source);
+
+        const result = await everBetter(["tier"], repo);
+        assert.equal(result.code, 0, `${shape.name}: ${result.stdout}${result.stderr}`);
+
+        const wired = await readFile(path.join(repo, "eslint.config.js"), "utf8");
+        assert.equal(wired.split("\n").filter((line) => /^\s*(?:import|const) everBetterTier\b/.test(line)).length, 1, `${shape.name}: bindings`);
+
+        const lint = await run(path.join(repo, "node_modules", ".bin", "eslint"), ["."], repo);
+        assert.ok(!lint.stderr.includes("Oops"), `${shape.name}: eslint could not load the config:\n${lint.stderr}`);
+        assert.equal(await eslintErrors(repo), 0, `${shape.name}: the tier is not in force`);
+      }
+    } finally {
+      await rm(path.join(repo, "src", "odd.js"), { force: true });
+    }
+  });
+
+  /**
    * A tier that is not spread into the config is not in force: every listed pair is still an error.
    * Recording it in the ledger anyway and exiting 0 tells the user they are covered when they are
    * not, so this refuses — after writing the generated file, so the import they add resolves.

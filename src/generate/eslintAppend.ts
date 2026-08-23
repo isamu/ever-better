@@ -1,3 +1,5 @@
+import { withoutComments } from "./configText.ts";
+
 /**
  * Appends rule blocks to a flat config the repo already wrote.
  *
@@ -24,19 +26,24 @@ const findClosersStart = (source: string): number => {
   return start === end ? -1 : start;
 };
 
-const trimTrailingSpace = (text: string): string => {
-  let end = text.length;
-  while (end > 0 && /\s/.test(text[end - 1] ?? "")) end -= 1;
-  return text.slice(0, end);
-};
+/** A comma is only unnecessary after one of these; anything else is the end of an entry. */
+const NO_COMMA_AFTER = new Set([",", "[", "("]);
+
+/**
+ * Where the last actual ENTRY ends, comments not counted. Appending the separating comma to the end
+ * of the text instead put it after a trailing comment — inside a `//` one by luck, and outside a
+ * `/* … *\/` one, where it becomes a hole in the config array and ESLint refuses to load the file.
+ */
+const entryEnd = (source: string, cutAt: number): number => withoutComments(source).slice(0, cutAt).trimEnd().length;
 
 export const appendConfigBlocks = (source: string, blocks: readonly string[]): string | null => {
   if (blocks.length === 0) return null;
   const cutAt = findClosersStart(source);
   if (cutAt < 0) return null;
-  const head = trimTrailingSpace(source.slice(0, cutAt));
-  const separator = head.endsWith(",") ? "" : ",";
-  return `${head}${separator}\n${blocks.join("\n")}\n${source.slice(cutAt)}`;
+  const at = entryEnd(source, cutAt);
+  const separator = at === 0 || NO_COMMA_AFTER.has(source[at - 1] ?? "") ? "" : ",";
+  const trailing = source.slice(at, cutAt).trimEnd();
+  return `${source.slice(0, at)}${separator}${trailing}\n${blocks.join("\n")}\n${source.slice(cutAt)}`;
 };
 
 export type RuleEntry = {
