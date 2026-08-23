@@ -4,7 +4,9 @@ import {
   renderTierConfig,
   hasTierImport,
   importsTier,
+  importedTierName,
   moduleSystemOf,
+  spreadsTier,
   tierConfigFileName,
   withTierImport,
   SPREAD_BLOCK,
@@ -276,6 +278,23 @@ describe("wiring the repository's own config", () => {
     const wired = withTierImport("module.exports = [];\n", "eslint-tier.config.cjs");
     assert.match(wired, /^const everBetterTier = require\("\.\/eslint-tier\.config\.cjs"\);$/m);
     assert.doesNotMatch(wired, /^import /m);
+  });
+
+  /**
+   * The import is half the wiring and the spread is the half that does anything. A config with the
+   * import alone downgrades nothing, so treating it as wired records a tier the repository is not
+   * living under — the same defect as a config that could not be edited, disguised as an edited one.
+   */
+  it("does not call a config wired when it imports the list and never spreads it", () => {
+    const halfway = 'import everBetterTier from "./eslint-tier.config.mjs";\nexport default [];\n';
+    assert.equal(importsTier(halfway, "eslint-tier.config.mjs"), true);
+    assert.equal(spreadsTier(halfway), false);
+  });
+
+  it("names the generated file a config actually imports, which need not be the current one", () => {
+    assert.equal(importedTierName('import everBetterTier from "./eslint-tier.config.js";\n'), "eslint-tier.config.js");
+    assert.equal(importedTierName('const everBetterTier = require("./eslint-tier.config.cjs");\n'), "eslint-tier.config.cjs");
+    assert.equal(importedTierName("export default [];\n"), null);
   });
 
   it("does not mistake an unwired config for a wired one", () => {

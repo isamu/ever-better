@@ -216,6 +216,33 @@ describe("tier lifecycle", { timeout: TIMEOUT_MS }, () => {
   });
 
   /**
+   * The import is half the wiring. A config that imports the list and never spreads it downgrades
+   * nothing, so calling it wired records a tier the repository is not living under — and the file
+   * the ledger says is excused is still an error.
+   */
+  it("adds the spread when the config imports the list without using it", async () => {
+    await rm(path.join(repo, LEDGER), { force: true });
+    await rm(path.join(repo, "eslint.config.cjs"), { force: true });
+    await rm(path.join(repo, "src", "old.js"), { force: true });
+    await writeFile(
+      path.join(repo, "eslint.config.js"),
+      'import everBetterTier from "./eslint-tier.config.mjs";\nexport default [{ rules: { "no-var": "error" } }];\n',
+    );
+    await writeFile(path.join(repo, "src", "half.js"), "var loose = 1;\nexport { loose };\n");
+
+    try {
+      const result = await everBetter(["tier"], repo);
+      assert.equal(result.code, 0, result.stderr);
+
+      const lint = await run(path.join(repo, "node_modules", ".bin", "eslint"), ["."], repo);
+      assert.ok(!lint.stderr.includes("Oops"), lint.stderr);
+      assert.equal(await eslintErrors(repo), 0, "the ledger recorded a tier that is not in force");
+    } finally {
+      await rm(path.join(repo, "src", "half.js"), { force: true });
+    }
+  });
+
+  /**
    * A tier that is not spread into the config is not in force: every listed pair is still an error.
    * Recording it in the ledger anyway and exiting 0 tells the user they are covered when they are
    * not, so this refuses — after writing the generated file, so the import they add resolves.

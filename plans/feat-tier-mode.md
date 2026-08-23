@@ -20,13 +20,17 @@ number in each.
 
 ## What ratchets it, measured rather than assumed
 
-Two things, and one arrives for free:
+One thing, and it had to be built. The first draft of this plan claimed the warning total came for
+free — `freeze` and `check` write `WARNINGS_COUNTER`, and `findRegressions` walks `state.counters`
+beside `state.rules`. That is true of a **frozen** repo. A tier repo has never run `freeze`, so
+there is no `state.json` and `check` answers *"No baseline"*. Measured, after the claim was written.
 
-- **The warning total.** `freeze` and `check` write `WARNINGS_COUNTER`, and `findRegressions` walks
-  `state.counters` beside `state.rules` — so a warning population that grows past its baseline
-  already fails `check` today. A tier repo is not uncounted; it is counted coarsely.
-- **The exception list.** Re-running may only remove entries. A pair that is not in the current
-  list and fails today is a regression, and the command refuses to write rather than legalising it.
+- **The exception list, with a count per pair.** Re-running may only shrink it. A pair that fails
+  and is not excused is a regression; so is a pair that fails MORE times than it was excused for,
+  which is the case a `files`-scoped downgrade cannot see — the whole pair is a warning, so
+  `eslint .` exits 0. `.ever-better/tier.json` carries the number for that reason.
+- **`ever-better tier --check`** is the gate that reads it, and writes nothing: a check that edits
+  the repository it is checking cannot run on a pull request.
 
 What is lost against `freeze` is **granularity**: per rule and per file counts. A file already on
 the list can rot internally, held only by the warning total.

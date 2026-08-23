@@ -1,4 +1,4 @@
-import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rename, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
 import { suppressInto } from "../eslintRunner.ts";
@@ -8,7 +8,9 @@ import {
   importsTier,
   moduleSystemOf,
   renderTierConfig,
+  importedTierName,
   SPREAD_BLOCK,
+  spreadsTier,
   TIER_CONFIG_NAMES,
   tierImportLine,
   tierConfigFileName,
@@ -31,7 +33,11 @@ export type TierResult = {
   message: string;
 };
 
-const LEDGER = path.join(".ever-better", "tier.json");
+const STATE_DIR = ".ever-better";
+
+const SCRATCH_DIR = path.join(STATE_DIR, "scratch");
+
+const LEDGER = path.join(STATE_DIR, "tier.json");
 
 const LOCK = path.join(".ever-better", "tier.lock");
 
@@ -58,18 +64,23 @@ const readLedger = async (cwd: string): Promise<Ledger | null> => {
  * publishes an empty list.
  */
 const failingSet = async (cwd: string): Promise<TierEntry[]> => {
-  const relative = path.join(".ever-better", `tier-scratch-${process.pid}.json`);
-  const scratch = path.join(cwd, relative);
-  await mkdir(path.dirname(scratch), { recursive: true });
+  // A fresh directory per run, because `--suppress-all` MERGES into whatever is already at that
+  // location — measured, not assumed: a clean run over one failing file left an unrelated
+  // `stale/file.js: 99` entry sitting beside the real one. Anything an interrupted run left behind
+  // would be excused from then on, and the ledger could not tell it from something that fails. A
+  // name nothing else can produce is structural; remembering to delete first is a step to forget.
+  await mkdir(path.join(cwd, SCRATCH_DIR), { recursive: true });
+  const dir = await mkdtemp(path.join(cwd, SCRATCH_DIR, "scan-"));
+  const scratch = path.join(dir, "suppressions.json");
   try {
-    await suppressInto(cwd, relative);
+    await suppressInto(cwd, path.relative(cwd, scratch));
     const text = await readFile(scratch, "utf8").catch(() => null);
     // ESLint exited without leaving its output. Reading that as "nothing is failing" would publish
     // an empty list off a scan that never happened.
-    if (text === null) throw new Error(`eslint left no suppressions at ${relative} — the failing set could not be read.`);
+    if (text === null) throw new Error(`eslint left no suppressions in ${path.relative(cwd, dir)} — the failing set could not be read.`);
     return tierList(parseSuppressions(JSON.parse(text)));
   } finally {
-    await rm(scratch, { force: true });
+    await rm(dir, { recursive: true, force: true });
   }
 };
 
@@ -129,9 +140,12 @@ const findConfig = async (cwd: string): Promise<EslintConfig | null> => {
 type Wiring = { wired: true; note: string | null } | { wired: false };
 
 const wireConfig = async (cwd: string, config: EslintConfig, tierConfigName: string): Promise<Wiring> => {
-  if (importsTier(config.source, tierConfigName)) return { wired: true, note: null };
+  const spreads = spreadsTier(config.source);
+  if (spreads && importsTier(config.source, tierConfigName)) return { wired: true, note: null };
   const repoint = hasTierImport(config.source);
-  const spread = repoint ? config.source : appendConfigBlocks(config.source, [SPREAD_BLOCK.join("\n")]);
+  // Both halves have to be there. An import with no spread downgrades nothing, so treating it as
+  // wired records a tier the repository is not living under.
+  const spread = spreads ? config.source : appendConfigBlocks(config.source, [SPREAD_BLOCK.join("\n")]);
   if (spread === null) return { wired: false };
   await writeAtomic(path.join(cwd, config.name), withTierImport(spread, tierConfigName));
   const removed = await removeSuperseded(cwd, tierConfigName);
@@ -176,14 +190,17 @@ const removeSuperseded = async (cwd: string, keep: string): Promise<string | nul
   return removed.length === 0 ? null : `Removed the superseded ${removed.join(", ")}.`;
 };
 
-const healMissing = async (cwd: string, config: EslintConfig, tierConfigName: string): Promise<void> => {
-  if (!importsTier(config.source, tierConfigName)) return;
-  const target = path.join(cwd, tierConfigName);
+const healMissing = async (cwd: string, config: EslintConfig): Promise<void> => {
+  // Whichever file the config imports, not the one this run would write: an earlier version's name
+  // is what ESLint will try to load, and a missing one stops the scan that would replace it.
+  const imported = importedTierName(config.source);
+  if (imported === null) return;
+  const target = path.join(cwd, imported);
   const present = await readFile(target, "utf8").then(
     () => true,
     () => false,
   );
-  if (!present) await writeAtomic(target, renderTierConfig([], tierConfigName));
+  if (!present) await writeAtomic(target, renderTierConfig([], imported));
 };
 
 const INVALID_LEDGER = [
@@ -276,7 +293,7 @@ const take = async (options: TierOptions): Promise<TierResult> => {
   // assumption that anything generated is disposable. ESLint then cannot load the config at all, and
   // the scan that would rewrite the file is the thing that fails. An empty list is what the scan sees
   // anyway, so writing one first heals it.
-  await healMissing(options.cwd, config, tierConfigName);
+  await healMissing(options.cwd, config);
 
   const now = await failingSet(options.cwd);
   const regressed = refused(ledger, now);

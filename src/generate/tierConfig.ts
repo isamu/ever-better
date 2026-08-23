@@ -132,6 +132,21 @@ export const hasTierImport = (source: string): boolean => source.split("\n").som
  */
 export const importsTier = (source: string, tierConfigName: string): boolean => source.split("\n").includes(tierImportLine(tierConfigName));
 
+/**
+ * The import is half the wiring; this is the half that does anything. A config that imports the list
+ * and never spreads it downgrades nothing, so recording a tier against it claims a state the
+ * repository is not in — the same defect as a config that could not be edited at all, wearing the
+ * disguise of one that looks edited.
+ */
+export const spreadsTier = (source: string): boolean => source.includes(`...${IDENTIFIER}`);
+
+/** The generated file a config actually imports, which is not always the one this run would write. */
+export const importedTierName = (source: string): string | null => {
+  const line = source.split("\n").find(isImportLine);
+  if (line === undefined) return null;
+  return TIER_CONFIG_NAMES.find((name) => line.includes(`./${name}`)) ?? null;
+};
+
 /** Repoints an existing import rather than adding a second one: two bindings is a syntax error. */
 export const withTierImport = (source: string, tierConfigName: string): string => {
   const lines = source.split("\n");
