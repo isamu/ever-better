@@ -334,10 +334,11 @@ CommonJS — an `eslint.config.cjs` or `.cts`, or an `eslint.config.js` using `m
 package that does not declare `"type": "module"`. Never a bare `.js`, which would mean CommonJS in
 exactly that package and ESM in the other.
 
-Before the ledger is written, `tier` asks `eslint --print-config` whether a listed pair really came
-out as a **warning**. Editing a config file is textual surgery, and text that looks like wiring is
-not the same as wiring that works — a spread inside a comment, or one that is not last and so gets
-overridden by a later block, both leave a ledger describing a repository nobody is living in.
+Before the ledger is written, `tier` **runs ESLint and checks that no rule the list excuses is still
+reported as an error** — and `tier --check` asks the same of the ledger it is gating. Editing a
+config file is textual surgery, and text that looks like wiring is not the same as wiring that
+works: a spread inside a comment, a spread that is not last, or a later block re-raising one of the
+listed rules all read as correct and leave a ledger describing a repository nobody is living in.
 
 One run at a time: `tier` takes `.ever-better/tier.lock` for the whole read-scan-write, because two
 overlapping runs would each publish a list computed before the other's fixes landed and the later

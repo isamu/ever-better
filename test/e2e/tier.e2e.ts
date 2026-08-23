@@ -216,27 +216,51 @@ describe("tier lifecycle", { timeout: TIMEOUT_MS }, () => {
   });
 
   /**
-   * Text that looks like wiring is not wiring that works. A spread that is not LAST is overridden by
-   * whatever comes after it, and no amount of reading the file says so — `eslint --print-config`
-   * does, and it is what decides whether the ledger gets written.
+   * Text that looks like wiring is not wiring that works, and one sampled pair is not the list. A
+   * later block re-raising ONE of the listed rules leaves the tier partly inert: every textual check
+   * passes, the earlier listed pairs are warnings, and that one is still an error. Only running
+   * ESLint over the whole list sees it — from both the recording path and the gate.
    */
-  it("refuses when the spread is there but overridden", async () => {
+  it("refuses when a later block re-raises one of the listed rules", async () => {
+    const config = (extra: string): string =>
+      [
+        'import everBetterTier from "./eslint-tier.config.mjs";',
+        "export default [",
+        '  { rules: { "no-var": "error", "no-console": "error" } },',
+        "  ...everBetterTier,",
+        extra,
+        "];",
+        "",
+      ]
+        .filter((line) => line !== "")
+        .join("\n");
+
     await rm(path.join(repo, LEDGER), { force: true });
     await rm(path.join(repo, "eslint.config.cjs"), { force: true });
     await rm(path.join(repo, "src", "old.js"), { force: true });
-    await writeFile(
-      path.join(repo, "eslint.config.js"),
-      'import everBetterTier from "./eslint-tier.config.mjs";\nexport default [...everBetterTier, { rules: { "no-var": "error" } }];\n',
-    );
     await writeFile(path.join(repo, "src", "late.js"), "var loose = 1;\nexport { loose };\n");
+    await writeFile(path.join(repo, "src", "talks.js"), 'export const talk = () => console.log("hi");\n');
+    await writeFile(path.join(repo, "eslint.config.js"), config(""));
 
     try {
-      const result = await everBetter(["tier"], repo);
-      assert.equal(result.code, 1, "a tier that ESLint does not apply was recorded");
-      assert.match(result.stdout, /still reports .* as an error/);
-      await assert.rejects(readFile(path.join(repo, LEDGER), "utf8"), "the ledger recorded a tier that is not in force");
+      const taken = await everBetter(["tier"], repo);
+      assert.equal(taken.code, 0, taken.stderr);
+      const ledgerBefore = await readFile(path.join(repo, LEDGER), "utf8");
+      assert.match(ledgerBefore, /no-console/, "the fixture needs a second listed rule to sample past");
+
+      // Only `no-console` is re-raised, and it is not the first entry in the ledger.
+      await writeFile(path.join(repo, "eslint.config.js"), config('  { rules: { "no-console": "error" } },'));
+
+      const gate = await everBetter(["tier", "--check"], repo);
+      assert.equal(gate.code, 1, "the gate passed a tier ESLint only partly applies");
+      assert.match(gate.stdout, /no-console/);
+
+      const rerun = await everBetter(["tier"], repo);
+      assert.equal(rerun.code, 1, "a tier ESLint only partly applies was recorded");
+      assert.equal(await readFile(path.join(repo, LEDGER), "utf8"), ledgerBefore, "the refused run rewrote the ledger");
     } finally {
       await rm(path.join(repo, "src", "late.js"), { force: true });
+      await rm(path.join(repo, "src", "talks.js"), { force: true });
     }
   });
 

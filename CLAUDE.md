@@ -177,6 +177,18 @@ in this repo's own lint. Two already did: the generated config produced an unsup
 error on itself, and a `node:test` repo got a config that flagged every `describe`. Both are now
 pinned by tests in `test/test_render.ts`. Add one for every rule the generator emits.
 
+## Wiring a config file is textual surgery, so it is verified by RUNNING it
+
+Every check on whether `...everBetterTier` is wired in is a guess about what a source file means,
+and three shapes read as correct while doing nothing: a spread inside a comment, a spread that is
+not last, and a later block re-raising one of the listed rules. Each was found by a different
+round of review, which is the tell that reading the text was the wrong instrument.
+
+`tier` and `tier --check` therefore run ESLint and assert that **no rule the list excuses is still
+reported as an error**. `--print-config` on one listed file was the first attempt and it is a
+SAMPLE: it passed while a second listed pair sat there as an error. One `eslint .` covers the whole
+list for the price of one spawn.
+
 ## A `files`-scoped downgrade cannot hold a count, so the ledger has to
 
 `tier` turns a failing file-and-rule pair into a `warn`. That is the whole pair: a SECOND violation

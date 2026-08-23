@@ -1,7 +1,7 @@
 import { mkdir, mkdtemp, readFile, rename, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
-import { printConfig, suppressInto } from "../eslintRunner.ts";
+import { runRuleCounts, suppressInto } from "../eslintRunner.ts";
 import {
   GENERATED_MARKER,
   hasTierImport,
@@ -203,45 +203,54 @@ const healMissing = async (cwd: string, config: EslintConfig): Promise<void> => 
   if (!present) await writeAtomic(target, renderTierConfig([], imported));
 };
 
-/** `--print-config` reports severities as numbers, and 1 is `warn`. */
-const WARN = 1;
-
-const severityOf = (config: Record<string, unknown> | null, rule: string): number | null => {
-  if (config === null) return null;
-  const rules = config["rules"];
-  if (!isRecord(rules)) return null;
-  const entry = rules[rule];
-  if (typeof entry === "number") return entry;
-  return Array.isArray(entry) && typeof entry[0] === "number" ? entry[0] : null;
-};
-
 /**
- * Whether the exceptions are actually applied, asked of ESLint rather than inferred from the text of
- * a config file. Every wiring check before this one is a guess about what a source file means: a
- * spread inside a comment reads as wiring, a spread that is not last is overridden by whatever comes
- * after it, and both leave a ledger recording a tier the repository is not living under.
+ * The rules the list excuses that ESLint still reports as ERRORS — that is, the part of the tier
+ * that is not actually in force. Asked of ESLint rather than inferred from the text of a config
+ * file: every wiring check before this one is a guess about what a source file means, and a spread
+ * inside a comment, a spread that is not last, or a later block re-raising one rule all read as
+ * correct wiring while leaving the ledger describing a repository nobody is living in.
  *
- * One `--print-config` on one listed file answers it. Empty lists have nothing to verify.
+ * One `eslint .` answers it for every listed pair at once. `--print-config` answers it for one file,
+ * which is a sample, and a sample passed while a second listed pair sat there as an error.
+ *
+ * After a successful `tier` — or a `--check` that found no regression — every failing pair is one
+ * the list excuses, so any error under a listed rule means that rule is not being downgraded.
  */
-const inForce = async (cwd: string, entries: readonly TierEntry[]): Promise<boolean> => {
-  const first = entries[0];
-  const rule = first === undefined ? undefined : Object.keys(first.rules)[0];
-  if (first === undefined || rule === undefined) return true;
-  return severityOf(await printConfig(cwd, path.join(cwd, first.file)), rule) === WARN;
+const notInForce = async (cwd: string, entries: readonly TierEntry[]): Promise<string[]> => {
+  const listed = new Set(ruleNames(entries));
+  if (listed.size === 0) return [];
+  const counts = await runRuleCounts(cwd);
+  return Object.entries(counts.errors)
+    .filter(([rule, count]) => count > 0 && listed.has(rule))
+    .map(([rule]) => rule)
+    .sort((one, other) => one.localeCompare(other));
 };
 
-const notInForce = (configName: string, tierConfigName: string, pair: string): TierResult => ({
+const inertMessage = (rules: readonly string[], lines: readonly string[]): string =>
+  [
+    `${rules.length} rule(s) the list excuses are still errors: ${rules.join(", ")}.`,
+    "",
+    ...lines,
+    "",
+    "Asked by running ESLint, not by reading the config — that is the only answer that counts.",
+    "Run `eslint .` to see which files.",
+  ].join("\n");
+
+const notWired = (configName: string, rules: readonly string[]): TierResult => ({
   ok: false,
-  message: [
-    `${configName} was edited, but ESLint still reports ${pair} as an error.`,
-    "",
-    `The generated list is not being applied. The usual cause is that \`...everBetterTier\` is not the`,
-    `LAST entry in the exported array, so a later block overrides it. Move it to the end and run`,
-    "`ever-better tier` again.",
-    "",
-    `Asked with \`eslint --print-config\`, not read from ${tierConfigName} — that is the only answer`,
-    "that counts.",
-  ].join("\n"),
+  message: inertMessage(rules, [
+    `${configName} was edited, but the generated list is not being applied to all of it. The usual`,
+    "cause is that `...everBetterTier` is not the LAST entry in the exported array, so a later block",
+    "overrides it. Move it to the end and run `ever-better tier` again.",
+  ]),
+});
+
+const notApplied = (rules: readonly string[]): TierResult => ({
+  ok: false,
+  message: inertMessage(rules, [
+    `${LEDGER} describes a tier the repository is not living under. Run \`ever-better tier\` to rewire`,
+    "it, and check that `...everBetterTier` is LAST in the exported array.",
+  ]),
 });
 
 const INVALID_LEDGER = [
@@ -348,7 +357,8 @@ const take = async (options: TierOptions): Promise<TierResult> => {
   await writeAtomic(path.join(options.cwd, tierConfigName), renderTierConfig(now, tierConfigName));
   const wiring = await wireConfig(options.cwd, config, tierConfigName);
   if (!wiring.wired) return unwired(config.name, tierConfigName, tierImportLine(tierConfigName));
-  if (!(await inForce(options.cwd, now))) return notInForce(config.name, tierConfigName, describe(now));
+  const inert = await notInForce(options.cwd, now);
+  if (inert.length > 0) return notWired(config.name, inert);
   await writeAtomic(path.join(options.cwd, LEDGER), `${JSON.stringify(now, null, 2)}\n`);
 
   return {
@@ -362,24 +372,6 @@ const take = async (options: TierOptions): Promise<TierResult> => {
     ].join("\n"),
   };
 };
-
-/** The first listed pair, named the way the messages about it read. */
-const describe = (entries: readonly TierEntry[]): string => {
-  const first = entries[0];
-  const rule = first === undefined ? undefined : Object.keys(first.rules)[0];
-  return first === undefined || rule === undefined ? "the listed pair" : `${first.file} / ${rule}`;
-};
-
-const notApplied = (pair: string): TierResult => ({
-  ok: false,
-  message: [
-    `${LEDGER} lists ${pair}, but ESLint reports it as an error rather than a warning.`,
-    "",
-    "The ledger describes a tier the repository is not living under: the generated list is not being",
-    "applied. Run `ever-better tier` to rewire it, and check that `...everBetterTier` is LAST in the",
-    "exported array.",
-  ].join("\n"),
-});
 
 const NO_LEDGER = [
   `${LEDGER} is not there, so there is nothing to check against.`,
@@ -401,11 +393,14 @@ const checkTier = async (options: TierOptions): Promise<TierResult> => {
   if (ledger === null) return { ok: false, message: INVALID_LEDGER };
   if (!ledger.present) return { ok: false, message: NO_LEDGER };
 
-  if (!(await inForce(options.cwd, ledger.entries))) return notApplied(describe(ledger.entries));
-
   const now = await failingSet(options.cwd);
   const regressed = refused(ledger, now);
   if (regressed.length > 0) return refusal(regressed);
+
+  // Only once the failing set is within the list: before that, an error under a listed rule is just
+  // the regression above, and reporting it as a wiring problem would name the wrong cause.
+  const inert = await notInForce(options.cwd, ledger.entries);
+  if (inert.length > 0) return notApplied(inert);
 
   const cleared = drained(ledger.entries, now);
   const behind = violations(ledger.entries) - violations(now);
