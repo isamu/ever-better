@@ -54,6 +54,13 @@ temporary location, read the file-by-rule counts out of it, delete it. Nothing g
 the file that yields is one this tool owns, and ESLint still computes the failing set — nothing here
 reimplements it.
 
+## The count, and the gate
+
+A `files`-scoped block downgrades a whole file-and-rule pair, so it cannot express "one of these was
+allowed". `.ever-better/tier.json` records the count per pair and `ever-better tier --check` is the
+read-only gate that enforces it — without which a second violation inside an already-excused pair is
+a warning nothing fails on.
+
 ## Where the list lives
 
 A generated file — `eslint-tier.config.mjs`, or `.cjs` when the config it is wired into is CommonJS — wholly owned by this tool and safe to overwrite, the

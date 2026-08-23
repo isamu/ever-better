@@ -28,7 +28,7 @@ const USAGE = `ever-better — make a codebase that can only get better
   next        what to drain first, and what each one enforces
   report      where the findings are, by rule and area (markdown, for CI)
   secrets     scan the whole history for committed credentials (gitleaks)
-  tier        every rule an error, the files that trip one downgraded to warn
+  tier        every rule an error, the files that trip one downgraded to warn (--check for CI)
   emit-diff   prove a type-only refactor changed no behaviour
   catalog     list the helpers that already exist, so nobody writes a sixth
   migrate     JavaScript to TypeScript, the whole repo or one file at a time
@@ -48,6 +48,7 @@ Options
   --file <path>     migrate: the one file to rename (omit to see the plan)
   --all             migrate: rename every JavaScript file in one pass
   --fan-in          next: also count how many files import each one (reads every source file)
+  --check           tier: compare against the ledger and write nothing (for CI)
 `;
 
 const OPTIONS = {
@@ -64,6 +65,7 @@ const OPTIONS = {
   file: { type: "string" },
   all: { type: "boolean", default: false },
   "fan-in": { type: "boolean", default: false },
+  check: { type: "boolean", default: false },
   help: { type: "boolean", default: false },
 } as const;
 
@@ -80,6 +82,7 @@ type Flags = {
   file: string | undefined;
   all: boolean;
   fanIn: boolean;
+  check: boolean;
   rule: string | undefined;
   rest: string[];
 };
@@ -118,7 +121,7 @@ const dispatch = async (command: string, flags: Flags): Promise<Outcome> => {
     return { output: result.message, ok: result.ok };
   }
   if (command === "tier") {
-    const result = await runTier({ cwd: flags.cwd });
+    const result = await runTier({ cwd: flags.cwd, check: flags.check });
     return { output: result.message, ok: result.ok };
   }
   if (command === "secrets") {
@@ -156,6 +159,7 @@ const main = async (): Promise<number> => {
     file: values.file,
     all: values.all,
     fanIn: values["fan-in"],
+    check: values.check,
     rule: values.rule,
     rest: positionals.slice(1),
   };

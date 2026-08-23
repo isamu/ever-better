@@ -1,27 +1,40 @@
 import type { Suppression } from "./suppressionsFile.ts";
 
+/**
+ * One file's exceptions, and how many of each. The count is the half a `files`-scoped flat-config
+ * block cannot express: it downgrades a whole file-and-rule pair to `warn`, so a second violation of
+ * an already-excused rule in an already-excused file is a warning too, and nothing notices. The
+ * ledger carries the number so this tool can.
+ */
 export type TierEntry = {
   file: string;
-  rules: string[];
+  rules: Record<string, number>;
 };
 
-/** A pair that fails today and is not already excused. Writing it in would legalise a regression. */
+/** A pair that fails more than the list excuses. Writing it in would legalise a regression. */
 export type TierPair = {
   file: string;
   rule: string;
+  /** What fails today. */
+  count: number;
+  /** What the list excused. Zero means the pair was not on it at all. */
+  allowed: number;
 };
 
 const sorted = (values: Iterable<string>): string[] => [...values].sort((a, b) => a.localeCompare(b));
 
-const byFile = (entries: readonly Suppression[]): Map<string, Set<string>> => {
-  const grouped = new Map<string, Set<string>>();
+const byFile = (entries: readonly Suppression[]): Map<string, Map<string, number>> => {
+  const grouped = new Map<string, Map<string, number>>();
   entries.forEach((entry) => {
-    const rules = grouped.get(entry.file) ?? new Set<string>();
-    rules.add(entry.rule);
+    const rules = grouped.get(entry.file) ?? new Map<string, number>();
+    rules.set(entry.rule, (rules.get(entry.rule) ?? 0) + entry.count);
     grouped.set(entry.file, rules);
   });
   return grouped;
 };
+
+/** Sorted on the way in, so two runs over the same repository produce the same file byte for byte. */
+const asRecord = (rules: Map<string, number>): Record<string, number> => Object.fromEntries(sorted(rules.keys()).map((rule) => [rule, rules.get(rule) ?? 0]));
 
 /**
  * The failing set as a list of exceptions, ordered so that two runs over the same repository
@@ -29,30 +42,39 @@ const byFile = (entries: readonly Suppression[]): Map<string, Set<string>> => {
  */
 export const tierList = (failing: readonly Suppression[]): TierEntry[] => {
   const grouped = byFile(failing);
-  return sorted(grouped.keys()).map((file) => ({ file, rules: sorted(grouped.get(file) ?? []) }));
+  return sorted(grouped.keys()).map((file) => ({ file, rules: asRecord(grouped.get(file) ?? new Map<string, number>()) }));
 };
 
-const pairsOf = (entries: readonly TierEntry[]): TierPair[] => entries.flatMap((entry) => entry.rules.map((rule) => ({ file: entry.file, rule })));
+const pairsOf = (entries: readonly TierEntry[]): { file: string; rule: string; count: number }[] =>
+  entries.flatMap((entry) => Object.entries(entry.rules).map(([rule, count]) => ({ file: entry.file, rule, count })));
 
-const keys = (entries: readonly TierEntry[]): Set<string> => new Set(pairsOf(entries).map((pair) => `${pair.file} ${pair.rule}`));
+const allowanceOf = (entries: readonly TierEntry[]): Map<string, number> => new Map(pairsOf(entries).map((pair) => [`${pair.file} ${pair.rule}`, pair.count]));
 
 /**
  * What the list would have to gain to describe today. It is allowed to shrink and nothing else: a
- * pair failing now that was not excused before is new code breaking a rule that was already an
- * error for it, which is the one thing this must not write down and forgive.
+ * pair failing more than it was excused for is new code breaking a rule that was already an error
+ * for it, which is the one thing this must not write down and forgive.
  */
 export const regressions = (before: readonly TierEntry[], now: readonly TierEntry[]): TierPair[] => {
-  const excused = keys(before);
-  return pairsOf(now).filter((pair) => !excused.has(`${pair.file} ${pair.rule}`));
+  const excused = allowanceOf(before);
+  return pairsOf(now)
+    .map((pair) => ({ ...pair, allowed: excused.get(`${pair.file} ${pair.rule}`) ?? 0 }))
+    .filter((pair) => pair.count > pair.allowed);
 };
 
 /** What stopped failing since the last run — the list shrinking is the whole point. */
 export const drained = (before: readonly TierEntry[], now: readonly TierEntry[]): TierPair[] => {
-  const failing = keys(now);
-  return pairsOf(before).filter((pair) => !failing.has(`${pair.file} ${pair.rule}`));
+  const failing = allowanceOf(now);
+  return pairsOf(before)
+    .map((pair) => ({ ...pair, allowed: failing.get(`${pair.file} ${pair.rule}`) ?? 0 }))
+    .filter((pair) => pair.allowed < pair.count)
+    .map((pair) => ({ file: pair.file, rule: pair.rule, count: pair.allowed, allowed: pair.count }));
 };
 
-export const ruleNames = (entries: readonly TierEntry[]): string[] => sorted(new Set(entries.flatMap((entry) => entry.rules)));
+export const ruleNames = (entries: readonly TierEntry[]): string[] => sorted(new Set(entries.flatMap((entry) => Object.keys(entry.rules))));
+
+/** Every violation the list excuses. What `tier` is asked to drive to zero. */
+export const violations = (entries: readonly TierEntry[]): number => pairsOf(entries).reduce((total, pair) => total + pair.count, 0);
 
 /**
  * Missing and empty are different answers, and conflating them is how the shrink-only promise
@@ -67,8 +89,10 @@ export type Ledger = { present: false } | { present: true; entries: TierEntry[] 
 
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null;
 
-const isEntry = (value: unknown): value is TierEntry =>
-  isRecord(value) && typeof value["file"] === "string" && Array.isArray(value["rules"]) && value["rules"].every((rule) => typeof rule === "string");
+const isCounts = (value: unknown): value is Record<string, number> =>
+  isRecord(value) && Object.values(value).every((count) => typeof count === "number" && Number.isInteger(count) && count > 0);
+
+const isEntry = (value: unknown): value is TierEntry => isRecord(value) && typeof value["file"] === "string" && isCounts(value["rules"]);
 
 export const parseLedger = (text: string | null): Ledger | null => {
   if (text === null) return { present: false };

@@ -176,6 +176,18 @@ in this repo's own lint. Two already did: the generated config produced an unsup
 error on itself, and a `node:test` repo got a config that flagged every `describe`. Both are now
 pinned by tests in `test/test_render.ts`. Add one for every rule the generator emits.
 
+## A `files`-scoped downgrade cannot hold a count, so the ledger has to
+
+`tier` turns a failing file-and-rule pair into a `warn`. That is the whole pair: a SECOND violation
+of the same rule in the same file is a warning too, `eslint .` exits 0, and nothing notices. The
+shrink-only promise has a hole at exactly the granularity flat config cannot express.
+
+`.ever-better/tier.json` therefore records the COUNT per pair, and `refused()` treats growth as a
+regression alongside a new pair. `ever-better tier --check` is the gate that reads it — read-only,
+because a check that edits the repository it is checking cannot run on a pull request. The warning
+counter in `state.json` does NOT cover this: that file is written by `freeze`, and a tier-only repo
+has never run it, so `check` there answers "No baseline".
+
 ## A generated config must exempt itself from the lint it generates
 
 Nobody can act on a finding in a file whose header says not to edit it, and one arrives without

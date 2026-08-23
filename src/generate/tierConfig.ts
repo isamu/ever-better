@@ -106,7 +106,7 @@ export const renderTierConfig = (entries: readonly TierEntry[], tierConfigName: 
       "  {",
       `    files: [${quoted(asLiteralGlob(entry.file))}],`,
       "    rules: {",
-      ...entry.rules.map((rule) => `      ${quoted(rule)}: "warn",`),
+      ...Object.keys(entry.rules).map((rule) => `      ${quoted(rule)}: "warn",`),
       "    },",
       "  },",
     ]),

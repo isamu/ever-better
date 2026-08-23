@@ -20,11 +20,11 @@ const VIOLATION = "export const loose = (value: any) => value;\n";
 
 const CLEAN = "export const tight = (value: string): string => value;\n";
 
-type Entry = { file: string; rules: string[] };
+type Entry = { file: string; rules: Record<string, number> };
 
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null;
 
-const isEntry = (value: unknown): value is Entry => isRecord(value) && typeof value["file"] === "string" && Array.isArray(value["rules"]);
+const isEntry = (value: unknown): value is Entry => isRecord(value) && typeof value["file"] === "string" && isRecord(value["rules"]);
 
 const ledger = async (repo: string): Promise<Entry[]> => {
   const parsed: unknown = JSON.parse(await readFile(path.join(repo, LEDGER), "utf8"));
@@ -75,6 +75,29 @@ describe("tier lifecycle", { timeout: TIMEOUT_MS }, () => {
     assert.equal(await eslintErrors(repo), 0, "a file the tier excused is still an error");
   });
 
+  /**
+   * The hole a file-and-rule list cannot see on its own. The pair is already a warning, so a SECOND
+   * violation of the same rule in the same file is a warning too and `eslint .` exits 0 — the count
+   * in the ledger is the only record of how many there were, and `--check` is what reads it.
+   */
+  it("refuses a second violation of a rule the file is already excused for", async () => {
+    const clean = await everBetter(["tier", "--check"], repo);
+    assert.equal(clean.code, 0, clean.stdout + clean.stderr);
+
+    const before = await readFile(path.join(repo, LEDGER), "utf8");
+    await writeFile(path.join(repo, OLD), `${VIOLATION}${VIOLATION.replace("loose", "looser")}`);
+
+    const lint = await run(path.join(repo, "node_modules", ".bin", "eslint"), ["."], repo);
+    assert.equal(lint.code, 0, "the premise: eslint itself cannot see this, because the pair is a warning");
+
+    const result = await everBetter(["tier", "--check"], repo);
+    assert.equal(result.code, 1, "a violation added inside an excused pair was accepted");
+    assert.match(result.stdout, /excused: /);
+    assert.equal(await readFile(path.join(repo, LEDGER), "utf8"), before, "--check wrote to the ledger");
+
+    await writeFile(path.join(repo, OLD), VIOLATION);
+  });
+
   it("refuses a violation in a file the list does not excuse", async () => {
     await writeFile(path.join(repo, "src", "new.ts"), VIOLATION);
     const before = await ledger(repo);
@@ -93,6 +116,14 @@ describe("tier lifecycle", { timeout: TIMEOUT_MS }, () => {
     await rm(path.join(repo, "src", "new.ts"));
     await writeFile(path.join(repo, OLD), CLEAN);
     await run(path.join(repo, "node_modules", ".bin", "eslint"), ["eslint.config.js", "--fix"], repo);
+
+    // The gate runs on pull requests, so it may not edit what it is gating: it reports the shrink
+    // and leaves the ledger for `tier` to rewrite.
+    const before = await readFile(path.join(repo, LEDGER), "utf8");
+    const gate = await everBetter(["tier", "--check"], repo);
+    assert.equal(gate.code, 0, gate.stdout + gate.stderr);
+    assert.match(gate.stdout, /have been fixed since the ledger was written/);
+    assert.equal(await readFile(path.join(repo, LEDGER), "utf8"), before, "--check rewrote the ledger");
 
     const result = await everBetter(["tier"], repo);
     assert.equal(result.code, 0, result.stderr);
@@ -200,6 +231,23 @@ describe("tier lifecycle", { timeout: TIMEOUT_MS }, () => {
     assert.match(result.stdout, /import everBetterTier from "\.\/eslint-tier\.config\.mjs";/);
     await assert.rejects(readFile(path.join(repo, LEDGER), "utf8"), "the ledger recorded a tier nobody is living under");
     await readFile(path.join(repo, "eslint-tier.config.mjs"), "utf8");
+  });
+
+  /**
+   * A lock that cannot be READ is not a lock with no holder. Taking it over on that reading removes
+   * one held by a live run, which is the whole thing the lock exists to prevent. A directory stands
+   * in for "unreadable" because it is unreadable for root too.
+   */
+  it("refuses a lock it cannot read rather than taking it over", async () => {
+    const lock = path.join(repo, ".ever-better", "tier.lock");
+    await mkdir(lock, { recursive: true });
+    try {
+      const result = await everBetter(["tier"], repo);
+      assert.equal(result.code, 1, "an unreadable lock was taken over");
+      assert.match(result.stdout, /cannot be read/);
+    } finally {
+      await rm(lock, { recursive: true, force: true });
+    }
   });
 
   /** Unreadable is not missing: starting over would forgive everything failing today. */

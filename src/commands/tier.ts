@@ -17,11 +17,13 @@ import {
 import { appendConfigBlocks } from "../generate/eslintAppend.ts";
 import { parseSuppressions } from "../suppressionsFile.ts";
 import { isProcessAlive } from "../util/pid.ts";
-import { drained, parseLedger, refused, ruleNames, tierList, type Ledger, type TierEntry, type TierPair } from "../tier.ts";
+import { drained, parseLedger, refused, ruleNames, tierList, violations, type Ledger, type TierEntry, type TierPair } from "../tier.ts";
 import { ESLINT_CONFIG_NAMES } from "../eslintConfigNames.ts";
 
 export type TierOptions = {
   cwd: string;
+  /** Compare and report, write nothing. What CI runs: a gate may not edit the repository it gates. */
+  check?: boolean;
 };
 
 export type TierResult = {
@@ -82,12 +84,13 @@ const writeAtomic = async (target: string, contents: string): Promise<void> => {
   }
 };
 
-const found = (pairs: readonly TierPair[]): string[] => pairs.slice(0, 10).map((pair) => `  ${pair.file}  ${pair.rule}`);
+const found = (pairs: readonly TierPair[]): string[] =>
+  pairs.slice(0, 10).map((pair) => `  ${pair.file}  ${pair.rule}  ${pair.count} (excused: ${pair.allowed})`);
 
 const refusal = (pairs: readonly TierPair[]): TierResult => ({
   ok: false,
   message: [
-    `${pairs.length} pair(s) fail that the list does not excuse. The list may only shrink, so this refuses`,
+    `${pairs.length} pair(s) fail more than the list excuses. The list may only shrink, so this refuses`,
     "to write them in — fix them, or say why they belong in the exception list and add them by hand.",
     "",
     ...found(pairs),
@@ -197,15 +200,25 @@ const isRecord = (value: unknown): value is Record<string, unknown> => typeof va
 
 const isErrno = (value: unknown): value is { code?: unknown } => isRecord(value);
 
+const UNREADABLE_HOLDER = "unreadable";
+
 const busy = (holder: string): TierResult => ({
   ok: false,
-  message: [
-    `Another \`ever-better tier\` (pid ${holder}) is running in this repository.`,
-    "",
-    "Two runs would each publish a list computed before the other's fixes landed, and the later write",
-    `wins — re-opening an exception the earlier one had drained. If no such process exists, delete`,
-    `${LOCK}.`,
-  ].join("\n"),
+  message:
+    holder === UNREADABLE_HOLDER
+      ? [
+          `${LOCK} exists and cannot be read, so whether another \`ever-better tier\` is running here`,
+          "cannot be answered. Taking the lock on that reading is how a live run gets one taken from it.",
+          "",
+          "Fix its permissions, or delete it if you know no such process exists.",
+        ].join("\n")
+      : [
+          `Another \`ever-better tier\` (pid ${holder}) is running in this repository.`,
+          "",
+          "Two runs would each publish a list computed before the other's fixes landed, and the later write",
+          `wins — re-opening an exception the earlier one had drained. If no such process exists, delete`,
+          `${LOCK}.`,
+        ].join("\n"),
 });
 
 /**
@@ -226,22 +239,29 @@ const acquire = async (cwd: string): Promise<string | null> => {
   const lock = path.join(cwd, LOCK);
   await mkdir(path.dirname(lock), { recursive: true });
   const held = await claim(lock);
-  if (held === null) return null;
-  if (isProcessAlive(Number(held))) return held;
+  if (held.mine) return null;
+  if (!held.readable) return held.holder;
+  if (isProcessAlive(Number(held.holder))) return held.holder;
   await rm(lock, { force: true });
-  return claim(lock);
+  const retry = await claim(lock);
+  return retry.mine ? null : retry.holder;
 };
 
 /** Returns the holder's pid when the lock is already taken, and null when this run now holds it. */
-const claim = async (lock: string): Promise<string | null> => {
+type Claim = { mine: true } | { mine: false; holder: string; readable: boolean };
+
+const claim = async (lock: string): Promise<Claim> => {
   try {
     await writeFile(lock, `${process.pid}\n`, { flag: "wx" });
-    return null;
+    return { mine: true };
   } catch (cause) {
     if (!isErrno(cause) || cause.code !== "EEXIST") throw cause;
   }
-  const holder = (await readFile(lock, "utf8").catch(() => "")).trim();
-  return holder === "" ? "unknown" : holder;
+  // A lock that cannot be READ is not a lock with no holder. Taking it over on that reading removed
+  // one held by a live process, which is the whole thing this exists to prevent.
+  const text = await readFile(lock, "utf8").catch(() => null);
+  if (text === null) return { mine: false, holder: UNREADABLE_HOLDER, readable: false };
+  return { mine: false, holder: text.trim() || "unknown", readable: true };
 };
 
 const take = async (options: TierOptions): Promise<TierResult> => {
@@ -275,7 +295,7 @@ const take = async (options: TierOptions): Promise<TierResult> => {
   return {
     ok: true,
     message: [
-      `${now.length} file(s) hold an exception, covering ${ruleNames(now).length} rule(s).`,
+      `${violations(now)} violation(s) excused across ${now.length} file(s) and ${ruleNames(now).length} rule(s).`,
       ...(ledger.present ? [`${cleared.length} pair(s) drained since the last run.`] : ["Everything else is an error from this commit on."]),
       ...(wiring.note === null ? [] : [wiring.note]),
       "",
@@ -284,7 +304,45 @@ const take = async (options: TierOptions): Promise<TierResult> => {
   };
 };
 
+const NO_LEDGER = [
+  `${LEDGER} is not there, so there is nothing to check against.`,
+  "",
+  "Run `ever-better tier` once to take a tier and commit what it writes.",
+].join("\n");
+
+/**
+ * The gate. It writes nothing — a check that edits the repository it is checking cannot run on a
+ * pull request — so it is also the only path that needs no lock.
+ *
+ * This is what makes the list's promise enforceable. `eslint .` catches a violation in a file the
+ * list does not cover, because that is still an error; it cannot catch a SECOND violation of a rule
+ * a file is already excused for, because the whole pair is a warning. The count in the ledger is the
+ * only record of how many there were.
+ */
+const checkTier = async (options: TierOptions): Promise<TierResult> => {
+  const ledger = await readLedger(options.cwd);
+  if (ledger === null) return { ok: false, message: INVALID_LEDGER };
+  if (!ledger.present) return { ok: false, message: NO_LEDGER };
+
+  const now = await failingSet(options.cwd);
+  const regressed = refused(ledger, now);
+  if (regressed.length > 0) return refusal(regressed);
+
+  const cleared = drained(ledger.entries, now);
+  const behind = violations(ledger.entries) - violations(now);
+  return {
+    ok: true,
+    message: [
+      `Clean. ${violations(now)} violation(s) excused across ${now.length} file(s).`,
+      ...(cleared.length === 0
+        ? []
+        : [`${cleared.length} pair(s) and ${behind} violation(s) have been fixed since the ledger was written — run \`ever-better tier\` to record it.`]),
+    ].join("\n"),
+  };
+};
+
 export const runTier = async (options: TierOptions): Promise<TierResult> => {
+  if (options.check === true) return checkTier(options);
   const holder = await acquire(options.cwd);
   if (holder !== null) return busy(holder);
   try {

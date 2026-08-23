@@ -298,7 +298,8 @@ the secret does not land in a public log.
 ### `tier`
 
 ```bash
-ever-better tier
+ever-better tier            # take a tier, and record it
+ever-better tier --check    # compare against the ledger, write nothing  (for CI)
 ```
 
 **The other way to start, and an alternative to `freeze` rather than a layer on it.** Every rule
@@ -310,17 +311,18 @@ rules get stricter without anyone editing a config.
 | --- | --- | --- |
 | in your editor | invisible — no squiggle | a warning while you type |
 | in `eslint .` | silent | listed every run |
-| granularity | file x rule, **with a count** | file x rule, no count |
-| tightening | `prune`, per violation | re-run, per file x rule |
+| granularity | file x rule, with a count | file x rule, with a count |
+| the CI gate | `ever-better check` | `ever-better tier --check` |
+| tightening | `prune`, per violation | re-run, per violation |
 
-Two things hold the line, and one arrives for free. **The warning total is already ratcheted** —
-`check` walks `state.counters` beside `state.rules`, so a warning population growing past its
-baseline fails today. And **the list may only shrink**: a pair that fails and is not already excused
-is new code breaking a rule that was already an error for it, so `tier` refuses to write it in and
-exits 1 rather than legalising it.
+**The list may only shrink, and `--check` is what enforces it.** A pair that fails and is not
+excused is new code breaking a rule that was already an error for it. A pair that fails **more times
+than it was excused for** is the same thing wearing a disguise: the whole pair is a warning, so
+`eslint .` exits 0 and sees nothing. `.ever-better/tier.json` records the count for exactly that
+reason, and both `tier` and `tier --check` refuse when it grows.
 
-What you give up against `freeze` is granularity — per rule and per file counts. A file already on
-the list can rot internally, held only by the total.
+Run `ever-better tier --check` in CI, not `ever-better tier`: a gate may not edit the repository it
+is gating, and `--check` writes nothing.
 
 **Do not run both.** A violation downgraded to warn *moves* out of the suppression ledger into the
 warning population; running both counts it once in a precise ledger and once in a coarse one.

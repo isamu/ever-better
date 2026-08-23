@@ -10,16 +10,16 @@ import {
   SPREAD_BLOCK,
   TIER_RECOMPUTE_ENV,
 } from "../src/generate/tierConfig.ts";
-import { drained, parseLedger, refused, regressions, ruleNames, tierList } from "../src/tier.ts";
+import { drained, parseLedger, refused, regressions, ruleNames, tierList, violations } from "../src/tier.ts";
 import { ESLINT_CONFIG_NAMES } from "../src/eslintConfigNames.ts";
 import type { Suppression } from "../src/suppressionsFile.ts";
 
 const failing = (file: string, rule: string, count = 1): Suppression => ({ file, rule, count });
 
 describe("tierList", () => {
-  it("collapses counts into one exception per file and rule", () => {
-    const list = tierList([failing("src/a.ts", "no-var", 4), failing("src/a.ts", "no-var", 4), failing("src/a.ts", "max-depth")]);
-    assert.deepEqual(list, [{ file: "src/a.ts", rules: ["max-depth", "no-var"] }]);
+  it("carries the count, which is what a flat-config block cannot express", () => {
+    const list = tierList([failing("src/a.ts", "no-var", 4), failing("src/a.ts", "no-var", 2), failing("src/a.ts", "max-depth")]);
+    assert.deepEqual(list, [{ file: "src/a.ts", rules: { "max-depth": 1, "no-var": 6 } }]);
   });
 
   /** Two runs over the same repository must produce the same file, or every run is a diff. */
@@ -27,6 +27,7 @@ describe("tierList", () => {
     const one = tierList([failing("src/b.ts", "z-rule"), failing("src/a.ts", "b-rule"), failing("src/a.ts", "a-rule")]);
     const other = tierList([failing("src/a.ts", "a-rule"), failing("src/b.ts", "z-rule"), failing("src/a.ts", "b-rule")]);
     assert.deepEqual(one, other);
+    assert.equal(JSON.stringify(one), JSON.stringify(other));
     assert.deepEqual(
       one.map((entry) => entry.file),
       ["src/a.ts", "src/b.ts"],
@@ -35,26 +36,48 @@ describe("tierList", () => {
 });
 
 describe("regressions", () => {
-  const before = tierList([failing("src/a.ts", "no-var"), failing("src/a.ts", "max-depth")]);
+  const before = tierList([failing("src/a.ts", "no-var", 2), failing("src/a.ts", "max-depth")]);
 
-  it("finds nothing when the failing set is a subset of the list", () => {
+  it("finds nothing when the failing set is within what the list excuses", () => {
+    assert.deepEqual(regressions(before, tierList([failing("src/a.ts", "no-var", 2)])), []);
     assert.deepEqual(regressions(before, tierList([failing("src/a.ts", "no-var")])), []);
+  });
+
+  /**
+   * The hole a file-and-rule list cannot see on its own: the pair is already a warning, so a second
+   * violation of the same rule in the same file is a warning too and `eslint .` exits 0. The count
+   * in the ledger is the only record of how many there were.
+   */
+  it("reports a pair that grew, not just a pair that is new", () => {
+    assert.deepEqual(regressions(before, tierList([failing("src/a.ts", "no-var", 3)])), [{ file: "src/a.ts", rule: "no-var", count: 3, allowed: 2 }]);
   });
 
   /** A rule that was already an error for a file it did not cover is new code breaking it. */
   it("reports a rule the file was not excused for", () => {
-    assert.deepEqual(regressions(before, tierList([failing("src/a.ts", "complexity")])), [{ file: "src/a.ts", rule: "complexity" }]);
+    assert.deepEqual(regressions(before, tierList([failing("src/a.ts", "complexity")])), [{ file: "src/a.ts", rule: "complexity", count: 1, allowed: 0 }]);
   });
 
   it("reports a file that was not on the list at all", () => {
-    assert.deepEqual(regressions(before, tierList([failing("src/new.ts", "no-var")])), [{ file: "src/new.ts", rule: "no-var" }]);
+    assert.deepEqual(regressions(before, tierList([failing("src/new.ts", "no-var")])), [{ file: "src/new.ts", rule: "no-var", count: 1, allowed: 0 }]);
   });
 });
 
 describe("drained", () => {
   it("names what stopped failing, which is the whole point of re-running", () => {
     const before = tierList([failing("src/a.ts", "no-var"), failing("src/b.ts", "no-var")]);
-    assert.deepEqual(drained(before, tierList([failing("src/b.ts", "no-var")])), [{ file: "src/a.ts", rule: "no-var" }]);
+    assert.deepEqual(drained(before, tierList([failing("src/b.ts", "no-var")])), [{ file: "src/a.ts", rule: "no-var", count: 0, allowed: 1 }]);
+  });
+
+  it("counts a pair that shrank without disappearing", () => {
+    const before = tierList([failing("src/a.ts", "no-var", 5)]);
+    assert.deepEqual(drained(before, tierList([failing("src/a.ts", "no-var", 2)])), [{ file: "src/a.ts", rule: "no-var", count: 2, allowed: 5 }]);
+  });
+});
+
+describe("violations", () => {
+  it("is every violation the list excuses, which is the number to drive to zero", () => {
+    assert.equal(violations(tierList([failing("src/a.ts", "no-var", 3), failing("src/b.ts", "max-depth", 2)])), 5);
+    assert.equal(violations([]), 0);
   });
 });
 
@@ -77,7 +100,7 @@ describe("parseLedger", () => {
   });
 
   it("reads a list of entries", () => {
-    assert.deepEqual(parseLedger('[{"file":"a.ts","rules":["no-var"]}]'), { present: true, entries: [{ file: "a.ts", rules: ["no-var"] }] });
+    assert.deepEqual(parseLedger('[{"file":"a.ts","rules":{"no-var":2}}]'), { present: true, entries: [{ file: "a.ts", rules: { "no-var": 2 } }] });
   });
 
   /** Starting over from an unreadable ledger would write in everything that has failed since. */
@@ -87,7 +110,9 @@ describe("parseLedger", () => {
 
   it("refuses valid JSON of the wrong shape", () => {
     assert.equal(parseLedger('{"a.ts":["no-var"]}'), null);
-    assert.equal(parseLedger('[{"file":"a.ts","rules":[1]}]'), null);
+    assert.equal(parseLedger('[{"file":"a.ts","rules":["no-var"]}]'), null, "the countless shape is not a ledger");
+    assert.equal(parseLedger('[{"file":"a.ts","rules":{"no-var":0}}]'), null, "a zero count is not an exception");
+    assert.equal(parseLedger('[{"file":"a.ts","rules":{"no-var":"2"}}]'), null);
     assert.equal(parseLedger('[{"file":"a.ts"}]'), null);
   });
 });
@@ -104,11 +129,11 @@ describe("refused", () => {
    * ledger is a DRAINED repo, and a new violation in it must be refused, not written back in.
    */
   it("refuses a new violation against a drained ledger", () => {
-    assert.deepEqual(refused({ present: true, entries: [] }, now), [{ file: "src/new.ts", rule: "no-var" }]);
+    assert.deepEqual(refused({ present: true, entries: [] }, now), [{ file: "src/new.ts", rule: "no-var", count: 1, allowed: 0 }]);
   });
 
   it("excuses a pair the present ledger already lists", () => {
-    assert.deepEqual(refused({ present: true, entries: [{ file: "src/new.ts", rules: ["no-var"] }] }, now), []);
+    assert.deepEqual(refused({ present: true, entries: [{ file: "src/new.ts", rules: { "no-var": 1 } }] }, now), []);
   });
 });
 
