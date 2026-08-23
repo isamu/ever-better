@@ -134,6 +134,23 @@ describe("detectCi", () => {
     assert.equal(ci.runsBuild, false);
   });
 
+  it("recognises the explicit `run` form every manager accepts", () => {
+    // `yarn run lint` is what the Vite scaffold writes, and reading it as "no lint in CI" makes
+    // the review-tier gaps fire against a repo that already runs the whole tier.
+    const ci = detectCi(workflow("run: yarn run lint\nrun: pnpm run test\nrun: bun run build\nrun: npm run typecheck"));
+    assert.equal(ci.runsLint, true);
+    assert.equal(ci.runsTest, true);
+    assert.equal(ci.runsBuild, true);
+    assert.equal(ci.runsTypecheck, true);
+  });
+
+  it("does not read one script's name out of another", () => {
+    const ci = detectCi(workflow("run: yarn run lint:fix\nrun: yarn run test-setup\nrun: yarn build --watch"));
+    assert.equal(ci.runsLint, true, "a colon namespaces the same tier");
+    assert.equal(ci.runsBuild, true);
+    assert.equal(ci.runsTest, false, "test-setup is not the test script");
+  });
+
   it("sees whether the gate itself is wired, which thorough CI can still miss", () => {
     const without = detectCi(workflow("run: yarn lint\nrun: yarn test"));
     assert.equal(without.runsEverBetterCheck, false);

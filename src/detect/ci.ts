@@ -4,7 +4,16 @@ import type { CiCoverage, WorkflowFile } from "../types.ts";
 // FILENAMES like `windows-daily.yaml` and reported a runner the repo never used.
 const RUNNER_PATTERN = /(?:ubuntu|macos|windows)-(?:latest|\d[\w.]*)/g;
 
-const mentions = (content: string, script: string): boolean => new RegExp(`(yarn|npm run|pnpm|bun run)\\s+${script}\\b`).test(content);
+/**
+ * Every manager accepts both `<mgr> <script>` and `<mgr> run <script>`, and the Vite scaffold
+ * writes the second — reading that as "no lint in CI" fires the review gaps at a repo already
+ * running the whole tier.
+ *
+ * The boundary is `(?![\w-])` rather than `\b`: a colon namespaces one tier (`lint:fix` is still
+ * lint), while a hyphen names a different script (`test-setup` is not the test run), and `\b`
+ * cannot tell those apart because both characters end a word.
+ */
+const mentions = (content: string, script: string): boolean => new RegExp(`(?:yarn|npm|pnpm|bun)\\s+(?:run\\s+)?${script}(?![\\w-])`).test(content);
 
 /**
  * Read as text rather than parsed YAML on purpose: `runs-on` may be a matrix expression, a string,
