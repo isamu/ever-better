@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { findWeakRules, isRuleOff, isRuleWarnOnly, HIGH_VALUE_RULES } from "../src/probe/effectiveRules.ts";
-import { findMissingStrictness, isStrictOff } from "../src/probe/effectiveTsconfig.ts";
+import { findMissingStrictness, isStrictOff, projectForSample, referencePaths } from "../src/probe/effectiveTsconfig.ts";
 import { sampleSourceFile } from "../src/probe/gather.ts";
 import type { SourceFile } from "../src/types.ts";
 
@@ -123,5 +123,43 @@ describe("sampleSourceFile", () => {
 
   it("returns null for an empty repo", () => {
     assert.equal(sampleSourceFile([]), null);
+  });
+});
+
+describe("referencePaths", () => {
+  it("lists a solution-style root's projects", () => {
+    const root = { compilerOptions: {}, references: [{ path: "./tsconfig.app.json" }, { path: "./tsconfig.node.json" }] };
+    assert.deepEqual(referencePaths(root), ["./tsconfig.app.json", "./tsconfig.node.json"]);
+  });
+
+  it("is empty for an ordinary config, and for none at all", () => {
+    assert.deepEqual(referencePaths({ compilerOptions: { strict: true } }), []);
+    assert.deepEqual(referencePaths(null), []);
+  });
+});
+
+describe("projectForSample", () => {
+  const app = { compilerOptions: { strict: true }, files: ["./src/a.ts", "./src/b.ts"] };
+  const node = { compilerOptions: {}, files: ["./vite.config.ts"] };
+
+  it("picks the project that compiles the sample", () => {
+    assert.equal(projectForSample([node, app], "src/b.ts"), app);
+    assert.equal(projectForSample([node, app], "vite.config.ts"), node);
+  });
+
+  it("matches whether or not the paths carry a ./ prefix", () => {
+    assert.equal(projectForSample([app], "./src/a.ts"), app);
+    assert.equal(projectForSample([{ compilerOptions: {}, files: ["src/a.ts"] }], "./src/a.ts")?.files?.length, 1);
+  });
+
+  it("falls back to the widest project when the sample is in none of them", () => {
+    // A build script under `scripts/` belongs to no project; answering about the biggest one
+    // beats answering nothing, because nothing reads as "strict is off".
+    assert.equal(projectForSample([node, app], "scripts/build.ts"), app);
+    assert.equal(projectForSample([node, app], null), app);
+  });
+
+  it("has nothing to pick from without projects", () => {
+    assert.equal(projectForSample([], "src/a.ts"), null);
   });
 });
