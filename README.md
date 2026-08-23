@@ -335,6 +335,12 @@ overlapping runs would each publish a list computed before the other's fixes lan
 write would re-open what the earlier one drained. A lock whose process is gone is taken over, so a
 crashed run cannot wedge the repository.
 
+The generated file **exempts itself from linting**, because nobody can act on a finding in a file
+they are told not to edit — and one arrives on its own: a long enough path pushes a line past your
+`printWidth` and Prettier reports an error that appears *after* the scan, so nothing excuses it. If
+your config is left pointing at a name an earlier version generated, `tier` repoints it and removes
+the file it superseded.
+
 **Commit both generated files.** `eslint-tier.config.mjs` is what ESLint reads; `.ever-better/tier.json`
 is the list the next run compares against. A missing ledger means there is nothing to compare to, so
 the run takes a fresh tier — and an empty ledger is **not** the same as a missing one. A repository

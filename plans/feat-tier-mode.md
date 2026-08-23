@@ -56,7 +56,7 @@ reimplements it.
 
 ## Where the list lives
 
-A generated file — `eslint-tier.config.mjs`, or `.cjs` beside an `eslint.config.cjs` — wholly owned by this tool and safe to overwrite, the
+A generated file — `eslint-tier.config.mjs`, or `.cjs` when the config it is wired into is CommonJS — wholly owned by this tool and safe to overwrite, the
 way `eslint-suppressions.json` is. The user's own config is edited **once**, to import and spread it
 last so it wins, and never again. Repeatedly rewriting a file somebody else owns is the thing
 `bootstrap` already refuses to do.

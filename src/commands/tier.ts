@@ -2,7 +2,17 @@ import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
 import { suppressInto } from "../eslintRunner.ts";
-import { importsTier, renderTierConfig, SPREAD_BLOCK, tierConfigFileName, withTierImport } from "../generate/tierConfig.ts";
+import {
+  GENERATED_MARKER,
+  hasTierImport,
+  importsTier,
+  moduleSystemOf,
+  renderTierConfig,
+  SPREAD_BLOCK,
+  TIER_CONFIG_NAMES,
+  tierConfigFileName,
+  withTierImport,
+} from "../generate/tierConfig.ts";
 import { appendConfigBlocks } from "../generate/eslintAppend.ts";
 import { parseSuppressions } from "../suppressionsFile.ts";
 import { isProcessAlive } from "../util/pid.ts";
@@ -23,7 +33,18 @@ const LOCK = path.join(".ever-better", "tier.lock");
 
 const CONFIG_NAMES = ["eslint.config.js", "eslint.config.mjs", "eslint.config.cjs", "eslint.config.ts"];
 
-const readLedger = async (cwd: string): Promise<Ledger | null> => parseLedger(await readFile(path.join(cwd, LEDGER), "utf8").catch(() => null));
+/**
+ * Only ENOENT means "no tier taken yet". A ledger that is there and cannot be read — a directory, a
+ * permission, a truncated write — is the strictest possible input, and treating it as absent hands
+ * back a fresh baseline that forgives everything failing today.
+ */
+const readLedger = async (cwd: string): Promise<Ledger | null> => {
+  try {
+    return parseLedger(await readFile(path.join(cwd, LEDGER), "utf8"));
+  } catch (cause) {
+    return isErrno(cause) && cause.code === "ENOENT" ? parseLedger(null) : null;
+  }
+};
 
 /**
  * ESLint computes the failing set; nothing here reimplements it. The scratch file is
@@ -74,6 +95,19 @@ const refusal = (pairs: readonly TierPair[]): TierResult => ({
   ].join("\n"),
 });
 
+/** `"type"` from package.json, which is what decides whether a `.js` file is ESM — for Node, and so here. */
+const packageType = async (cwd: string): Promise<string | null> => {
+  const text = await readFile(path.join(cwd, "package.json"), "utf8").catch(() => null);
+  if (text === null) return null;
+  try {
+    const parsed: unknown = JSON.parse(text);
+    const type = isRecord(parsed) ? parsed["type"] : null;
+    return typeof type === "string" ? type : null;
+  } catch {
+    return null;
+  }
+};
+
 type EslintConfig = { name: string; source: string };
 
 const findConfig = async (cwd: string): Promise<EslintConfig | null> => {
@@ -84,17 +118,42 @@ const findConfig = async (cwd: string): Promise<EslintConfig | null> => {
   return null;
 };
 
-/** Edited once and never again: rewriting a file somebody else owns on every run is what `bootstrap` refuses to do. */
+/**
+ * Edited once and never again — except to repoint it. A config still importing the name an earlier
+ * version generated keeps applying that file's exceptions while the ledger describes the new one,
+ * and the stale file is the more permissive of the two.
+ */
 const wireConfig = async (cwd: string, config: EslintConfig, tierConfigName: string): Promise<string | null> => {
-  if (importsTier(config.source)) return null;
-  const spread = appendConfigBlocks(config.source, [SPREAD_BLOCK.join("\n")]);
+  if (importsTier(config.source, tierConfigName)) return null;
+  const repoint = hasTierImport(config.source);
+  const spread = repoint ? config.source : appendConfigBlocks(config.source, [SPREAD_BLOCK.join("\n")]);
   if (spread === null) return `Could not edit ${config.name} — add \`...everBetterTier\` last yourself.`;
   await writeAtomic(path.join(cwd, config.name), withTierImport(spread, tierConfigName));
-  return `Wired ${config.name} to spread the generated list last, so it wins.`;
+  const removed = await removeSuperseded(cwd, tierConfigName);
+  const wired = repoint ? `Repointed ${config.name} at ${tierConfigName}.` : `Wired ${config.name} to spread the generated list last, so it wins.`;
+  return removed === null ? wired : `${wired} ${removed}`;
+};
+
+/**
+ * The file the rename left behind. ESLint would still lint it — and every rule it downgrades would
+ * still apply if anything still imported it. Only a file this tool wrote is removed; the header is
+ * the proof, so a name collision with something a person owns is left alone.
+ */
+const removeSuperseded = async (cwd: string, keep: string): Promise<string | null> => {
+  const stale = TIER_CONFIG_NAMES.filter((name) => name !== keep);
+  const removed: string[] = [];
+  for (const name of stale) {
+    const target = path.join(cwd, name);
+    const source = await readFile(target, "utf8").catch(() => null);
+    if (source === null || !source.startsWith(GENERATED_MARKER)) continue;
+    await rm(target, { force: true });
+    removed.push(name);
+  }
+  return removed.length === 0 ? null : `Removed the superseded ${removed.join(", ")}.`;
 };
 
 const healMissing = async (cwd: string, config: EslintConfig, tierConfigName: string): Promise<void> => {
-  if (!importsTier(config.source)) return;
+  if (!importsTier(config.source, tierConfigName)) return;
   const target = path.join(cwd, tierConfigName);
   const present = await readFile(target, "utf8").then(
     () => true,
@@ -104,7 +163,7 @@ const healMissing = async (cwd: string, config: EslintConfig, tierConfigName: st
 };
 
 const INVALID_LEDGER = [
-  `${LEDGER} exists but is not a list of {file, rules} entries.`,
+  `${LEDGER} exists but could not be read as a list of {file, rules} entries.`,
   "",
   "This refuses rather than starting over: rebaselining off an unreadable ledger would write in",
   "everything that has failed since it was last valid. Restore it from git, or delete it on purpose",
@@ -113,9 +172,11 @@ const INVALID_LEDGER = [
 
 const NO_CONFIG = "No ESLint config found. Run `ever-better bootstrap` first.";
 
-const isErrno = (value: unknown): value is { code?: unknown } => typeof value === "object" && value !== null;
+const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null;
 
-const held = (holder: string): TierResult => ({
+const isErrno = (value: unknown): value is { code?: unknown } => isRecord(value);
+
+const busy = (holder: string): TierResult => ({
   ok: false,
   message: [
     `Another \`ever-better tier\` (pid ${holder}) is running in this repository.`,
@@ -131,30 +192,41 @@ const held = (holder: string): TierResult => ({
  * read-scan-write: two overlapping runs each publish a snapshot taken before the other's fixes, and
  * the loser's exceptions come back from the dead.
  *
- * A lock left by a killed process would wedge the repository, so a lock whose pid is gone is taken
- * over. `process.kill(pid, 0)` tests for existence without signalling, on Windows too.
+ * `wx` is the arbiter — an atomic create that fails if the file is there. A lock left by a killed
+ * process would wedge the repository, so a lock whose pid is gone is removed and the create retried;
+ * losing that retry means someone else got there first, and this refuses rather than proceeding.
+ *
+ * A window remains: two runs can both find the same dead holder and both take over. What that costs
+ * is bounded — the loser republishes a superset of the winner's list, every entry of which the
+ * ledger already excused, so nothing is forgiven that was not already, and the next run drains what
+ * the loser put back. It is the reason this is a lock and not the whole guarantee; `refused()` is.
  */
 const acquire = async (cwd: string): Promise<string | null> => {
   const lock = path.join(cwd, LOCK);
   await mkdir(path.dirname(lock), { recursive: true });
-  const mine = String(process.pid);
+  const held = await claim(lock);
+  if (held === null) return null;
+  if (isProcessAlive(Number(held))) return held;
+  await rm(lock, { force: true });
+  return claim(lock);
+};
+
+/** Returns the holder's pid when the lock is already taken, and null when this run now holds it. */
+const claim = async (lock: string): Promise<string | null> => {
   try {
-    await writeFile(lock, `${mine}\n`, { flag: "wx" });
+    await writeFile(lock, `${process.pid}\n`, { flag: "wx" });
     return null;
   } catch (cause) {
     if (!isErrno(cause) || cause.code !== "EEXIST") throw cause;
   }
   const holder = (await readFile(lock, "utf8").catch(() => "")).trim();
-  if (holder !== "" && isProcessAlive(Number(holder))) return holder;
-  // The holder is gone. Replacing the file is safe: whoever wrote it is not coming back.
-  await writeFile(lock, `${mine}\n`, "utf8");
-  return null;
+  return holder === "" ? "unknown" : holder;
 };
 
 const take = async (options: TierOptions): Promise<TierResult> => {
   const config = await findConfig(options.cwd);
   if (config === null) return { ok: false, message: NO_CONFIG };
-  const tierConfigName = tierConfigFileName(config.name);
+  const tierConfigName = tierConfigFileName(moduleSystemOf(config.name, config.source, await packageType(options.cwd)));
 
   const ledger = await readLedger(options.cwd);
   if (ledger === null) return { ok: false, message: INVALID_LEDGER };
@@ -190,7 +262,7 @@ const take = async (options: TierOptions): Promise<TierResult> => {
 
 export const runTier = async (options: TierOptions): Promise<TierResult> => {
   const holder = await acquire(options.cwd);
-  if (holder !== null) return held(holder);
+  if (holder !== null) return busy(holder);
   try {
     return await take(options);
   } finally {

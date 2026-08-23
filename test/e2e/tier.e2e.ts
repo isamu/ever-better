@@ -7,6 +7,15 @@ import { everBetter, run, TIMEOUT_MS } from "./harness.ts";
 
 const LEDGER = path.join(".ever-better", "tier.json");
 
+/**
+ * Deliberately long. A `files:` entry for this path pushes the generated file's line past the
+ * `printWidth` bootstrap writes, and `prettier/prettier` then reports an error in a file the header
+ * says not to edit — after the scan that produced the list, so nothing excuses it and the build
+ * stays red. The generated file exempts itself for that reason, and this is what proves it.
+ */
+const OLD =
+  "src/a-really-quite-long-directory-name/another-long-segment-for-length/and-one-more-for-good-measure/deeply/nested/inside/again/a-generously-long-file-name-here.ts";
+
 const VIOLATION = "export const loose = (value: any) => value;\n";
 
 const CLEAN = "export const tight = (value: string): string => value;\n";
@@ -46,7 +55,8 @@ describe("tier lifecycle", { timeout: TIMEOUT_MS }, () => {
       path.join(repo, "tsconfig.json"),
       `${JSON.stringify({ compilerOptions: { target: "ES2022", module: "nodenext", moduleResolution: "nodenext", strict: true, noEmit: true } }, null, 2)}\n`,
     );
-    await writeFile(path.join(repo, "src", "old.ts"), VIOLATION);
+    await mkdir(path.dirname(path.join(repo, OLD)), { recursive: true });
+    await writeFile(path.join(repo, OLD), VIOLATION);
     const bootstrapped = await everBetter(["bootstrap"], repo);
     assert.equal(bootstrapped.code, 0, bootstrapped.stderr);
   });
@@ -59,7 +69,7 @@ describe("tier lifecycle", { timeout: TIMEOUT_MS }, () => {
     const result = await everBetter(["tier"], repo);
     assert.equal(result.code, 0, result.stderr);
     assert.ok(
-      (await ledger(repo)).some((entry) => entry.file === "src/old.ts"),
+      (await ledger(repo)).some((entry) => entry.file === OLD),
       "the failing file was not written into the list",
     );
     assert.equal(await eslintErrors(repo), 0, "a file the tier excused is still an error");
@@ -81,7 +91,7 @@ describe("tier lifecycle", { timeout: TIMEOUT_MS }, () => {
    */
   it("drains the list as the excused violations are fixed", async () => {
     await rm(path.join(repo, "src", "new.ts"));
-    await writeFile(path.join(repo, "src", "old.ts"), CLEAN);
+    await writeFile(path.join(repo, OLD), CLEAN);
     await run(path.join(repo, "node_modules", ".bin", "eslint"), ["eslint.config.js", "--fix"], repo);
 
     const result = await everBetter(["tier"], repo);
@@ -94,7 +104,7 @@ describe("tier lifecycle", { timeout: TIMEOUT_MS }, () => {
    * follows it used to read `[]` as "no tier taken yet" and grandfather the next violation.
    */
   it("still refuses once the list has drained to nothing", async () => {
-    await writeFile(path.join(repo, "src", "old.ts"), VIOLATION);
+    await writeFile(path.join(repo, OLD), VIOLATION);
     const result = await everBetter(["tier"], repo);
     assert.equal(result.code, 1, "an empty list rebaselined instead of enforcing shrink-only");
     assert.deepEqual(await ledger(repo), [], "the refused run wrote the violation into the ledger");
@@ -116,7 +126,7 @@ describe("tier lifecycle", { timeout: TIMEOUT_MS }, () => {
     assert.equal(result.code, 0, result.stderr);
 
     const generated = await readFile(path.join(repo, "eslint-tier.config.cjs"), "utf8");
-    assert.match(generated, /module\.exports = recomputing \? \[\] : exceptions;/);
+    assert.match(generated, /module\.exports = recomputing \? \[ignoreSelf\] : \[ignoreSelf, \.\.\.exceptions\];/);
     assert.doesNotMatch(generated, /^import /m);
     assert.match(await readFile(path.join(repo, "eslint.config.cjs"), "utf8"), /^const everBetterTier = require\("\.\/eslint-tier\.config\.cjs"\);/);
 
@@ -125,10 +135,69 @@ describe("tier lifecycle", { timeout: TIMEOUT_MS }, () => {
     assert.equal(await eslintErrors(repo), 0, "the tiered violation is still an error");
   });
 
+  /**
+   * A flat config may be CommonJS in a plain `eslint.config.js` — in a package that does not declare
+   * `"type": "module"`, which is what decides it. Wired with an `import`, ESLint answers
+   * `ReferenceError: module is not defined in ES module scope`: no linter at all, while `tier`
+   * reports success.
+   */
+  it("reads a CommonJS eslint.config.js as CommonJS", async () => {
+    const manifest = path.join(repo, "package.json");
+    const esm = await readFile(manifest, "utf8");
+    await writeFile(manifest, esm.replace('"type": "module",', ""));
+    await rm(path.join(repo, LEDGER), { force: true });
+    await rm(path.join(repo, "eslint.config.cjs"), { force: true });
+    await rm(path.join(repo, "eslint-tier.config.cjs"), { force: true });
+    await writeFile(path.join(repo, "eslint.config.js"), 'module.exports = [{ rules: { "no-var": "error" } }];\n');
+    await writeFile(path.join(repo, "src", "old.js"), "var loose = 1;\nmodule.exports = { loose };\n");
+
+    try {
+      const result = await everBetter(["tier"], repo);
+      assert.equal(result.code, 0, result.stderr);
+      assert.match(await readFile(path.join(repo, "eslint.config.js"), "utf8"), /^const everBetterTier = require\("\.\/eslint-tier\.config\.cjs"\);/);
+
+      const lint = await run(path.join(repo, "node_modules", ".bin", "eslint"), ["."], repo);
+      assert.ok(!lint.stderr.includes("Oops"), `eslint could not load the config it was given:\n${lint.stderr}`);
+    } finally {
+      await writeFile(manifest, esm);
+    }
+  });
+
+  /**
+   * A config left pointing at a name an earlier version generated keeps applying that file's
+   * exceptions while the ledger describes the new one, and the stale file is the more permissive.
+   */
+  it("repoints a config wired to a superseded generated file", async () => {
+    await rm(path.join(repo, "eslint.config.js"), { force: true });
+    await rm(path.join(repo, "eslint.config.cjs"), { force: true });
+    await rm(path.join(repo, "src", "old.js"), { force: true });
+    await writeFile(
+      path.join(repo, "eslint-tier.config.js"),
+      "// Generated by ever-better. Do not edit — `ever-better tier` rewrites this file.\nexport default [];\n",
+    );
+    await writeFile(path.join(repo, "eslint.config.js"), 'import everBetterTier from "./eslint-tier.config.js";\nexport default [...everBetterTier];\n');
+
+    const result = await everBetter(["tier"], repo);
+    assert.equal(result.code, 0, result.stderr);
+    assert.match(result.stdout, /Repointed eslint\.config\.js at eslint-tier\.config\.mjs/);
+    assert.match(await readFile(path.join(repo, "eslint.config.js"), "utf8"), /from "\.\/eslint-tier\.config\.mjs"/);
+    await assert.rejects(readFile(path.join(repo, "eslint-tier.config.js"), "utf8"), "the superseded file was left behind");
+  });
+
+  /** Unreadable is not missing: starting over would forgive everything failing today. */
+  it("refuses a ledger it cannot read at all", async () => {
+    await rm(path.join(repo, LEDGER), { force: true });
+    await mkdir(path.join(repo, LEDGER), { recursive: true });
+    const result = await everBetter(["tier"], repo);
+    assert.equal(result.code, 1, "a ledger that cannot be read was treated as a fresh start");
+    assert.match(result.stdout, /could not be read/);
+    await rm(path.join(repo, LEDGER), { recursive: true });
+  });
+
   it("refuses a ledger it cannot read rather than starting over", async () => {
     await writeFile(path.join(repo, LEDGER), '[{"file":"src/old.ts","rul');
     const result = await everBetter(["tier"], repo);
     assert.equal(result.code, 1, "an unreadable ledger was treated as a fresh start");
-    assert.match(result.stdout, /not a list of \{file, rules\} entries/);
+    assert.match(result.stdout, /could not be read as a list of \{file, rules\} entries/);
   });
 });

@@ -176,6 +176,17 @@ in this repo's own lint. Two already did: the generated config produced an unsup
 error on itself, and a `node:test` repo got a config that flagged every `describe`. Both are now
 pinned by tests in `test/test_render.ts`. Add one for every rule the generator emits.
 
+## A generated config must exempt itself from the lint it generates
+
+Nobody can act on a finding in a file whose header says not to edit it, and one arrives without
+being invited: a long enough path pushes a `files:` line past the repository's `printWidth`, and
+`prettier/prettier` reports an error in `eslint-tier.config.mjs`. It appears AFTER the scan that
+produced the list, so nothing excuses it — the build goes red and the only way down is to edit the
+file by hand. `renderTierConfig` therefore emits `{ ignores: [<its own name>] }` in BOTH branches,
+including the recompute one, or the file lands in its own exception list. An object carrying only
+`ignores` is global ignores wherever it appears, spread in last included — verified against ESLint
+10, not read in the docs.
+
 ## A generated file that Node has to load is never a bare `.js`
 
 `.js` means "whatever the nearest package.json says". `bootstrap` writes `eslint.config.mjs` for a

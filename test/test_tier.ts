@@ -1,6 +1,15 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { renderTierConfig, importsTier, tierConfigFileName, withTierImport, SPREAD_BLOCK, TIER_RECOMPUTE_ENV } from "../src/generate/tierConfig.ts";
+import {
+  renderTierConfig,
+  hasTierImport,
+  importsTier,
+  moduleSystemOf,
+  tierConfigFileName,
+  withTierImport,
+  SPREAD_BLOCK,
+  TIER_RECOMPUTE_ENV,
+} from "../src/generate/tierConfig.ts";
 import { drained, parseLedger, refused, regressions, ruleNames, tierList } from "../src/tier.ts";
 import type { Suppression } from "../src/suppressionsFile.ts";
 
@@ -146,46 +155,77 @@ describe("renderTierConfig", () => {
   it("steps aside while the list is being recomputed", () => {
     const rendered = config();
     assert.match(rendered, new RegExp(`const recomputing = process\\.env\\.${TIER_RECOMPUTE_ENV} === "1";`));
-    assert.match(rendered, /export default recomputing \? \[\] : exceptions;/);
+    assert.match(rendered, /export default recomputing \? \[ignoreSelf\] : \[ignoreSelf, \.\.\.exceptions\];/);
   });
 });
 
 describe("the generated file's name and module system", () => {
   /**
+   * The extension does not answer this on its own: a flat config may be CommonJS in a plain
+   * `eslint.config.js`, and an `import` prepended to one leaves ESLint with `ReferenceError: module
+   * is not defined in ES module scope` — no linter at all, while `tier` reports success.
+   */
+  it("reads a CommonJS eslint.config.js as CommonJS", () => {
+    assert.equal(moduleSystemOf("eslint.config.js", "module.exports = [];\n", null), "cjs");
+  });
+
+  /** Node decides a `.js` file by the package type first, so this does too. */
+  it('lets "type": "module" outrank what the source looks like', () => {
+    assert.equal(moduleSystemOf("eslint.config.js", "module.exports = [];\n", "module"), "esm");
+    assert.equal(moduleSystemOf("eslint.config.js", "export default [];\n", "commonjs"), "esm");
+  });
+
+  it("reads an ESM eslint.config.js as ESM", () => {
+    assert.equal(moduleSystemOf("eslint.config.js", "export default [];\n", null), "esm");
+  });
+
+  it("trusts an explicit extension over the source", () => {
+    assert.equal(moduleSystemOf("eslint.config.cjs", "export default [];\n", "module"), "cjs");
+    assert.equal(moduleSystemOf("eslint.config.mjs", "module.exports = [];\n", null), "esm");
+    assert.equal(moduleSystemOf("eslint.config.ts", "module.exports = [];\n", null), "esm");
+  });
+
+  /**
    * Never a bare `.js`: that means "whatever the nearest package.json says", so in a package without
    * `"type": "module"` an ESM file is read as CommonJS. Node below 20.19 refuses it and the
    * repository is left with no working linter.
    */
-  it("is .mjs for every ESM config shape", () => {
-    ["eslint.config.js", "eslint.config.mjs", "eslint.config.ts"].forEach((name) => {
-      assert.equal(tierConfigFileName(name), "eslint-tier.config.mjs");
-    });
-  });
-
-  it("is .cjs for a CommonJS config", () => {
-    assert.equal(tierConfigFileName("eslint.config.cjs"), "eslint-tier.config.cjs");
+  it("names the file for the module system, never .js", () => {
+    assert.equal(tierConfigFileName("esm"), "eslint-tier.config.mjs");
+    assert.equal(tierConfigFileName("cjs"), "eslint-tier.config.cjs");
   });
 
   it("renders ESM for a .mjs name", () => {
     const rendered = renderTierConfig([], "eslint-tier.config.mjs");
     assert.match(rendered, /^import process from "node:process";$/m);
-    assert.match(rendered, /^export default recomputing \? \[\] : exceptions;$/m);
+    assert.match(rendered, /^export default recomputing \? \[ignoreSelf\] : \[ignoreSelf, \.\.\.exceptions\];$/m);
   });
 
   /** ESM syntax in a `.cjs` file does not fail loudly — ESLint reports the config as unloadable. */
   it("renders CommonJS for a .cjs name", () => {
     const rendered = renderTierConfig([], "eslint-tier.config.cjs");
     assert.match(rendered, /^const process = require\("node:process"\);$/m);
-    assert.match(rendered, /^module\.exports = recomputing \? \[\] : exceptions;$/m);
+    assert.match(rendered, /^module\.exports = recomputing \? \[ignoreSelf\] : \[ignoreSelf, \.\.\.exceptions\];$/m);
     assert.doesNotMatch(rendered, /^import /m);
     assert.doesNotMatch(rendered, /^export /m);
+  });
+
+  /**
+   * A long path pushes a `files:` line past the repository's `printWidth`, and `prettier/prettier`
+   * then reports an error in a file whose header says not to edit it — after the scan that produced
+   * the list, so nothing excuses it and the build stays red.
+   */
+  it("exempts itself from linting, in both branches", () => {
+    const rendered = renderTierConfig(tierList([failing("src/a.ts", "no-var")]), "eslint-tier.config.mjs");
+    assert.match(rendered, /const ignoreSelf = \{ ignores: \["eslint-tier\.config\.mjs"\] \};/);
+    assert.match(rendered, /recomputing \? \[ignoreSelf\] :/);
   });
 });
 
 describe("wiring the repository's own config", () => {
   it("recognises a config that already spreads the list", () => {
     const wired = withTierImport(`export default [\n${SPREAD_BLOCK.join("\n")}\n];\n`, "eslint-tier.config.mjs");
-    assert.equal(importsTier(wired), true);
+    assert.equal(importsTier(wired, "eslint-tier.config.mjs"), true);
   });
 
   it("imports a CommonJS config with require, not import", () => {
@@ -194,13 +234,31 @@ describe("wiring the repository's own config", () => {
     assert.doesNotMatch(wired, /^import /m);
   });
 
-  /** Wiring twice declares the binding twice — a syntax error, and the repository loses its linter. */
-  it("recognises a wired config whichever module system it uses", () => {
-    assert.equal(importsTier(withTierImport("module.exports = [];\n", "eslint-tier.config.cjs")), true);
-    assert.equal(importsTier(withTierImport("export default [];\n", "eslint-tier.config.mjs")), true);
+  it("does not mistake an unwired config for a wired one", () => {
+    assert.equal(importsTier("export default [];\n", "eslint-tier.config.mjs"), false);
+    assert.equal(hasTierImport("export default [];\n"), false);
   });
 
-  it("does not mistake an unwired config for a wired one", () => {
-    assert.equal(importsTier("export default [];\n"), false);
+  /**
+   * A config left pointing at the name an earlier version generated keeps applying that file's
+   * exceptions while the ledger describes the new one — and the stale file is the more permissive.
+   */
+  it("is not satisfied by an import of a different generated file", () => {
+    const stale = 'import everBetterTier from "./eslint-tier.config.js";\nexport default [];\n';
+    assert.equal(hasTierImport(stale), true);
+    assert.equal(importsTier(stale, "eslint-tier.config.mjs"), false);
+  });
+
+  /** Wiring twice declares the binding twice — a syntax error, and the repository loses its linter. */
+  it("repoints an existing import instead of adding a second one", () => {
+    const stale = 'import everBetterTier from "./eslint-tier.config.js";\nexport default [];\n';
+    const repointed = withTierImport(stale, "eslint-tier.config.mjs");
+    assert.equal(repointed.split("\n").filter((line) => line.includes("everBetterTier")).length, 1);
+    assert.equal(importsTier(repointed, "eslint-tier.config.mjs"), true);
+  });
+
+  it("repoints across module systems too", () => {
+    const stale = 'const everBetterTier = require("./eslint-tier.config.cjs");\nmodule.exports = [];\n';
+    assert.equal(importsTier(withTierImport(stale, "eslint-tier.config.mjs"), "eslint-tier.config.mjs"), true);
   });
 });
