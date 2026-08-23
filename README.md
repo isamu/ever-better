@@ -329,8 +329,15 @@ warning population; running both counts it once in a precise ledger and once in 
 
 The generated file is wholly owned by the tool and safe to overwrite, the way
 `eslint-suppressions.json` is; your own config is edited **once**, to spread it last so it wins. It is
-`eslint-tier.config.mjs`, or `eslint-tier.config.cjs` beside an `eslint.config.cjs` — never a bare
-`.js`, which would mean CommonJS in a package that does not declare `"type": "module"`.
+`eslint-tier.config.mjs`, or `eslint-tier.config.cjs` whenever the config it is wired into is
+CommonJS — an `eslint.config.cjs` or `.cts`, or an `eslint.config.js` using `module.exports` in a
+package that does not declare `"type": "module"`. Never a bare `.js`, which would mean CommonJS in
+exactly that package and ESM in the other.
+
+Before the ledger is written, `tier` asks `eslint --print-config` whether a listed pair really came
+out as a **warning**. Editing a config file is textual surgery, and text that looks like wiring is
+not the same as wiring that works — a spread inside a comment, or one that is not last and so gets
+overridden by a later block, both leave a ledger describing a repository nobody is living in.
 
 One run at a time: `tier` takes `.ever-better/tier.lock` for the whole read-scan-write, because two
 overlapping runs would each publish a list computed before the other's fixes landed and the later

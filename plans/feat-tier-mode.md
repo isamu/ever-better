@@ -52,8 +52,9 @@ lands on files outside the type program — a generated `eslint.config.js`, any 
 aborts the run: *"you have used a rule which requires type information"*. It survived a fixture with
 only `no-var` and died on the first real bootstrapped repository, which is what the e2e is for.
 
-So the generated file steps aside instead. `eslint-tier.config.mjs` exports `[]` when it sees
-`EVER_BETTER_TIER_RECOMPUTE`, and `tier` sets that for its own scan: `--suppress-all` into a
+So the generated file steps aside instead. `eslint-tier.config.mjs` drops its exceptions when it
+sees `EVER_BETTER_TIER_RECOMPUTE` — keeping only the block that exempts the file itself from being
+linted — and `tier` sets that for its own scan: `--suppress-all` into a
 temporary location, read the file-by-rule counts out of it, delete it. Nothing global is overridden,
 the file that yields is one this tool owns, and ESLint still computes the failing set — nothing here
 reimplements it.

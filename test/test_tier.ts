@@ -291,6 +291,14 @@ describe("wiring the repository's own config", () => {
     assert.equal(spreadsTier(halfway), false);
   });
 
+  /** Commenting the spread out is how somebody turns the tier off by hand. It is not wiring. */
+  it("does not read a spread inside a comment as wiring", () => {
+    assert.equal(spreadsTier("export default [\n  // ...everBetterTier,\n];\n"), false);
+    assert.equal(spreadsTier("export default [\n  /**\n   * ...everBetterTier\n   */\n];\n"), false);
+    assert.equal(spreadsTier("export default [\n  ...everBetterTier, // last so it wins\n];\n"), true);
+    assert.equal(spreadsTier("export default [...everBetterTier];\n"), true);
+  });
+
   it("names the generated file a config actually imports, which need not be the current one", () => {
     assert.equal(importedTierName('import everBetterTier from "./eslint-tier.config.js";\n'), "eslint-tier.config.js");
     assert.equal(importedTierName('const everBetterTier = require("./eslint-tier.config.cjs");\n'), "eslint-tier.config.cjs");

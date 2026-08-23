@@ -238,7 +238,9 @@ CI では `ever-better tier` ではなく **`ever-better tier --check`** を回�
 
 **両方は動かさないでください。** warn に降格した違反は suppressions の台帳から warning の母集団へ**移動**するので、両方動かすと同じ違反が精密な台帳と粗い台帳の両方に載ります。
 
-生成ファイルは `eslint-suppressions.json` と同じくツールが所有していて上書き安全です。あなたの config は**一度だけ**編集され、最後に spread されます（後勝ちのため）。 名前は `eslint-tier.config.mjs`、`eslint.config.cjs` の隣なら `eslint-tier.config.cjs` です — 素の `.js` にはしません（`"type": "module"` の無いパッケージでは CommonJS 扱いになるため）。
+生成ファイルは `eslint-suppressions.json` と同じくツールが所有していて上書き安全です。あなたの config は**一度だけ**編集され、最後に spread されます（後勝ちのため）。 名前は `eslint-tier.config.mjs`、書き込む先の config が CommonJS なら `eslint-tier.config.cjs` です（`eslint.config.cjs` / `.cts`、あるいは `"type": "module"` の無いパッケージで `module.exports` を使う `eslint.config.js`）。素の `.js` にはしません — そのパッケージでは CommonJS、別のパッケージでは ESM という曖昧な拡張子だからです。
+
+台帳を書く前に、`tier` は `eslint --print-config` で「リストに載っているペアが本当に warning になっているか」を確認します。config ファイルの編集はテキスト操作であり、**配線に見えるテキストは動く配線と同じではありません** — コメント内の spread や、最後に置かれず後続ブロックに上書きされてしまう spread は、実際には効いていない tier を台帳に書き残します。
 
 **実行は同時に1つだけ**です。read→scan→write の全体で `.ever-better/tier.lock` を取ります。2つが重なると、互いの修正が入る前に計算したリストをそれぞれ書き出し、後勝ちで「先に消えたはずの例外」が復活するからです。プロセスが既に居ない lock は奪い取るので、クラッシュしたrunがリポジトリを固めることはありません。
 

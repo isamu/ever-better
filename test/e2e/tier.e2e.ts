@@ -216,6 +216,31 @@ describe("tier lifecycle", { timeout: TIMEOUT_MS }, () => {
   });
 
   /**
+   * Text that looks like wiring is not wiring that works. A spread that is not LAST is overridden by
+   * whatever comes after it, and no amount of reading the file says so — `eslint --print-config`
+   * does, and it is what decides whether the ledger gets written.
+   */
+  it("refuses when the spread is there but overridden", async () => {
+    await rm(path.join(repo, LEDGER), { force: true });
+    await rm(path.join(repo, "eslint.config.cjs"), { force: true });
+    await rm(path.join(repo, "src", "old.js"), { force: true });
+    await writeFile(
+      path.join(repo, "eslint.config.js"),
+      'import everBetterTier from "./eslint-tier.config.mjs";\nexport default [...everBetterTier, { rules: { "no-var": "error" } }];\n',
+    );
+    await writeFile(path.join(repo, "src", "late.js"), "var loose = 1;\nexport { loose };\n");
+
+    try {
+      const result = await everBetter(["tier"], repo);
+      assert.equal(result.code, 1, "a tier that ESLint does not apply was recorded");
+      assert.match(result.stdout, /still reports .* as an error/);
+      await assert.rejects(readFile(path.join(repo, LEDGER), "utf8"), "the ledger recorded a tier that is not in force");
+    } finally {
+      await rm(path.join(repo, "src", "late.js"), { force: true });
+    }
+  });
+
+  /**
    * The import is half the wiring. A config that imports the list and never spreads it downgrades
    * nothing, so calling it wired records a tier the repository is not living under — and the file
    * the ledger says is excused is still an error.

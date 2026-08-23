@@ -77,8 +77,9 @@ type-aware rule forced on lands on files outside the type program, and ESLint ab
 with *"you have used a rule which requires type information"*. A generated `eslint.config.js` is
 enough to trigger it.
 
-The generated `eslint-tier.config.mjs` therefore exports `[]` when it sees `EVER_BETTER_TIER_RECOMPUTE`,
-and `tier` sets that for its own scan. Nothing global is overridden, and the file that steps aside
+The generated `eslint-tier.config.mjs` therefore drops its exceptions when it sees
+`EVER_BETTER_TIER_RECOMPUTE` — down to the block that exempts the file itself, never to `[]` — and
+`tier` sets that for its own scan. Nothing global is overridden, and the file that steps aside
 is one the tool owns.
 
 ## Counting violations goes through the formatter, not `--format json`

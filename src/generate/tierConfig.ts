@@ -138,7 +138,13 @@ export const importsTier = (source: string, tierConfigName: string): boolean => 
  * repository is not in — the same defect as a config that could not be edited at all, wearing the
  * disguise of one that looks edited.
  */
-export const spreadsTier = (source: string): boolean => source.includes(`...${IDENTIFIER}`);
+export const spreadsTier = (source: string): boolean =>
+  source.split("\n").some((line) => {
+    const code = line.split("//")[0] ?? "";
+    // A spread commented out is somebody turning the tier off by hand, and reading it as wiring
+    // records a tier that is not in force. `*` catches the block-comment continuation lines.
+    return !code.trim().startsWith("*") && code.includes(`...${IDENTIFIER}`);
+  });
 
 /** The generated file a config actually imports, which is not always the one this run would write. */
 export const importedTierName = (source: string): string | null => {
