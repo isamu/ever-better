@@ -144,6 +144,15 @@ describe("detectCi", () => {
     assert.equal(detectCi(workflow("  lint:\n    name: yarn run lint")).runsLint, false);
   });
 
+  /** `run:` under `with:` is an action's input, not a step — it executes nothing in this workflow. */
+  it("does not count a run: that is an action input", () => {
+    assert.equal(detectCi(workflow("      - uses: acme/action@v1\n        with:\n          run: yarn lint")).runsLint, false);
+  });
+
+  it("still counts a real step that follows one", () => {
+    assert.equal(detectCi(workflow("      - uses: acme/setup@v1\n        with:\n          node-version: 22\n      - run: yarn lint")).runsLint, true);
+  });
+
   it("reads the script a chained command runs, not only the first", () => {
     assert.equal(detectCi(workflow("      - run: yarn install && yarn lint")).runsLint, true);
   });

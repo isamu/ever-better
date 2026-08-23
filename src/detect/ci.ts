@@ -34,6 +34,33 @@ const invokes = (command: string, script: string): boolean => {
   return isScript(args[0], script);
 };
 
+const INDENT = /^[ \t]*/;
+const WITH_KEY = /^[ \t]*with:[ \t]*$/;
+const STEP_START = /^[ \t]*-[ \t]/;
+
+const indentOf = (line: string): number => (INDENT.exec(line)?.[0] ?? "").length;
+
+/**
+ * A `run:` nested under `with:` is an action's INPUT, not a step — `uses: acme/action@v1` with
+ * `run: yarn lint` beneath it executes nothing here. Tracking one indent is enough to tell them
+ * apart and keeps this line-based; parsing the YAML would buy precision nobody uses and a
+ * dependency everybody pays for.
+ */
+const stepRunLines = (lines: readonly string[]): string[] => {
+  const kept: string[] = [];
+  let withIndent: number | null = null;
+  lines.forEach((line) => {
+    if (line.trim().length === 0) return;
+    if (STEP_START.test(line) || (withIndent !== null && indentOf(line) <= withIndent)) withIndent = null;
+    if (WITH_KEY.test(line)) {
+      withIndent = indentOf(line);
+      return;
+    }
+    if (withIndent === null || indentOf(line) <= withIndent) kept.push(line);
+  });
+  return kept;
+};
+
 /**
  * Line by line, and only what a line actually RUNS — matching the raw text reported CI coverage for
  * `run: echo "yarn run lint"` and for a commented-out step, which is the expensive direction: a
@@ -43,10 +70,9 @@ const invokes = (command: string, script: string): boolean => {
  * count. Still not YAML parsing — the same trade the secret-scanner detector documents.
  */
 const mentions = (content: string, script: string): boolean =>
-  content
-    .split("\n")
-    .map((line) => line.split("#")[0] ?? "")
-    .some((line) => (RUN_KEY.exec(line)?.[1] ?? line).split(COMMAND_SEPARATOR).some((command) => invokes(command, script)));
+  stepRunLines(content.split("\n").map((line) => line.split("#")[0] ?? "")).some((line) =>
+    (RUN_KEY.exec(line)?.[1] ?? line).split(COMMAND_SEPARATOR).some((command) => invokes(command, script)),
+  );
 
 /**
  * Read as text rather than parsed YAML on purpose: `runs-on` may be a matrix expression, a string,
