@@ -103,6 +103,7 @@ npx ever-better check        # CI gate: fail if anything rose
 npx ever-better next         # what to drain first, and what each fix enforces
 npx ever-better report       # where the findings are, as markdown (for a CI job summary)
 npx ever-better secrets      # scan the whole history for committed credentials
+npx ever-better tier         # every rule an error, the files that trip one downgraded to warn
 npx ever-better prune        # after a fix: reclaim the ceiling you earned
 ```
 
@@ -293,6 +294,74 @@ The generated workflow carries the details that are easy to get wrong: the MIT C
 `gitleaks-action` (which needs a licence key under a GitHub Organization), a checksum-verified
 download, `fetch-depth: 0` because a shallow clone misses the commit that leaked, and `--redact` so
 the secret does not land in a public log.
+
+### `tier`
+
+```bash
+ever-better tier            # take a tier, and record it
+ever-better tier --check    # compare against the ledger, write nothing  (for CI)
+```
+
+**The other way to start, and an alternative to `freeze` rather than a layer on it.** Every rule
+stays an error; the file-and-rule pairs failing today are downgraded to **warn** in a generated
+`eslint-tier.config.mjs`. Fix what a file is listed for, run it again, and the entry disappears — the
+rules get stricter without anyone editing a config.
+
+| | `freeze` | `tier` |
+| --- | --- | --- |
+| in your editor | invisible — no squiggle | a warning while you type |
+| in `eslint .` | silent | listed every run |
+| granularity | file x rule, with a count | file x rule, with a count |
+| the CI gate | `ever-better check` | `ever-better tier --check` |
+| tightening | `prune`, per violation | re-run, per violation |
+
+**The list may only shrink, and `--check` is what enforces it.** A pair that fails and is not
+excused is new code breaking a rule that was already an error for it. A pair that fails **more times
+than it was excused for** is the same thing wearing a disguise: the whole pair is a warning, so
+`eslint .` exits 0 and sees nothing. `.ever-better/tier.json` records the count for exactly that
+reason, and both `tier` and `tier --check` refuse when it grows.
+
+Run `ever-better tier --check` in CI, not `ever-better tier`: a gate may not edit the repository it
+is gating. `--check` writes nothing **into the repository** — its scan runs in a temp directory
+outside the tree, so it works on a read-only checkout and leaves `git status` clean.
+
+**Do not run both.** A violation downgraded to warn *moves* out of the suppression ledger into the
+warning population; running both counts it once in a precise ledger and once in a coarse one.
+
+The generated file is wholly owned by the tool and safe to overwrite, the way
+`eslint-suppressions.json` is; your own config is edited **once**, to spread it last so it wins. It is
+`eslint-tier.config.mjs`, or `eslint-tier.config.cjs` whenever the config it is wired into is
+CommonJS — an `eslint.config.cjs` or `.cts`, or an `eslint.config.js` using `module.exports` in a
+package that does not declare `"type": "module"`. Never a bare `.js`, which would mean CommonJS in
+exactly that package and ESM in the other.
+
+Before the ledger is written, `tier` **runs ESLint and checks that no rule the list excuses is still
+reported as an error** — and `tier --check` asks the same of the ledger it is gating. Editing a
+config file is textual surgery, and text that looks like wiring is not the same as wiring that
+works: a spread inside a comment, a spread that is not last, or a later block re-raising one of the
+listed rules all read as correct and leave a ledger describing a repository nobody is living in.
+
+One run at a time: `tier` takes `.ever-better/tier.lock` for the whole read-scan-write, because two
+overlapping runs would each publish a list computed before the other's fixes landed and the later
+write would re-open what the earlier one drained. A lock whose process is gone is taken over, so a
+crashed run cannot wedge the repository.
+
+If your config is shaped so that the spread cannot be added automatically — an array bound to a
+variable, say — `tier` **refuses rather than recording a tier it could not put in force**, and
+prints the two lines to paste in. All six names ESLint looks for are supported, `eslint.config.mts`
+and `.cts` included.
+
+The generated file **exempts itself from linting**, because nobody can act on a finding in a file
+they are told not to edit — and one arrives on its own: a long enough path pushes a line past your
+`printWidth` and Prettier reports an error that appears *after* the scan, so nothing excuses it. If
+your config is left pointing at a name an earlier version generated, `tier` repoints it and removes
+the file it superseded.
+
+**Commit both generated files.** `eslint-tier.config.mjs` is what ESLint reads; `.ever-better/tier.json`
+is the list the next run compares against. A missing ledger means there is nothing to compare to, so
+the run takes a fresh tier — and an empty ledger is **not** the same as a missing one. A repository
+whose list has drained to nothing is the strictest state there is, and a violation appearing there is
+refused exactly like any other.
 
 ### `prune`
 

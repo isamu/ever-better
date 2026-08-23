@@ -68,6 +68,20 @@ Two behaviours here were bugs, and both would come back if the reasoning is lost
   legalising everything added since. `prune` is the only path down; `--force` is the documented
   escape and belongs in a PR description.
 
+## A CLI `--rule` is global, so it cannot scope anything
+
+`tier` has to recompute its own exception list with those exceptions out of the way, or every pair
+it excuses reads as fixed. The obvious mechanism is `--rule '{"the-rule":"error"}'`, which does
+outrank a `files`-scoped config block — and is wrong, because it outranks **everything**: a
+type-aware rule forced on lands on files outside the type program, and ESLint aborts the whole run
+with *"you have used a rule which requires type information"*. A generated `eslint.config.js` is
+enough to trigger it.
+
+The generated `eslint-tier.config.mjs` therefore drops its exceptions when it sees
+`EVER_BETTER_TIER_RECOMPUTE` — down to the block that exempts the file itself, never to `[]` — and
+`tier` sets that for its own scan. Nothing global is overridden, and the file that steps aside
+is one the tool owns.
+
 ## Counting violations goes through the formatter, not `--format json`
 
 `formatters/rule-counts.js` is an ESLint formatter that emits per-rule totals. `--format json`
@@ -162,3 +176,52 @@ A bug in `src/generate/` reaches every repository that runs `bootstrap`, and it 
 in this repo's own lint. Two already did: the generated config produced an unsuppressable parse
 error on itself, and a `node:test` repo got a config that flagged every `describe`. Both are now
 pinned by tests in `test/test_render.ts`. Add one for every rule the generator emits.
+
+## Wiring a config file is textual surgery, so it is verified by RUNNING it
+
+Every check on whether `...everBetterTier` is wired in is a guess about what a source file means,
+and three shapes read as correct while doing nothing: a spread inside a comment, a spread that is
+not last, and a later block re-raising one of the listed rules. Each was found by a different
+round of review, which is the tell that reading the text was the wrong instrument.
+
+`tier` and `tier --check` therefore run ESLint and assert that **no rule the list excuses is still
+reported as an error**. `--print-config` on one listed file was the first attempt and it is a
+SAMPLE: it passed while a second listed pair sat there as an error. One `eslint .` covers the whole
+list for the price of one spawn.
+
+## A `files`-scoped downgrade cannot hold a count, so the ledger has to
+
+`tier` turns a failing file-and-rule pair into a `warn`. That is the whole pair: a SECOND violation
+of the same rule in the same file is a warning too, `eslint .` exits 0, and nothing notices. The
+shrink-only promise has a hole at exactly the granularity flat config cannot express.
+
+`.ever-better/tier.json` therefore records the COUNT per pair, and `refused()` treats growth as a
+regression alongside a new pair. `ever-better tier --check` is the gate that reads it — read-only,
+because a check that edits the repository it is checking cannot run on a pull request. That includes
+its scan: `--suppress-all` writes a file, so it writes it under `os.tmpdir()`, not under `.ever-better`. The warning
+counter in `state.json` does NOT cover this: that file is written by `freeze`, and a tier-only repo
+has never run it, so `check` there answers "No baseline".
+
+## A generated config must exempt itself from the lint it generates
+
+Nobody can act on a finding in a file whose header says not to edit it, and one arrives without
+being invited: a long enough path pushes a `files:` line past the repository's `printWidth`, and
+`prettier/prettier` reports an error in `eslint-tier.config.mjs`. It appears AFTER the scan that
+produced the list, so nothing excuses it — the build goes red and the only way down is to edit the
+file by hand. `renderTierConfig` therefore emits `{ ignores: [<its own name>] }` in BOTH branches,
+including the recompute one, or the file lands in its own exception list. An object carrying only
+`ignores` is global ignores wherever it appears, spread in last included — verified against ESLint
+10, not read in the docs.
+
+## A generated file that Node has to load is never a bare `.js`
+
+`.js` means "whatever the nearest package.json says". `bootstrap` writes `eslint.config.mjs` for a
+package without `"type": "module"` for exactly that reason, and the tier list has to follow the same
+rule: an ESM `eslint-tier.config.js` in a typeless package is read as CommonJS, which Node below
+20.19 refuses outright — the repository is left with no working linter, and `tier` reports success.
+Above 20.19 it survives only because module-syntax detection reparses it, warning on every run.
+
+The same trap has a second half: an `eslint.config.cjs` cannot be wired with an `import` statement.
+`tierConfigFileName` picks the extension from the config it is wiring, and `renderTierConfig` emits
+`module.exports` for `.cjs`. Both were verified by running ESLint in a fixture of each shape, because
+neither failure surfaces as an exception — ESLint says *"Oops! Something went wrong"* and exits.

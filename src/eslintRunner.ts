@@ -2,6 +2,7 @@ import { access } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { exec } from "./util/exec.ts";
+import { TIER_RECOMPUTE_ENV } from "./generate/tierConfig.ts";
 
 export type RuleCounts = {
   /** Unsuppressed errors. After a freeze these are new by definition, so any is a failure. */
@@ -102,13 +103,14 @@ const parseCounts = (stdout: string, stderr: string): RuleCounts => {
  * what is being measured, so borrowing a different ESLint would produce a baseline that no
  * developer in that repo can reproduce.
  */
-const runEslint = async (cwd: string, args: readonly string[], label: string) => {
+const runEslint = async (cwd: string, args: readonly string[], label: string, env?: Record<string, string>) => {
   const eslint = await findEslint(cwd);
   if (!eslint) {
     throw new Error("eslint is not installed in this repository. Run `ever-better bootstrap` first.");
   }
   const result = await exec(eslint.command, [...eslint.prefixArgs, ...args], cwd, {
     shell: eslint.shell,
+    ...(env ? { env } : {}),
   });
   if (result.code >= FATAL_EXIT_CODE) {
     throw new Error(`${label} failed:\n${result.stderr.slice(0, 4000)}`);
@@ -132,6 +134,18 @@ export const runRuleCounts = async (cwd: string): Promise<RuleCounts> => {
  */
 export const suppressAll = async (cwd: string): Promise<void> => {
   await runEslint(cwd, [".", "--suppress-all"], "eslint --suppress-all");
+};
+
+/**
+ * The failing set, written where the caller asks rather than over the repository's own ceiling.
+ *
+ * The tier list has to be recomputed with its own overrides out of the way, or every pair it excuses
+ * reads as fixed. The generated config drops to `[]` when it sees `TIER_RECOMPUTE_ENV`, which is why
+ * this sets it. Forcing those rules back with a CLI `--rule` was tried first and is wrong: `--rule`
+ * is global, so a type-aware rule lands on files outside the type program and ESLint aborts.
+ */
+export const suppressInto = async (cwd: string, location: string): Promise<void> => {
+  await runEslint(cwd, [".", "--suppress-all", "--suppressions-location", location], "eslint --suppress-all", { [TIER_RECOMPUTE_ENV]: "1" });
 };
 
 /**

@@ -1,6 +1,6 @@
 import type { EslintSetup, PackageJson, ScriptCoverage, TestRunner, ToolingPresence } from "../types.ts";
+import { ESLINT_CONFIG_NAMES } from "../eslintConfigNames.ts";
 
-const FLAT_CONFIG_NAMES = ["eslint.config.js", "eslint.config.mjs", "eslint.config.cjs", "eslint.config.ts"];
 const LEGACY_CONFIG_PREFIX = ".eslintrc";
 
 /** The command a scanner is invoked as, matched against what a line actually runs. */
@@ -100,7 +100,7 @@ const hasDependency = (packageJson: PackageJson | null, name: string): boolean =
  * it has to migrate first, and reporting it as present would skip that step silently.
  */
 export const detectEslintSetup = (rootEntries: readonly string[]): EslintSetup => {
-  if (FLAT_CONFIG_NAMES.some((name) => rootEntries.includes(name))) return "flat";
+  if (ESLINT_CONFIG_NAMES.some((name) => rootEntries.includes(name))) return "flat";
   if (rootEntries.some((entry) => entry.startsWith(LEGACY_CONFIG_PREFIX))) return "legacy";
   return "none";
 };
