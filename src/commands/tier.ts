@@ -10,6 +10,7 @@ import {
   renderTierConfig,
   SPREAD_BLOCK,
   TIER_CONFIG_NAMES,
+  tierImportLine,
   tierConfigFileName,
   withTierImport,
 } from "../generate/tierConfig.ts";
@@ -17,6 +18,7 @@ import { appendConfigBlocks } from "../generate/eslintAppend.ts";
 import { parseSuppressions } from "../suppressionsFile.ts";
 import { isProcessAlive } from "../util/pid.ts";
 import { drained, parseLedger, refused, ruleNames, tierList, type Ledger, type TierEntry, type TierPair } from "../tier.ts";
+import { ESLINT_CONFIG_NAMES } from "../eslintConfigNames.ts";
 
 export type TierOptions = {
   cwd: string;
@@ -30,8 +32,6 @@ export type TierResult = {
 const LEDGER = path.join(".ever-better", "tier.json");
 
 const LOCK = path.join(".ever-better", "tier.lock");
-
-const CONFIG_NAMES = ["eslint.config.js", "eslint.config.mjs", "eslint.config.cjs", "eslint.config.ts"];
 
 /**
  * Only ENOENT means "no tier taken yet". A ledger that is there and cannot be read — a directory, a
@@ -111,7 +111,7 @@ const packageType = async (cwd: string): Promise<string | null> => {
 type EslintConfig = { name: string; source: string };
 
 const findConfig = async (cwd: string): Promise<EslintConfig | null> => {
-  for (const name of CONFIG_NAMES) {
+  for (const name of ESLINT_CONFIG_NAMES) {
     const source = await readFile(path.join(cwd, name), "utf8").catch(() => null);
     if (source !== null) return { name, source };
   }
@@ -123,16 +123,37 @@ const findConfig = async (cwd: string): Promise<EslintConfig | null> => {
  * version generated keeps applying that file's exceptions while the ledger describes the new one,
  * and the stale file is the more permissive of the two.
  */
-const wireConfig = async (cwd: string, config: EslintConfig, tierConfigName: string): Promise<string | null> => {
-  if (importsTier(config.source, tierConfigName)) return null;
+type Wiring = { wired: true; note: string | null } | { wired: false };
+
+const wireConfig = async (cwd: string, config: EslintConfig, tierConfigName: string): Promise<Wiring> => {
+  if (importsTier(config.source, tierConfigName)) return { wired: true, note: null };
   const repoint = hasTierImport(config.source);
   const spread = repoint ? config.source : appendConfigBlocks(config.source, [SPREAD_BLOCK.join("\n")]);
-  if (spread === null) return `Could not edit ${config.name} — add \`...everBetterTier\` last yourself.`;
+  if (spread === null) return { wired: false };
   await writeAtomic(path.join(cwd, config.name), withTierImport(spread, tierConfigName));
   const removed = await removeSuperseded(cwd, tierConfigName);
   const wired = repoint ? `Repointed ${config.name} at ${tierConfigName}.` : `Wired ${config.name} to spread the generated list last, so it wins.`;
-  return removed === null ? wired : `${wired} ${removed}`;
+  return { wired: true, note: removed === null ? wired : `${wired} ${removed}` };
 };
+
+/**
+ * A tier that is not spread into the config is not in force: the exceptions apply to nothing and
+ * every listed pair is still an error. Writing the ledger anyway would record a tier nobody is
+ * living under, and the run that did it would exit 0 — so this stops instead, with the two lines to
+ * add. The generated file is written first, so the import they add resolves immediately.
+ */
+const unwired = (configName: string, tierConfigName: string, importLine: string): TierResult => ({
+  ok: false,
+  message: [
+    `Could not edit ${configName}: nothing in it looks like the exported array of config objects.`,
+    "",
+    `${tierConfigName} has been written. Add these two lines to ${configName} yourself, the spread`,
+    "LAST so it wins, and run `ever-better tier` again to record the list:",
+    "",
+    `  ${importLine}`,
+    `  ...everBetterTier,`,
+  ].join("\n"),
+});
 
 /**
  * The file the rename left behind. ESLint would still lint it — and every rule it downgrades would
@@ -242,18 +263,21 @@ const take = async (options: TierOptions): Promise<TierResult> => {
   if (regressed.length > 0) return refusal(regressed);
 
   const cleared = drained(ledger.present ? ledger.entries : [], now);
-  // The ledger goes first. Interrupted between the two, the generated config is the older and more
-  // permissive of the pair, while the ledger the next run compares against is the stricter one.
-  await writeAtomic(path.join(options.cwd, LEDGER), `${JSON.stringify(now, null, 2)}\n`);
+  // The generated file and the wiring come before the ledger, because the ledger is the claim that a
+  // tier is in force and the wiring is what makes that true. Interrupted between them, the ledger
+  // still in place is the older one, which excuses everything the new config does and more — so the
+  // next run compares against something more permissive than reality and refuses nothing wrongly.
   await writeAtomic(path.join(options.cwd, tierConfigName), renderTierConfig(now, tierConfigName));
-  const wired = await wireConfig(options.cwd, config, tierConfigName);
+  const wiring = await wireConfig(options.cwd, config, tierConfigName);
+  if (!wiring.wired) return unwired(config.name, tierConfigName, tierImportLine(tierConfigName));
+  await writeAtomic(path.join(options.cwd, LEDGER), `${JSON.stringify(now, null, 2)}\n`);
 
   return {
     ok: true,
     message: [
       `${now.length} file(s) hold an exception, covering ${ruleNames(now).length} rule(s).`,
       ...(ledger.present ? [`${cleared.length} pair(s) drained since the last run.`] : ["Everything else is an error from this commit on."]),
-      ...(wired === null ? [] : [wired]),
+      ...(wiring.note === null ? [] : [wiring.note]),
       "",
       `Commit ${tierConfigName} and ${LEDGER} together — they are the same statement twice.`,
     ].join("\n"),

@@ -184,6 +184,24 @@ describe("tier lifecycle", { timeout: TIMEOUT_MS }, () => {
     await assert.rejects(readFile(path.join(repo, "eslint-tier.config.js"), "utf8"), "the superseded file was left behind");
   });
 
+  /**
+   * A tier that is not spread into the config is not in force: every listed pair is still an error.
+   * Recording it in the ledger anyway and exiting 0 tells the user they are covered when they are
+   * not, so this refuses — after writing the generated file, so the import they add resolves.
+   */
+  it("refuses to record a tier it could not put in force", async () => {
+    await rm(path.join(repo, LEDGER), { force: true });
+    await rm(path.join(repo, "eslint.config.cjs"), { force: true });
+    await rm(path.join(repo, "eslint-tier.config.mjs"), { force: true });
+    await writeFile(path.join(repo, "eslint.config.js"), 'const config = [{ rules: { "no-var": "error" } }];\nexport default config;\n');
+
+    const result = await everBetter(["tier"], repo);
+    assert.equal(result.code, 1, "a tier that is not in force must not be recorded");
+    assert.match(result.stdout, /import everBetterTier from "\.\/eslint-tier\.config\.mjs";/);
+    await assert.rejects(readFile(path.join(repo, LEDGER), "utf8"), "the ledger recorded a tier nobody is living under");
+    await readFile(path.join(repo, "eslint-tier.config.mjs"), "utf8");
+  });
+
   /** Unreadable is not missing: starting over would forgive everything failing today. */
   it("refuses a ledger it cannot read at all", async () => {
     await rm(path.join(repo, LEDGER), { force: true });

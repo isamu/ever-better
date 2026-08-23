@@ -335,6 +335,11 @@ overlapping runs would each publish a list computed before the other's fixes lan
 write would re-open what the earlier one drained. A lock whose process is gone is taken over, so a
 crashed run cannot wedge the repository.
 
+If your config is shaped so that the spread cannot be added automatically — an array bound to a
+variable, say — `tier` **refuses rather than recording a tier it could not put in force**, and
+prints the two lines to paste in. All six names ESLint looks for are supported, `eslint.config.mts`
+and `.cts` included.
+
 The generated file **exempts itself from linting**, because nobody can act on a finding in a file
 they are told not to edit — and one arrives on its own: a long enough path pushes a line past your
 `printWidth` and Prettier reports an error that appears *after* the scan, so nothing excuses it. If

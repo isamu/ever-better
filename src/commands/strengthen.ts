@@ -5,12 +5,11 @@ import { appendConfigBlocks, renderRuleBlock } from "../generate/eslintAppend.ts
 import { findWeakRules, type RuleVerdict } from "../probe/effectiveRules.ts";
 import { sampleSourceFile } from "../probe/gather.ts";
 import type { SourceFile } from "../types.ts";
+import { ESLINT_CONFIG_NAMES } from "../eslintConfigNames.ts";
 
 const BACKUP_SUFFIX = ".ever-better-backup";
 
-const CONFIG_NAMES = ["eslint.config.js", "eslint.config.mjs", "eslint.config.cjs", "eslint.config.ts"];
-
-const findConfig = (rootEntries: readonly string[]): string | null => CONFIG_NAMES.find((name) => rootEntries.includes(name)) ?? null;
+const findConfig = (rootEntries: readonly string[]): string | null => ESLINT_CONFIG_NAMES.find((name) => rootEntries.includes(name)) ?? null;
 
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null;
 

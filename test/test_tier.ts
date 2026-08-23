@@ -11,6 +11,7 @@ import {
   TIER_RECOMPUTE_ENV,
 } from "../src/generate/tierConfig.ts";
 import { drained, parseLedger, refused, regressions, ruleNames, tierList } from "../src/tier.ts";
+import { ESLINT_CONFIG_NAMES } from "../src/eslintConfigNames.ts";
 import type { Suppression } from "../src/suppressionsFile.ts";
 
 const failing = (file: string, rule: string, count = 1): Suppression => ({ file, rule, count });
@@ -177,6 +178,24 @@ describe("the generated file's name and module system", () => {
 
   it("reads an ESM eslint.config.js as ESM", () => {
     assert.equal(moduleSystemOf("eslint.config.js", "export default [];\n", null), "esm");
+  });
+
+  /** ESLint 10 searches six names; three commands here knew four, so a `.mts` repo looked unconfigured. */
+  it("covers every name ESLint searches, in ESLint's order", () => {
+    assert.deepEqual(ESLINT_CONFIG_NAMES, [
+      "eslint.config.js",
+      "eslint.config.mjs",
+      "eslint.config.cjs",
+      "eslint.config.ts",
+      "eslint.config.mts",
+      "eslint.config.cts",
+    ]);
+  });
+
+  it("reads the TypeScript config extensions the same way as their JS counterparts", () => {
+    assert.equal(moduleSystemOf("eslint.config.mts", "module.exports = [];\n", null), "esm");
+    assert.equal(moduleSystemOf("eslint.config.cts", "export default [];\n", "module"), "cjs");
+    assert.equal(tierConfigFileName(moduleSystemOf("eslint.config.cts", "", null)), "eslint-tier.config.cjs");
   });
 
   it("trusts an explicit extension over the source", () => {
