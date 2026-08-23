@@ -2,8 +2,14 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { findWeakRules, isRuleOff, isRuleWarnOnly, HIGH_VALUE_RULES } from "../src/probe/effectiveRules.ts";
 import { findMissingStrictness, isStrictOff, projectForSample, referencePaths } from "../src/probe/effectiveTsconfig.ts";
-import { sampleSourceFile } from "../src/probe/gather.ts";
+import { mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { gatherProbes, sampleSourceFile } from "../src/probe/gather.ts";
 import type { SourceFile } from "../src/types.ts";
+
+const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
 const file = (path: string): SourceFile => ({
   path,
@@ -161,5 +167,64 @@ describe("projectForSample", () => {
 
   it("has nothing to pick from without projects", () => {
     assert.equal(projectForSample([], "src/a.ts"), null);
+  });
+});
+
+describe("probeTsconfig through a solution-style root", () => {
+  const write = async (files: Record<string, string>): Promise<string> => {
+    const dir = await mkdtemp(path.join(tmpdir(), "ever-better-tsconfig-"));
+    await mkdir(path.join(dir, "src"), { recursive: true });
+    await Promise.all(Object.entries(files).map(([name, body]) => writeFile(path.join(dir, name), body, "utf8")));
+    await symlink(path.join(repoRoot, "node_modules"), path.join(dir, "node_modules"));
+    return dir;
+  };
+
+  const APP = JSON.stringify({ compilerOptions: { strict: true, target: "ES2022", module: "ESNext", moduleResolution: "bundler" }, include: ["src"] });
+  const SOURCE = "export const value: number = 1;\n";
+  const strictOf = async (dir: string): Promise<unknown> => {
+    const probes = await gatherProbes(dir, [{ path: "src/main.ts", ext: "ts", lines: 1 }]);
+    return probes.tsconfig?.["compilerOptions"];
+  };
+
+  /**
+   * The Vite scaffold's default shape. The root holds no options of its own, so reading strictness
+   * off it reported every flag absent while the referenced project has them on.
+   */
+  it("answers from the project that compiles the code", async () => {
+    const dir = await write({
+      "tsconfig.json": JSON.stringify({ files: [], references: [{ path: "./tsconfig.app.json" }] }),
+      "tsconfig.app.json": APP,
+      "src/main.ts": SOURCE,
+    });
+    assert.deepEqual(await strictOf(dir), { strict: true, target: "es2022", module: "esnext", moduleResolution: "bundler" });
+    await rm(dir, { recursive: true, force: true });
+  });
+
+  /** One level of following lands on another config with no options and reports the same lie. */
+  it("follows a reference that is itself a solution", async () => {
+    const dir = await write({
+      "tsconfig.json": JSON.stringify({ files: [], references: [{ path: "./tsconfig.mid.json" }] }),
+      "tsconfig.mid.json": JSON.stringify({ files: [], references: [{ path: "./tsconfig.app.json" }] }),
+      "tsconfig.app.json": APP,
+      "src/main.ts": SOURCE,
+    });
+    const options = await strictOf(dir);
+    assert.ok(options !== undefined && options !== null && typeof options === "object" && "strict" in options);
+    await rm(dir, { recursive: true, force: true });
+  });
+
+  /**
+   * Answering from a root that holds no options is the false report this exists to remove, so
+   * nothing resolving means no answer — `diagnose` reads that as no finding, which is the safe
+   * direction: a missing gap is noise, a wrong one sends someone to change correct code.
+   */
+  it("reports nothing rather than the empty root when no reference resolves", async () => {
+    const dir = await write({
+      "tsconfig.json": JSON.stringify({ files: [], references: [{ path: "./tsconfig.missing.json" }] }),
+      "src/main.ts": SOURCE,
+    });
+    const probes = await gatherProbes(dir, [{ path: "src/main.ts", ext: "ts", lines: 1 }]);
+    assert.equal(probes.tsconfig, null);
+    await rm(dir, { recursive: true, force: true });
   });
 });
