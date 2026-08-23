@@ -135,6 +135,19 @@ export const suppressAll = async (cwd: string): Promise<void> => {
 };
 
 /**
+ * The failing set, written where the caller asks rather than over the repository's own ceiling.
+ *
+ * `forced` puts named rules back to `error` for every file, which is how the tier list is recomputed
+ * once its own overrides are in place: a CLI `--rule` outranks a `files`-scoped config block, so the
+ * pairs that are warnings again report as the errors `--suppress-all` records. Measured against
+ * ESLint 10 rather than assumed.
+ */
+export const suppressInto = async (cwd: string, location: string, forced: readonly string[]): Promise<void> => {
+  const rules = forced.length === 0 ? [] : ["--rule", JSON.stringify(Object.fromEntries(forced.map((rule) => [rule, "error"])))];
+  await runEslint(cwd, [".", "--suppress-all", "--suppressions-location", location, ...rules], "eslint --suppress-all");
+};
+
+/**
  * What ESLint will ACTUALLY apply to one file. Reading the config source cannot answer this:
  * presets, a framework's own config and later blocks all override each other silently, and a rule
  * that ends up off reports nothing to notice.

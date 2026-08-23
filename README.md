@@ -103,6 +103,7 @@ npx ever-better check        # CI gate: fail if anything rose
 npx ever-better next         # what to drain first, and what each fix enforces
 npx ever-better report       # where the findings are, as markdown (for a CI job summary)
 npx ever-better secrets      # scan the whole history for committed credentials
+npx ever-better tier         # every rule an error, the files that trip one downgraded to warn
 npx ever-better prune        # after a fix: reclaim the ceiling you earned
 ```
 
@@ -293,6 +294,39 @@ The generated workflow carries the details that are easy to get wrong: the MIT C
 `gitleaks-action` (which needs a licence key under a GitHub Organization), a checksum-verified
 download, `fetch-depth: 0` because a shallow clone misses the commit that leaked, and `--redact` so
 the secret does not land in a public log.
+
+### `tier`
+
+```bash
+ever-better tier
+```
+
+**The other way to start, and an alternative to `freeze` rather than a layer on it.** Every rule
+stays an error; the file-and-rule pairs failing today are downgraded to **warn** in a generated
+`eslint-tier.config.js`. Fix what a file is listed for, run it again, and the entry disappears — the
+rules get stricter without anyone editing a config.
+
+| | `freeze` | `tier` |
+| --- | --- | --- |
+| in your editor | invisible — no squiggle | a warning while you type |
+| in `eslint .` | silent | listed every run |
+| granularity | file x rule, **with a count** | file x rule, no count |
+| tightening | `prune`, per violation | re-run, per file x rule |
+
+Two things hold the line, and one arrives for free. **The warning total is already ratcheted** —
+`check` walks `state.counters` beside `state.rules`, so a warning population growing past its
+baseline fails today. And **the list may only shrink**: a pair that fails and is not already excused
+is new code breaking a rule that was already an error for it, so `tier` refuses to write it in and
+exits 1 rather than legalising it.
+
+What you give up against `freeze` is granularity — per rule and per file counts. A file already on
+the list can rot internally, held only by the total.
+
+**Do not run both.** A violation downgraded to warn *moves* out of the suppression ledger into the
+warning population; running both counts it once in a precise ledger and once in a coarse one.
+
+The generated file is wholly owned by the tool and safe to overwrite, the way
+`eslint-suppressions.json` is; your own config is edited **once**, to spread it last so it wins.
 
 ### `prune`
 
