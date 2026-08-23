@@ -116,13 +116,24 @@ export const detectEslintSetup = (rootEntries: readonly string[]): EslintSetup =
  */
 const DEPENDENCY_ONLY_RUNNERS = ["mocha", "ava", "tap", "jasmine"] as const;
 
+/**
+ * node:test is the runner whatever launches node — `tsx --test`, `node --experimental-strip-types
+ * --test`, `ts-node --test` all run it, and matching the string `node --test` saw none of them.
+ * Reporting "none" is not a cosmetic mislabel: bootstrap installs vitest on "none", so a repo that
+ * already tests gets a second runner.
+ *
+ * The lookahead is what keeps `--test-reporter=spec` and `--test-dir=e2e` out — and `node --test`
+ * as a substring matched the first of those, so this reads a flag rather than a command line.
+ */
+const RUNS_NODE_TEST = /(?:^|\s)--test(?=\s|$)/;
+
 export const detectTestRunner = (packageJson: PackageJson | null): TestRunner => {
   if (hasDependency(packageJson, "vitest")) return "vitest";
   if (hasDependency(packageJson, "jest")) return "jest";
   const named = DEPENDENCY_ONLY_RUNNERS.find((runner) => hasDependency(packageJson, runner));
   if (named) return named;
   const testScript = packageJson?.scripts?.["test"] ?? "";
-  if (testScript.includes("node --test") || testScript.includes("node:test")) return "node:test";
+  if (RUNS_NODE_TEST.test(testScript)) return "node:test";
   return "none";
 };
 

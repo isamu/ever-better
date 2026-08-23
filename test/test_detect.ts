@@ -84,6 +84,19 @@ describe("detectTestRunner", () => {
     assert.equal(detectTestRunner({ scripts: { test: "node --test test/*.ts" } }), "node:test");
   });
 
+  it("recognises node:test whatever launches node", () => {
+    // Reporting "none" here is what makes it expensive: bootstrap installs vitest on "none", so a
+    // repo already running node:test through tsx gets a second runner added to it.
+    assert.equal(detectTestRunner({ scripts: { test: "tsx --test ./test/**/test_*.ts" } }), "node:test");
+    assert.equal(detectTestRunner({ scripts: { test: "node --experimental-strip-types --test test/*.ts" } }), "node:test");
+    assert.equal(detectTestRunner({ scripts: { test: "node --test-reporter=spec --test test/*.ts" } }), "node:test");
+  });
+
+  it("does not read `--test` out of a longer flag", () => {
+    assert.equal(detectTestRunner({ scripts: { test: "playwright test --test-dir=e2e" } }), "none");
+    assert.equal(detectTestRunner({ scripts: { test: "node --test-reporter=spec build.js" } }), "none");
+  });
+
   it("reports none rather than guessing", () => {
     assert.equal(detectTestRunner({ scripts: { test: "echo nope" } }), "none");
   });
