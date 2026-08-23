@@ -122,6 +122,42 @@ describe("detectCi", () => {
     assert.deepEqual(missingRunners(ci), []);
   });
 
+  /**
+   * A false gap is noise; a false "already covered" means the gap is never reported at all, and
+   * `diagnose` is only worth having if it can be believed without opening the workflow. Matching
+   * the raw text claimed CI coverage for every line below.
+   */
+  it("does not count a script that is printed rather than run", () => {
+    assert.equal(detectCi(workflow('      - run: echo "yarn run lint"')).runsLint, false);
+    assert.equal(detectCi(workflow("      - run: echo npm run lint")).runsLint, false);
+  });
+
+  it("does not count a commented-out step", () => {
+    assert.equal(detectCi(workflow("      # - run: yarn run lint")).runsLint, false);
+  });
+
+  it("does not count a different binary that happens to end in a manager's name", () => {
+    assert.equal(detectCi(workflow("      - run: ./tools/yarn lint")).runsLint, false);
+  });
+
+  it("does not count a manager named in a job or step name", () => {
+    assert.equal(detectCi(workflow("  lint:\n    name: yarn run lint")).runsLint, false);
+  });
+
+  it("reads the script a chained command runs, not only the first", () => {
+    assert.equal(detectCi(workflow("      - run: yarn install && yarn lint")).runsLint, true);
+  });
+
+  it("reads a command inside a run block", () => {
+    assert.equal(detectCi(workflow("      - run: |\n          yarn run lint")).runsLint, true);
+  });
+
+  it("accepts every way a manager spells the same invocation", () => {
+    for (const command of ["yarn lint", "yarn run lint", "pnpm run lint", "npm run lint", "npm run-script lint", "bun run lint"]) {
+      assert.equal(detectCi(workflow(`      - run: ${command}`)).runsLint, true, command);
+    }
+  });
+
   it("does not mistake a workflow filename for a runner", () => {
     const ci = detectCi([{ path: ".github/workflows/windows-daily.yaml", content: "name: windows-daily" }]);
     assert.deepEqual(ci.runners, []);
