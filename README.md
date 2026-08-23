@@ -322,7 +322,8 @@ than it was excused for** is the same thing wearing a disguise: the whole pair i
 reason, and both `tier` and `tier --check` refuse when it grows.
 
 Run `ever-better tier --check` in CI, not `ever-better tier`: a gate may not edit the repository it
-is gating, and `--check` writes nothing.
+is gating. `--check` writes nothing **into the repository** — its scan runs in a temp directory
+outside the tree, so it works on a read-only checkout and leaves `git status` clean.
 
 **Do not run both.** A violation downgraded to warn *moves* out of the suppression ledger into the
 warning population; running both counts it once in a precise ledger and once in a coarse one.

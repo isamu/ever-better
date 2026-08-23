@@ -197,7 +197,8 @@ shrink-only promise has a hole at exactly the granularity flat config cannot exp
 
 `.ever-better/tier.json` therefore records the COUNT per pair, and `refused()` treats growth as a
 regression alongside a new pair. `ever-better tier --check` is the gate that reads it — read-only,
-because a check that edits the repository it is checking cannot run on a pull request. The warning
+because a check that edits the repository it is checking cannot run on a pull request. That includes
+its scan: `--suppress-all` writes a file, so it writes it under `os.tmpdir()`, not under `.ever-better`. The warning
 counter in `state.json` does NOT cover this: that file is written by `freeze`, and a tier-only repo
 has never run it, so `check` there answers "No baseline".
 

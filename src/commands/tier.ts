@@ -1,4 +1,5 @@
 import { mkdir, mkdtemp, readFile, rename, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import path from "node:path";
 import process from "node:process";
 import { runRuleCounts, suppressInto } from "../eslintRunner.ts";
@@ -35,8 +36,6 @@ export type TierResult = {
 
 const STATE_DIR = ".ever-better";
 
-const SCRATCH_DIR = path.join(STATE_DIR, "scratch");
-
 const LEDGER = path.join(STATE_DIR, "tier.json");
 
 const LOCK = path.join(".ever-better", "tier.lock");
@@ -64,20 +63,20 @@ const readLedger = async (cwd: string): Promise<Ledger | null> => {
  * publishes an empty list.
  */
 const failingSet = async (cwd: string): Promise<TierEntry[]> => {
-  // A fresh directory per run, because `--suppress-all` MERGES into whatever is already at that
-  // location — measured, not assumed: a clean run over one failing file left an unrelated
-  // `stale/file.js: 99` entry sitting beside the real one. Anything an interrupted run left behind
-  // would be excused from then on, and the ledger could not tell it from something that fails. A
-  // name nothing else can produce is structural; remembering to delete first is a step to forget.
-  await mkdir(path.join(cwd, SCRATCH_DIR), { recursive: true });
-  const dir = await mkdtemp(path.join(cwd, SCRATCH_DIR, "scan-"));
+  // Outside the repository, and a fresh directory per run. Outside, because `--check` is what CI
+  // runs and a gate that writes into the tree it is gating is not read-only — a read-only checkout
+  // would fail it before it compared anything. Fresh, because `--suppress-all` MERGES into whatever
+  // is already at that location: measured, not assumed, on a CLEAN run over one failing file, which
+  // came back carrying a planted `stale/file.js: 99` beside the real entry. Anything left behind
+  // would be excused from then on, and the ledger could not tell it from something that fails.
+  const dir = await mkdtemp(path.join(tmpdir(), "ever-better-tier-"));
   const scratch = path.join(dir, "suppressions.json");
   try {
-    await suppressInto(cwd, path.relative(cwd, scratch));
+    await suppressInto(cwd, scratch);
     const text = await readFile(scratch, "utf8").catch(() => null);
     // ESLint exited without leaving its output. Reading that as "nothing is failing" would publish
     // an empty list off a scan that never happened.
-    if (text === null) throw new Error(`eslint left no suppressions in ${path.relative(cwd, dir)} — the failing set could not be read.`);
+    if (text === null) throw new Error(`eslint left no suppressions in ${dir} — the failing set could not be read.`);
     return tierList(parseSuppressions(JSON.parse(text)));
   } finally {
     await rm(dir, { recursive: true, force: true });
@@ -359,6 +358,7 @@ const take = async (options: TierOptions): Promise<TierResult> => {
   if (!wiring.wired) return unwired(config.name, tierConfigName, tierImportLine(tierConfigName));
   const inert = await notInForce(options.cwd, now);
   if (inert.length > 0) return notWired(config.name, inert);
+  await mkdir(path.join(options.cwd, STATE_DIR), { recursive: true });
   await writeAtomic(path.join(options.cwd, LEDGER), `${JSON.stringify(now, null, 2)}\n`);
 
   return {

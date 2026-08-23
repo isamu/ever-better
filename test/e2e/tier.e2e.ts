@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { after, before, describe, it } from "node:test";
@@ -73,6 +73,30 @@ describe("tier lifecycle", { timeout: TIMEOUT_MS }, () => {
       "the failing file was not written into the list",
     );
     assert.equal(await eslintErrors(repo), 0, "a file the tier excused is still an error");
+  });
+
+  /**
+   * The gate runs in CI, against a checkout that may be read-only and a tree whose cleanliness is
+   * checked afterwards. "Writes nothing" has to mean the repository, not just the ledger: the scan
+   * it runs happens in a temp directory outside the tree.
+   */
+  it("leaves the repository untouched when it checks", async () => {
+    const listing = async (): Promise<string[]> => (await readdir(path.join(repo, ".ever-better"))).toSorted((one, other) => one.localeCompare(other));
+    const before = await listing();
+    assert.ok(before.includes("tier.json"), "the fixture needs a ledger to check against");
+
+    const result = await everBetter(["tier", "--check"], repo);
+    assert.equal(result.code, 0, result.stdout + result.stderr);
+
+    const after = await listing();
+    assert.deepEqual(after, before, "the check left something behind");
+    // The state directory holds committed ledgers, not working files: a scan directory here means
+    // the scan ran inside the repository, which is what "writes nothing" has to rule out.
+    assert.deepEqual(
+      after.filter((entry) => !entry.endsWith(".json")),
+      [],
+      "something that is not a ledger is living in .ever-better",
+    );
   });
 
   /**
