@@ -1,4 +1,5 @@
 import { spawn } from "node:child_process";
+import process from "node:process";
 
 export type ExecResult = {
   code: number;
@@ -20,11 +21,13 @@ const collect = (chunks: Buffer[], chunk: Buffer, label: string): void => {
 export type ExecOptions = {
   /** Needed only for Windows `.cmd` shims, which Node refuses to spawn directly. */
   shell?: boolean;
+  /** Added to the parent environment, not a replacement for it: a tool needs PATH to run at all. */
+  env?: Record<string, string>;
 };
 
 export const exec = async (command: string, args: readonly string[], cwd: string, options: ExecOptions = {}): Promise<ExecResult> =>
   new Promise((resolve, reject) => {
-    const child = spawn(command, [...args], { cwd, shell: options.shell ?? false });
+    const child = spawn(command, [...args], { cwd, shell: options.shell ?? false, env: { ...process.env, ...options.env } });
     const out: Buffer[] = [];
     const err: Buffer[] = [];
     child.stdout.on("data", (chunk: Buffer) => collect(out, chunk, `${command} stdout`));

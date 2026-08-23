@@ -2,12 +2,34 @@ import type { TierEntry } from "../tier.ts";
 
 export const TIER_CONFIG_FILE = "eslint-tier.config.js";
 
+/**
+ * Set while `ever-better tier` recomputes the list. The exceptions must not apply to the scan that
+ * regenerates them, or every listed pair would read as fixed and the list would empty out.
+ *
+ * Forcing the rules back to `error` on the command line was the obvious way to do this and it does
+ * not work: `--rule` is global, so a type-aware rule gets applied to files outside the type program
+ * — a generated `eslint.config.js`, any plain JS — and ESLint aborts with "you have used a rule
+ * which requires type information". Measured against ESLint 10, not assumed.
+ */
+export const TIER_RECOMPUTE_ENV = "EVER_BETTER_TIER_RECOMPUTE";
+
 const IMPORT_LINE = `import everBetterTier from "./${TIER_CONFIG_FILE}";`;
 
 /** Last, so it wins: a later block overrides an earlier one, and this one is the exception list. */
 export const SPREAD_BLOCK = ["  // Generated exceptions, last so they win. Regenerate with `ever-better tier`.", "  ...everBetterTier,"];
 
 const quoted = (value: string): string => JSON.stringify(value);
+
+/**
+ * A flat-config `files` entry is a GLOB, not a literal path, and real repositories contain paths
+ * that are also glob syntax — `pages/[id].tsx` is Next.js's routing convention, and this tool
+ * generates a Next config. Unescaped, `pages/[id].js` is a character class: it matches
+ * `pages/i.js`, does NOT match the file ESLint recorded, and so leaves the excused file failing
+ * while quietly downgrading a different one.
+ */
+const GLOB_META = /[\\*?[\]{}()!+@|]/g;
+
+const asLiteralGlob = (file: string): string => file.replace(GLOB_META, "\\$&");
 
 /**
  * Wholly generated and safe to overwrite, the way `eslint-suppressions.json` is. The repository's
@@ -24,16 +46,24 @@ export const renderTierConfig = (entries: readonly TierEntry[]): string =>
     "// The list may only shrink. Fix what a file is listed for, re-run `ever-better tier`, and the",
     "// entry goes; a pair that starts failing and is not listed stays an error and fails the build.",
     "",
-    "export default [",
+    'import process from "node:process";',
+    "",
+    "// `ever-better tier` sets this while it recomputes the list. The exceptions must not apply to",
+    "// the scan that regenerates them, or every entry below would read as already fixed.",
+    `const recomputing = process.env.${TIER_RECOMPUTE_ENV} === "1";`,
+    "",
+    "const exceptions = [",
     ...entries.flatMap((entry) => [
       "  {",
-      `    files: [${quoted(entry.file)}],`,
+      `    files: [${quoted(asLiteralGlob(entry.file))}],`,
       "    rules: {",
       ...entry.rules.map((rule) => `      ${quoted(rule)}: "warn",`),
       "    },",
       "  },",
     ]),
     "];",
+    "",
+    "export default recomputing ? [] : exceptions;",
     "",
   ].join("\n");
 

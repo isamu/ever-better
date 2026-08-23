@@ -68,6 +68,19 @@ Two behaviours here were bugs, and both would come back if the reasoning is lost
   legalising everything added since. `prune` is the only path down; `--force` is the documented
   escape and belongs in a PR description.
 
+## A CLI `--rule` is global, so it cannot scope anything
+
+`tier` has to recompute its own exception list with those exceptions out of the way, or every pair
+it excuses reads as fixed. The obvious mechanism is `--rule '{"the-rule":"error"}'`, which does
+outrank a `files`-scoped config block — and is wrong, because it outranks **everything**: a
+type-aware rule forced on lands on files outside the type program, and ESLint aborts the whole run
+with *"you have used a rule which requires type information"*. A generated `eslint.config.js` is
+enough to trigger it.
+
+The generated `eslint-tier.config.js` therefore exports `[]` when it sees `EVER_BETTER_TIER_RECOMPUTE`,
+and `tier` sets that for its own scan. Nothing global is overridden, and the file that steps aside
+is one the tool owns.
+
 ## Counting violations goes through the formatter, not `--format json`
 
 `formatters/rule-counts.js` is an ESLint formatter that emits per-rule totals. `--format json`

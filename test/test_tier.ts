@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { renderTierConfig, importsTier, withTierImport, SPREAD_BLOCK } from "../src/generate/tierConfig.ts";
-import { drained, regressions, ruleNames, tierList } from "../src/tier.ts";
+import { renderTierConfig, importsTier, withTierImport, SPREAD_BLOCK, TIER_RECOMPUTE_ENV } from "../src/generate/tierConfig.ts";
+import { drained, parseLedger, refused, regressions, ruleNames, tierList } from "../src/tier.ts";
 import type { Suppression } from "../src/suppressionsFile.ts";
 
 const failing = (file: string, rule: string, count = 1): Suppression => ({ file, rule, count });
@@ -56,6 +56,52 @@ describe("ruleNames", () => {
   });
 });
 
+describe("parseLedger", () => {
+  it("reads a file that is not there as a first run", () => {
+    assert.deepEqual(parseLedger(null), { present: false });
+  });
+
+  /** A drained repository is the strictest state there is, and it is spelled `[]`. */
+  it("reads an empty list as a ledger that is present", () => {
+    assert.deepEqual(parseLedger("[]"), { present: true, entries: [] });
+  });
+
+  it("reads a list of entries", () => {
+    assert.deepEqual(parseLedger('[{"file":"a.ts","rules":["no-var"]}]'), { present: true, entries: [{ file: "a.ts", rules: ["no-var"] }] });
+  });
+
+  /** Starting over from an unreadable ledger would write in everything that has failed since. */
+  it("refuses a truncated file rather than starting over", () => {
+    assert.equal(parseLedger('[{"file":"a.ts","rul'), null);
+  });
+
+  it("refuses valid JSON of the wrong shape", () => {
+    assert.equal(parseLedger('{"a.ts":["no-var"]}'), null);
+    assert.equal(parseLedger('[{"file":"a.ts","rules":[1]}]'), null);
+    assert.equal(parseLedger('[{"file":"a.ts"}]'), null);
+  });
+});
+
+describe("refused", () => {
+  const now = tierList([failing("src/new.ts", "no-var")]);
+
+  it("excuses everything on the first run, which is what taking a tier means", () => {
+    assert.deepEqual(refused({ present: false }, now), []);
+  });
+
+  /**
+   * The regression that ended the shrink-only promise at the moment a repo succeeded: an empty
+   * ledger is a DRAINED repo, and a new violation in it must be refused, not written back in.
+   */
+  it("refuses a new violation against a drained ledger", () => {
+    assert.deepEqual(refused({ present: true, entries: [] }, now), [{ file: "src/new.ts", rule: "no-var" }]);
+  });
+
+  it("excuses a pair the present ledger already lists", () => {
+    assert.deepEqual(refused({ present: true, entries: [{ file: "src/new.ts", rules: ["no-var"] }] }, now), []);
+  });
+});
+
 describe("renderTierConfig", () => {
   const config = (): string => renderTierConfig(tierList([failing("src/a.ts", "no-var"), failing("src/a.ts", "max-depth")]));
 
@@ -73,8 +119,34 @@ describe("renderTierConfig", () => {
     assert.match(config(), /may only shrink/);
   });
 
+  /**
+   * A `files` entry is a glob. Unescaped, `pages/[id].js` is a character class: it matches
+   * `pages/i.js` and NOT the file ESLint recorded, so the excused file stays an error and an
+   * innocent one is downgraded instead.
+   */
+  it("escapes a path that is also glob syntax", () => {
+    const escaped = renderTierConfig(tierList([failing("pages/[id].js", "no-var")]));
+    assert.match(escaped, /files: \["pages\/\\\\\[id\\\\\]\.js"\]/);
+  });
+
+  it("escapes every metacharacter minimatch reads", () => {
+    const rendered = renderTierConfig(tierList([failing("a(b)c{d}e!f+g@h|i*j?k.js", "no-var")]));
+    "(){}!+@|*?".split("").forEach((meta) => assert.ok(rendered.includes(`\\\\${meta}`), `${meta} is not escaped`));
+  });
+
   it("is empty and valid with nothing to excuse", () => {
-    assert.match(renderTierConfig([]), /export default \[\n\];/);
+    assert.match(renderTierConfig([]), /const exceptions = \[\n\];/);
+  });
+
+  /**
+   * The list has to be recomputed with its own downgrades out of the way. Doing that with a CLI
+   * `--rule` instead aborts ESLint outright on any file outside the type program, so the generated
+   * file steps aside on an environment variable and nothing global is overridden.
+   */
+  it("steps aside while the list is being recomputed", () => {
+    const rendered = config();
+    assert.match(rendered, new RegExp(`const recomputing = process\\.env\\.${TIER_RECOMPUTE_ENV} === "1";`));
+    assert.match(rendered, /export default recomputing \? \[\] : exceptions;/);
   });
 });
 

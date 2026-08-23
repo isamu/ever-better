@@ -53,3 +53,37 @@ export const drained = (before: readonly TierEntry[], now: readonly TierEntry[])
 };
 
 export const ruleNames = (entries: readonly TierEntry[]): string[] => sorted(new Set(entries.flatMap((entry) => entry.rules)));
+
+/**
+ * Missing and empty are different answers, and conflating them is how the shrink-only promise
+ * breaks at the exact moment a repository succeeds: once the list drains to `[]` and is committed,
+ * an empty ledger read as "first run" lets the next new violation be written in and forgiven. A
+ * ledger that is PRESENT enforces the rule however few entries it holds.
+ *
+ * `null` is a ledger that exists and cannot be read. That is not a fresh start either — rebaselining
+ * off a truncated or hand-edited file would legalise everything that has failed since it was valid.
+ */
+export type Ledger = { present: false } | { present: true; entries: TierEntry[] };
+
+const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null;
+
+const isEntry = (value: unknown): value is TierEntry =>
+  isRecord(value) && typeof value["file"] === "string" && Array.isArray(value["rules"]) && value["rules"].every((rule) => typeof rule === "string");
+
+export const parseLedger = (text: string | null): Ledger | null => {
+  if (text === null) return { present: false };
+  try {
+    const parsed: unknown = JSON.parse(text);
+    if (!Array.isArray(parsed) || !parsed.every(isEntry)) return null;
+    return { present: true, entries: parsed };
+  } catch {
+    return null;
+  }
+};
+
+/**
+ * What this run must refuse to write in. A ledger that is PRESENT enforces shrink-only however few
+ * entries it holds — including none, which is a drained repository and the strictest state there is,
+ * not a repository asking for a new baseline.
+ */
+export const refused = (ledger: Ledger, now: readonly TierEntry[]): TierPair[] => (ledger.present ? regressions(ledger.entries, now) : []);

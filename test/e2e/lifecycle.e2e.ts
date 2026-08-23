@@ -1,37 +1,9 @@
 import assert from "node:assert/strict";
-import { spawn } from "node:child_process";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 import { after, before, describe, it } from "node:test";
-
-const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
-const cli = path.join(repoRoot, "dist", "cli.js");
-
-/** Installing real packages is the slow part, and the reason this is not in `yarn test`. */
-const TIMEOUT_MS = 600_000;
-
-type Run = { code: number; stdout: string; stderr: string };
-
-const run = (command: string, args: readonly string[], cwd: string): Promise<Run> =>
-  new Promise((resolve, reject) => {
-    const child = spawn(command, [...args], { cwd, shell: false });
-    const out: Buffer[] = [];
-    const err: Buffer[] = [];
-    child.stdout.on("data", (chunk: Buffer) => out.push(chunk));
-    child.stderr.on("data", (chunk: Buffer) => err.push(chunk));
-    child.on("error", reject);
-    child.on("close", (code) =>
-      resolve({
-        code: code ?? 1,
-        stdout: Buffer.concat(out).toString("utf8"),
-        stderr: Buffer.concat(err).toString("utf8"),
-      }),
-    );
-  });
-
-const everBetter = (args: readonly string[], cwd: string) => run(process.execPath, [cli, ...args], cwd);
+import { everBetter, isRecord, run, TIMEOUT_MS } from "./harness.ts";
 
 const MESSY_SOURCE = `export const parse = (input: any) => {
   const out: any = {};
@@ -55,8 +27,6 @@ export const deep = (aaa: number, bbb: number, ccc: number, ddd: number): string
   return "no";
 };
 `;
-
-const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null;
 
 /**
  * Carries the things `bootstrap` must not lose. It adds scripts to this file, and a reader has to

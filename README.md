@@ -328,6 +328,12 @@ warning population; running both counts it once in a precise ledger and once in 
 The generated file is wholly owned by the tool and safe to overwrite, the way
 `eslint-suppressions.json` is; your own config is edited **once**, to spread it last so it wins.
 
+**Commit both generated files.** `eslint-tier.config.js` is what ESLint reads; `.ever-better/tier.json`
+is the list the next run compares against. A missing ledger means there is nothing to compare to, so
+the run takes a fresh tier — and an empty ledger is **not** the same as a missing one. A repository
+whose list has drained to nothing is the strictest state there is, and a violation appearing there is
+refused exactly like any other.
+
 ### `prune`
 
 After you fix a grandfathered violation, its suppression is stale. `prune` reclaims it, lowering

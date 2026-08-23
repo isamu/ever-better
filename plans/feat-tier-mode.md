@@ -43,9 +43,16 @@ plain run          1 error + 2 warnings   (the block is in effect)
 --rule no-var:error          3 errors     (the block is neutralised)
 ```
 
-So every run computes the truth the same way: force the tiered rules back to `error`, run
-`--suppress-all` into a temporary location, read the file-by-rule counts out of it, and delete it.
-ESLint computes the failing set; nothing here reimplements it.
+**And it is the wrong mechanism, because it outranks everything.** A type-aware rule forced back on
+lands on files outside the type program — a generated `eslint.config.js`, any plain JS — and ESLint
+aborts the run: *"you have used a rule which requires type information"*. It survived a fixture with
+only `no-var` and died on the first real bootstrapped repository, which is what the e2e is for.
+
+So the generated file steps aside instead. `eslint-tier.config.js` exports `[]` when it sees
+`EVER_BETTER_TIER_RECOMPUTE`, and `tier` sets that for its own scan: `--suppress-all` into a
+temporary location, read the file-by-rule counts out of it, delete it. Nothing global is overridden,
+the file that yields is one this tool owns, and ESLint still computes the failing set — nothing here
+reimplements it.
 
 ## Where the list lives
 
@@ -66,7 +73,8 @@ last so it wins, and never again. Repeatedly rewriting a file somebody else owns
 
 ## Verification
 
-- the `--rule` neutralisation, against real ESLint, both directions
+- the recompute guard, against real ESLint: the list is recomputed with the exceptions inert, and a
+  type-aware rule in the list does not abort the run
 - a full cycle on a fixture: tier, fix one file, re-run, watch the list shrink
 - a new violation in a file not on the list fails; one in a file on the list becomes a warning and
   is caught by the total
