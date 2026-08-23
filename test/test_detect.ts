@@ -122,6 +122,61 @@ describe("detectCi", () => {
     assert.deepEqual(missingRunners(ci), []);
   });
 
+  /**
+   * A false gap is noise; a false "already covered" means the gap is never reported at all, and
+   * `diagnose` is only worth having if it can be believed without opening the workflow. Matching
+   * the raw text claimed CI coverage for every line below.
+   */
+  it("does not count a script that is printed rather than run", () => {
+    assert.equal(detectCi(workflow('      - run: echo "yarn run lint"')).runsLint, false);
+    assert.equal(detectCi(workflow("      - run: echo npm run lint")).runsLint, false);
+  });
+
+  it("does not count a commented-out step", () => {
+    assert.equal(detectCi(workflow("      # - run: yarn run lint")).runsLint, false);
+  });
+
+  it("does not count a different binary that happens to end in a manager's name", () => {
+    assert.equal(detectCi(workflow("      - run: ./tools/yarn lint")).runsLint, false);
+  });
+
+  it("does not count a manager named in a job or step name", () => {
+    assert.equal(detectCi(workflow("  lint:\n    name: yarn run lint")).runsLint, false);
+  });
+
+  /** `run:` under `with:` is an action's input, not a step — it executes nothing in this workflow. */
+  /** A quoted span is data: splitting a command chain inside one invented a command that never ran. */
+  it("does not split a command chain inside a quoted string", () => {
+    assert.equal(detectCi(workflow('      - run: echo "not running; yarn lint"')).runsLint, false);
+    assert.equal(detectCi(workflow("      - run: echo 'a && yarn lint'")).runsLint, false);
+  });
+
+  it("still reads a real command that carries a quoted argument", () => {
+    assert.equal(detectCi(workflow('      - run: yarn lint --format "json"')).runsLint, true);
+  });
+
+  it("does not count a run: that is an action input", () => {
+    assert.equal(detectCi(workflow("      - uses: acme/action@v1\n        with:\n          run: yarn lint")).runsLint, false);
+  });
+
+  it("still counts a real step that follows one", () => {
+    assert.equal(detectCi(workflow("      - uses: acme/setup@v1\n        with:\n          node-version: 22\n      - run: yarn lint")).runsLint, true);
+  });
+
+  it("reads the script a chained command runs, not only the first", () => {
+    assert.equal(detectCi(workflow("      - run: yarn install && yarn lint")).runsLint, true);
+  });
+
+  it("reads a command inside a run block", () => {
+    assert.equal(detectCi(workflow("      - run: |\n          yarn run lint")).runsLint, true);
+  });
+
+  it("accepts every way a manager spells the same invocation", () => {
+    for (const command of ["yarn lint", "yarn run lint", "pnpm run lint", "npm run lint", "npm run-script lint", "bun run lint"]) {
+      assert.equal(detectCi(workflow(`      - run: ${command}`)).runsLint, true, command);
+    }
+  });
+
   it("does not mistake a workflow filename for a runner", () => {
     const ci = detectCi([{ path: ".github/workflows/windows-daily.yaml", content: "name: windows-daily" }]);
     assert.deepEqual(ci.runners, []);
@@ -132,6 +187,23 @@ describe("detectCi", () => {
     assert.equal(ci.runsLint, true);
     assert.equal(ci.runsTest, true);
     assert.equal(ci.runsBuild, false);
+  });
+
+  it("recognises the explicit `run` form every manager accepts", () => {
+    // `yarn run lint` is what the Vite scaffold writes, and reading it as "no lint in CI" makes
+    // the review-tier gaps fire against a repo that already runs the whole tier.
+    const ci = detectCi(workflow("run: yarn run lint\nrun: pnpm run test\nrun: bun run build\nrun: npm run typecheck"));
+    assert.equal(ci.runsLint, true);
+    assert.equal(ci.runsTest, true);
+    assert.equal(ci.runsBuild, true);
+    assert.equal(ci.runsTypecheck, true);
+  });
+
+  it("does not read one script's name out of another", () => {
+    const ci = detectCi(workflow("run: yarn run lint:fix\nrun: yarn run test-setup\nrun: yarn build --watch"));
+    assert.equal(ci.runsLint, true, "a colon namespaces the same tier");
+    assert.equal(ci.runsBuild, true);
+    assert.equal(ci.runsTest, false, "test-setup is not the test script");
   });
 
   it("sees whether the gate itself is wired, which thorough CI can still miss", () => {
