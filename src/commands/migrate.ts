@@ -6,6 +6,7 @@ import { buildGraph } from "../migrate/importGraph.ts";
 import { migratedName, planMigration } from "../migrate/order.ts";
 import { exec } from "../util/exec.ts";
 import { readSources } from "../util/sources.ts";
+import { countTypeErrors } from "../typeErrorCount.ts";
 import type { SourceFile } from "../types.ts";
 
 export type MigrateOptions = {
@@ -22,14 +23,13 @@ const NEXT_SHOWN = 10;
 
 const javascriptFiles = (files: readonly SourceFile[]): SourceFile[] => files.filter((file) => JS_EXTENSIONS.has(file.ext));
 
-const countTypeErrors = async (cwd: string): Promise<number | null> => {
+const measureTypeErrors = async (cwd: string): Promise<number | null> => {
   const tsc = path.join(cwd, "node_modules", "typescript", "bin", "tsc");
   try {
     // `--pretty false`: tsc colours its output, and escape codes between "error" and "TS1234" make
     // a grep silently count zero.
     const result = await exec(process.execPath, [tsc, "--noEmit", "--pretty", "false"], cwd);
-    const output = `${result.stdout}\n${result.stderr}`;
-    return output.split("\n").filter((line) => line.includes("error TS")).length;
+    return countTypeErrors(result);
   } catch {
     return null;
   }
@@ -90,9 +90,9 @@ export const runMigrate = async (options: MigrateOptions): Promise<string> => {
     if (!(await hasTypescript(options.cwd))) {
       return "TypeScript is not installed here. Run `ever-better bootstrap` first.";
     }
-    const before = await countTypeErrors(options.cwd);
+    const before = await measureTypeErrors(options.cwd);
     await renameEvery(options.cwd, [...sources.keys()]);
-    const after = await countTypeErrors(options.cwd);
+    const after = await measureTypeErrors(options.cwd);
     return [...created, ...describeWholeRepo(sources.size, before, after)].join("\n");
   }
 
@@ -107,10 +107,10 @@ export const runMigrate = async (options: MigrateOptions): Promise<string> => {
     return "TypeScript is not installed here. Run `ever-better bootstrap` first.";
   }
 
-  const before = await countTypeErrors(options.cwd);
+  const before = await measureTypeErrors(options.cwd);
   const target = migratedName(options.file);
   await rename(path.join(options.cwd, options.file), path.join(options.cwd, target));
-  const after = await countTypeErrors(options.cwd);
+  const after = await measureTypeErrors(options.cwd);
 
   const cost = before !== null && after !== null ? after - before : null;
   return [

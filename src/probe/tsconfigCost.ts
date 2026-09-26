@@ -1,5 +1,6 @@
 import { rm, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { countTypeErrors } from "../typeErrorCount.ts";
 import { exec } from "../util/exec.ts";
 
 export type FlagCost = {
@@ -9,8 +10,6 @@ export type FlagCost = {
 };
 
 const PROBE_CONFIG = "tsconfig.ever-better-probe.json";
-
-const countErrors = (output: string): number => output.split("\n").filter((line) => line.includes("error TS")).length;
 
 /**
  * `--pretty false` is not optional. tsc colours its output by default, which puts escape codes
@@ -25,7 +24,7 @@ const measureFlagCost = async (cwd: string, flag: string): Promise<number | null
     // passed on the command line resolves differently from the same flag in the project.
     await writeFile(configPath, `${JSON.stringify({ extends: "./tsconfig.json", compilerOptions: { [flag]: true } }, null, 2)}\n`, "utf8");
     const result = await exec(process.execPath, [tsc, "--noEmit", "--pretty", "false", "-p", PROBE_CONFIG], cwd);
-    return countErrors(`${result.stdout}\n${result.stderr}`);
+    return countTypeErrors(result);
   } catch {
     return null;
   } finally {
