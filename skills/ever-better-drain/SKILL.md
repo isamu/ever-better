@@ -358,6 +358,20 @@ the edit keeping the existing indentation, commit that, then run the formatter a
 reflow on its own. The first diff is the change; the second is noise a reviewer can skip. Squashing
 them back together is how a real edit hides inside a reformat.
 
+**Before you push, run what CI runs — all of it.** Read the workflow, follow each script it calls to
+the real command, and run those with the same flags. One rule per PR means many PRs, and every one
+that goes red in CI costs a fix, a push and another review. Three gaps account for most of it:
+
+- **The whole test suite, not the files you touched.** Some tests read the whole repository — every
+  source file checked for a pattern, every route listed, every key used — and go red only in the
+  full run.
+- **CI's flags, not yours.** A stricter lint script, a frozen lockfile, a typecheck over the test
+  files the build excludes.
+- **The platforms you cannot run.** On Windows, an expected value written as `"/home/me/x"` fails
+  against code that resolves it to `C:\home\me\x`; build the expectation with the same `path` call.
+  Read the diff for that, for assumed `\n` line endings, and for scripts only a POSIX shell
+  understands. The matrix finds the rest, but each thing it finds costs a round.
+
 ## What becomes an issue instead
 
 Open a GitHub issue — do not guess — when the fix requires a decision only the owner can make:
