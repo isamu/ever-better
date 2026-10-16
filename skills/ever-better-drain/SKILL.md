@@ -232,6 +232,26 @@ This costs thirty seconds and is the only thing that distinguishes a test from a
 suite that never went red is a suite nobody has evidence for — the count went up and the coverage
 did not.
 
+**Break one thing at a time, and prove you put it back.** A rule fixed at several sites means several
+breaks, one per decision, and in an unattended run the worst outcome of this step is a break left in
+the tree: the next rule starts from code nobody wrote, and every later result measures it.
+
+- Copy each file before the first break. Assert the file equals that copy before every break and
+  again after every restore — a formatter, a watcher or another process touching it is otherwise
+  invisible.
+- Restore from the copy, never with `git checkout`, which also throws away the fix you have not
+  committed yet.
+- Make each break an exact replacement and assert it matched exactly once. A pattern that matches
+  nothing breaks nothing, and the passing test then reads as a weak test instead of a broken check.
+- One change per break. Two at once cannot say which one the test noticed.
+- In a shell loop, keep the file list in an array. zsh does not split an unquoted `$FILES` into
+  words, so the loop runs once, over a path that does not exist.
+
+**Count it twice when this PR added tests**: once with every test, once with only the tests that
+existed before it. The first says what the PR protects; the second says how much of that rests on
+tests you just wrote, which always look perfect counted on their own. Put both in the PR body with
+the command that produced them.
+
 The same applies to a rule you have just switched on: make one violation on purpose and confirm the
 lint reports it. A rule that is enabled and silently finds nothing reads exactly like a clean
 codebase.
