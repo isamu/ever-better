@@ -71,6 +71,10 @@ An edit that re-indents a block is itself two commits — the change at the old 
 reflow — or the three lines you wrote disappear into a whole-block diff. See `ever-better-drain`,
 step 8.
 
+Before every push, run what CI runs: the whole suite, with CI's flags, and a read of the diff for the
+platforms you cannot run here. A run opens many PRs, and each one that goes red costs a fix, a push
+and another review. See `ever-better-drain`, step 8.
+
 ## Before anything
 
 0. **Run `ever-better-prepare`** if this is a first run here, or if `diagnose` reports no
