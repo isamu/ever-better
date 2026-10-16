@@ -1,5 +1,32 @@
 # ChangeLog
 
+## 1.0.0 — 2026-10-17
+
+No command or flag was added or removed since 0.5.0. This release tightens how the drain loop verifies its own work, moves three decisions out of code that needed real ESLint or tsc into pure, tested modules, and brings the plugin manifest's version, which had stayed at 0.4.0, in line with the package.
+
+### Skills
+
+- **Breaking the code to check a test has to put it back** (#87, #86). `ever-better-drain` step 6 now says how to break several things safely in an unattended run: one break at a time, each an exact replacement asserted to match once; a copy of each file compared before every break and after every restore; restore from that copy, never `git checkout`; file lists in arrays in shell loops (zsh does not split an unquoted variable). When a PR added tests, it counts twice — with every test, and with only the tests that existed before it.
+- **Run what CI runs before every push** (#88, #86). `ever-better-drain` step 8 and `ever-better-run` now say to run the whole suite with CI's flags before pushing, and to read the diff for the platforms that cannot run locally (POSIX paths in test expectations, assumed `\n`, POSIX-only scripts). One rule per PR means many PRs, and each one that goes red costs a fix, a push and another review.
+
+### Internal
+
+Each move below was proved by running the old code beside the new over generated inputs, and the generator and property were kept as a permanent test.
+
+- **`check`'s verdict is a pure module** (#79). `src/checkVerdict.ts`: errors fail first, then counts above their ceiling, else pass. It was reachable only through real ESLint before.
+- **The strictness-flag decision is pinned and extracted** (#80). Guard tests on `freeFlags` / `pricedFlags`, and the report moved into `src/strictnessReport.ts`. A wrong call here breaks the user's `typecheck` at once, since type errors cannot be suppressed.
+- **One counter for tsc type errors** (#81). `src/typeErrorCount.ts` replaces two copies in `migrate` and the strictness probe.
+
+### Dependencies
+
+- eslint group (#70, #72, #77, #84), dev group (#71, #73, #76, #78, #85).
+
+### Plugin
+
+- `.claude-plugin/plugin.json` and `marketplace.json` now carry the package version; they had stayed at 0.4.0 through 0.4.1 and 0.5.0.
+
+📦 [`ever-better@1.0.0`](https://www.npmjs.com/package/ever-better/v/1.0.0)
+
 ## 0.5.0 — 2026-08-24
 
 Three new commands, and every one of them exists because a repository can pass `check` and still be unsafe: a rule can be disabled inline, a key can be in the history, and a backlog can be a number nobody knows how to start on.
