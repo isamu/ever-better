@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
+import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import path from "node:path";
 import { describe, it } from "node:test";
-import { applyRuleCounts, emptyState, findRegressions, improvements, nextBaseline, setCounter, totalViolations } from "../src/state.ts";
+import { applyRuleCounts, emptyState, findRegressions, improvements, nextBaseline, readState, setCounter, totalViolations } from "../src/state.ts";
 
 describe("nextBaseline", () => {
   it("adopts the current count for a rule seen for the first time", () => {
@@ -26,16 +29,20 @@ describe("nextBaseline", () => {
 describe("applyRuleCounts", () => {
   it("pins today's counts on the first freeze", () => {
     const state = applyRuleCounts(emptyState(), { "no-any": 3, "max-depth": 1 }, "freeze");
-    assert.equal(state.rules["no-any"]?.baseline, 3);
-    assert.equal(state.rules["no-any"]?.current, 3);
+    const rule = state.rules["no-any"];
+    assert.ok(rule);
+    assert.equal(rule.baseline, 3);
+    assert.equal(rule.current, 3);
     assert.equal(totalViolations(state), 4);
   });
 
   it("records a rule that dropped to zero as enforced", () => {
     const frozen = applyRuleCounts(emptyState(), { "no-any": 2 }, "freeze");
     const drained = applyRuleCounts(frozen, {}, "observe");
-    assert.equal(drained.rules["no-any"]?.current, 0);
-    assert.equal(drained.rules["no-any"]?.status, "enforced");
+    const rule = drained.rules["no-any"];
+    assert.ok(rule);
+    assert.equal(rule.current, 0);
+    assert.equal(rule.status, "enforced");
     assert.deepEqual(
       improvements(drained).map((entry) => entry.name),
       ["no-any"],
@@ -73,5 +80,56 @@ describe("setCounter", () => {
 describe("findRegressions", () => {
   it("is empty for a fresh state", () => {
     assert.deepEqual(findRegressions(emptyState()), []);
+  });
+});
+
+/**
+ * A 0.1.0 file has no `log` and no diagnosis provenance. The guard only checks the three fields
+ * that identify the format, so such a file loads and `migrate` is the only thing that makes it a
+ * complete `State` — which is why the fills there are not the dead code their old type implied.
+ */
+describe("readState", () => {
+  const writeStateFile = async (body: unknown): Promise<string> => {
+    const dir = await mkdtemp(path.join(tmpdir(), "ever-better-state-"));
+    await mkdir(path.join(dir, ".ever-better"), { recursive: true });
+    await writeFile(path.join(dir, ".ever-better", "state.json"), JSON.stringify(body), "utf8");
+    return dir;
+  };
+
+  it("fills the fields a 0.1.0 file never wrote", async () => {
+    const dir = await writeStateFile({
+      version: 1,
+      tool: "ever-better",
+      phase: "freeze",
+      updatedAt: "2026-01-01T00:00:00.000Z",
+      frozenAt: null,
+      diagnosis: null,
+      rules: {},
+      counters: {},
+    });
+    const state = await readState(dir);
+    assert.ok(state);
+    assert.deepEqual(state.log, []);
+    assert.equal(state.diagnosedAt, null);
+    assert.equal(state.diagnosedCommit, null);
+  });
+
+  it("keeps what a current file already carries", async () => {
+    const entry = { at: "2026-01-02T00:00:00.000Z", kind: "freeze", text: "frozen", commit: null, rule: null };
+    const dir = await writeStateFile({ ...emptyState(), diagnosedAt: "2026-01-01T00:00:00.000Z", diagnosedCommit: "abc1234", log: [entry] });
+    const state = await readState(dir);
+    assert.ok(state);
+    assert.deepEqual(state.log, [entry]);
+    assert.equal(state.diagnosedCommit, "abc1234");
+  });
+
+  it("rejects a file that does not identify itself as this format", async () => {
+    const dir = await writeStateFile({ version: 2, rules: {}, counters: {} });
+    assert.equal(await readState(dir), null);
+  });
+
+  it("returns null rather than throwing when there is no file", async () => {
+    const dir = await mkdtemp(path.join(tmpdir(), "ever-better-state-"));
+    assert.equal(await readState(dir), null);
   });
 });

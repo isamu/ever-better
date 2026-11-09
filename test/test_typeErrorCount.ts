@@ -46,6 +46,8 @@ describe("countTypeErrors", () => {
   });
 
   it("equals the marked lines of stdout plus those of stderr, over every generated pairing", () => {
-    generatedRuns().forEach((run) => assert.equal(countTypeErrors(run), markedLines(run.stdout) + markedLines(run.stderr), JSON.stringify(run)));
+    generatedRuns().forEach((run) => {
+      assert.equal(countTypeErrors(run), markedLines(run.stdout) + markedLines(run.stderr), JSON.stringify(run));
+    });
   });
 });

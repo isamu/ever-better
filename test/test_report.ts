@@ -9,6 +9,16 @@ import { runReport } from "../src/commands/report.ts";
 const SUMMARY = "GITHUB_STEP_SUMMARY";
 
 /**
+ * Removing the key is the only way to unset an env var — assigning `undefined` stores the string
+ * `"undefined"`, which the command reads as a path. `Reflect` rather than `delete` because
+ * `process.env` is indexed by a variable, which `no-dynamic-delete` rejects for objects that
+ * should have been a `Map`; this one could not have been.
+ */
+const unsetEnv = (name: string): void => {
+  Reflect.deleteProperty(process.env, name);
+};
+
+/**
  * The command promises it is not a gate: it never changes an exit code, and it degrades rather than
  * throwing when ESLint cannot run or the summary cannot be written. Those are the two `catch`es in
  * the file, and neither is reachable from the pure tests.
@@ -27,13 +37,13 @@ describe("ever-better report", () => {
   });
 
   after(async () => {
-    if (original === undefined) delete process.env[SUMMARY];
+    if (original === undefined) unsetEnv(SUMMARY);
     else process.env[SUMMARY] = original;
     await rm(repo, { recursive: true, force: true });
   });
 
   it("reports the backlog from the ratchet file when ESLint cannot run", async () => {
-    delete process.env[SUMMARY];
+    unsetEnv(SUMMARY);
     const markdown = await runReport({ cwd: repo, json: false });
     assert.match(markdown, /3 suppressed/);
     assert.match(markdown, /ratchet file alone/);
@@ -62,7 +72,7 @@ describe("ever-better report", () => {
     await runReport({ cwd: repo, json: false });
     const afterFirst = await readFile(summary, "utf8");
 
-    delete process.env[SUMMARY];
+    unsetEnv(SUMMARY);
     await runReport({ cwd: repo, json: false });
     assert.equal(await readFile(summary, "utf8"), afterFirst, "the second run appended with no summary requested");
   });

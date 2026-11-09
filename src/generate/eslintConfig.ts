@@ -220,6 +220,10 @@ const strictnessBlock = (options: EslintConfigOptions): string[] => {
     "          minimumDescriptionLength: 10,",
     "        },",
     "      ],",
+    "      // strictTypeChecked forbids `${aNumber}`, which is the one place it asks for a change that",
+    "      // finds nothing: a count interpolated into a message is already a string's worth of intent.",
+    "      // Everything else that rule catches — objects, nullish, any — stays an error.",
+    '      "@typescript-eslint/restrict-template-expressions": ["error", { allowNumber: true }],',
     "    },",
     "  },",
   ];
