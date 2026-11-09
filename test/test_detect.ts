@@ -145,6 +145,18 @@ describe("detectCi", () => {
     assert.equal(detectCi(workflow("      - run: echo npm run lint")).runsLint, false);
   });
 
+  it("asks about the script this repository actually has", () => {
+    // `yarn run eslint` is the lint gate when the script is called `eslint`; asking for the literal
+    // name `lint` reported no lint in CI at a repo that runs it on every pull request.
+    const runsEslintScript = workflow("      - run: yarn run eslint");
+    assert.equal(detectCi(runsEslintScript).runsLint, false);
+    assert.equal(detectCi(runsEslintScript, { lint: "eslint", typecheck: "typecheck" }).runsLint, true);
+  });
+
+  it("counts a workspaces delegation, which is how a monorepo root runs a script", () => {
+    assert.equal(detectCi(workflow("      - run: yarn workspaces run lint")).runsLint, true);
+  });
+
   it("does not count a commented-out step", () => {
     assert.equal(detectCi(workflow("      # - run: yarn run lint")).runsLint, false);
   });

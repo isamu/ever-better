@@ -4,6 +4,7 @@ import { detectLanguageMode, typescriptFileRatio } from "./detect/language.ts";
 import { detectPackageManager } from "./detect/packageManager.ts";
 import { summarizeSizes, DEFAULT_FILE_LINE_LIMIT } from "./detect/sizes.ts";
 import { detectScripts, detectTooling } from "./detect/tooling.ts";
+import { scriptNameFor } from "./detect/scriptJobs.ts";
 import { findWeakRules } from "./probe/effectiveRules.ts";
 import { findMissingStrictness, isStrictOff } from "./probe/effectiveTsconfig.ts";
 import type { Diagnosis, Gap, RepoFacts, ScriptCoverage } from "./types.ts";
@@ -263,7 +264,10 @@ export const diagnose = (facts: RepoFacts): Diagnosis => {
     typescriptFileRatio: typescriptFileRatio(facts.sourceFiles),
     tooling: detectTooling(facts.rootEntries, facts.packageJson, workflowText),
     scripts: detectScripts(facts.packageJson),
-    ci: detectCi(facts.workflows),
+    ci: detectCi(facts.workflows, {
+      lint: scriptNameFor(facts.packageJson, "lint") ?? "lint",
+      typecheck: scriptNameFor(facts.packageJson, "typecheck") ?? "typecheck",
+    }),
     sizes: summarizeSizes(facts.sourceFiles),
   };
   const gaps = [...GAP_DETECTORS.flatMap((detect) => detect(partial)), ...frameworkGaps(partial, facts), ...effectiveRuleGaps(facts), ...strictnessGaps(facts)];
