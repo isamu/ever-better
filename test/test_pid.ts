@@ -14,6 +14,8 @@ describe("isProcessAlive", () => {
   });
 
   it("says no to a pid that cannot exist rather than throwing", () => {
-    [0, -1, 1.5, Number.NaN].forEach((pid) => assert.equal(isProcessAlive(pid), false, `${pid}`));
+    [0, -1, 1.5, Number.NaN].forEach((pid) => {
+      assert.equal(isProcessAlive(pid), false, `${pid}`);
+    });
   });
 });

@@ -90,7 +90,9 @@ describe("checkVerdict over generated inputs", () => {
         assert.ok(result.message.startsWith(`${errorTotal} unsuppressed error(s)`), result.message);
       } else if (regressions.length > 0) {
         assert.equal(result.ok, false);
-        regressions.forEach((item) => assert.ok(result.message.includes(`  ${item.name}: ${item.baseline} -> ${item.current}`), result.message));
+        regressions.forEach((item) => {
+          assert.ok(result.message.includes(`  ${item.name}: ${item.baseline} -> ${item.current}`), result.message);
+        });
       } else {
         assert.equal(result.ok, true);
       }

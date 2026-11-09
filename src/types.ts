@@ -18,6 +18,8 @@ export type RuleStatus = "off" | "draining" | "enforced";
 
 export type PackageJson = {
   name?: string;
+  /** Yarn and npm take the array; `{ packages }` is pnpm's shape, mirrored here by some repos. */
+  workspaces?: string[] | { packages?: string[] };
   type?: string;
   main?: string;
   bin?: Record<string, string>;
@@ -43,6 +45,12 @@ export type WorkflowFile = {
  * Everything read from disk, in one value. Every decision function below takes this and returns a
  * verdict, so the decisions are pure and the disk access lives in exactly one place.
  */
+/** A workspace's directory and its own manifest, which is where a monorepo keeps its scripts. */
+export type WorkspacePackage = {
+  dir: string;
+  packageJson: PackageJson | null;
+};
+
 export type RepoFacts = {
   cwd: string;
   /** What ESLint and tsc report as EFFECTIVE, which is not what the config files say. */
@@ -52,7 +60,11 @@ export type RepoFacts = {
   /** Every tracked, non-ignored file. `rootEntries` cannot answer questions about subdirectories. */
   allFiles: string[];
   packageJson: PackageJson | null;
+  /** Empty for a single-package repo. A workspaces root delegates, so its own scripts name nothing. */
+  workspacePackages: WorkspacePackage[];
   sourceFiles: SourceFile[];
+  /** Emitted files, excluded from every count. Non-empty only where output is committed. */
+  generatedSources: string[];
   workflows: WorkflowFile[];
 };
 
@@ -109,6 +121,8 @@ export type Diagnosis = {
   scripts: ScriptCoverage;
   ci: CiCoverage;
   sizes: SizeDistribution;
+  /** How many emitted files the census left out, so a shrunken total is explained rather than odd. */
+  generatedSources: number;
   gaps: Gap[];
 };
 

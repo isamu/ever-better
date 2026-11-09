@@ -21,7 +21,7 @@ const formattable = samples.filter((sample) => PARSERS[sample.language] !== unde
  */
 describe("generated files are Prettier-clean", () => {
   formattable.forEach((sample) => {
-    it(`${sample.title}`, async () => {
+    it(sample.title, async () => {
       const formatted = await prettier.format(sample.contents, { parser: PARSERS[sample.language] ?? "", printWidth: DEFAULT_PRINT_WIDTH });
       assert.equal(sample.contents, formatted, `${sample.title} is not what Prettier would write`);
     });

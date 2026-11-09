@@ -3,8 +3,9 @@ import { detectFramework, detectRuntime, hasUncoveredFileType } from "./detect/f
 import { detectLanguageMode, typescriptFileRatio } from "./detect/language.ts";
 import { detectPackageManager } from "./detect/packageManager.ts";
 import { summarizeSizes, DEFAULT_FILE_LINE_LIMIT } from "./detect/sizes.ts";
-import { detectScripts, detectTooling } from "./detect/tooling.ts";
+import { detectScripts, detectTestRunnerAcross, detectTooling } from "./detect/tooling.ts";
 import { scriptNameFor } from "./detect/scriptJobs.ts";
+import { workspaceDirs, workspaceEntries } from "./detect/workspaces.ts";
 import { findWeakRules } from "./probe/effectiveRules.ts";
 import { findMissingStrictness, isStrictOff } from "./probe/effectiveTsconfig.ts";
 import type { Diagnosis, Gap, RepoFacts, ScriptCoverage } from "./types.ts";
@@ -253,7 +254,8 @@ const GAP_DETECTORS = [eslintGaps, languageGaps, toolingGaps, scriptGaps, ciGaps
  * everything is the normal input here, not an error case.
  */
 export const diagnose = (facts: RepoFacts): Diagnosis => {
-  const hasTsconfig = facts.rootEntries.includes("tsconfig.json");
+  const entriesInWorkspaces = workspaceEntries(workspaceDirs(facts.packageJson, facts.allFiles), facts.allFiles);
+  const hasTsconfig = facts.rootEntries.includes("tsconfig.json") || entriesInWorkspaces.includes("tsconfig.json");
   const workflowText = facts.workflows.map((workflow) => workflow.content).join("\n");
   const framework = detectFramework(facts.packageJson);
   const partial: Omit<Diagnosis, "gaps"> = {
@@ -262,13 +264,20 @@ export const diagnose = (facts: RepoFacts): Diagnosis => {
     framework,
     runtime: detectRuntime(framework, facts.packageJson),
     typescriptFileRatio: typescriptFileRatio(facts.sourceFiles),
-    tooling: detectTooling(facts.rootEntries, facts.packageJson, workflowText),
+    tooling: {
+      ...detectTooling(facts.rootEntries, facts.packageJson, workflowText, entriesInWorkspaces),
+      testRunner: detectTestRunnerAcross(
+        facts.packageJson,
+        facts.workspacePackages.map((workspace) => workspace.packageJson),
+      ),
+    },
     scripts: detectScripts(facts.packageJson),
     ci: detectCi(facts.workflows, {
       lint: scriptNameFor(facts.packageJson, "lint") ?? "lint",
       typecheck: scriptNameFor(facts.packageJson, "typecheck") ?? "typecheck",
     }),
     sizes: summarizeSizes(facts.sourceFiles),
+    generatedSources: facts.generatedSources.length,
   };
   const gaps = [...GAP_DETECTORS.flatMap((detect) => detect(partial)), ...frameworkGaps(partial, facts), ...effectiveRuleGaps(facts), ...strictnessGaps(facts)];
   return { ...partial, gaps };

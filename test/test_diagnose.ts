@@ -9,7 +9,9 @@ const facts = (overrides: Partial<RepoFacts> = {}): RepoFacts => ({
   rootEntries: ["package.json"],
   allFiles: ["package.json"],
   packageJson: { name: "demo" },
+  workspacePackages: [],
   sourceFiles: [],
+  generatedSources: [],
   workflows: [],
   probes: { rules: null, tsconfig: null },
   ...overrides,
@@ -17,7 +19,36 @@ const facts = (overrides: Partial<RepoFacts> = {}): RepoFacts => ({
 
 const gapIds = (input: RepoFacts): string[] => diagnose(input).gaps.map((gap) => gap.id);
 
+/**
+ * A Yarn workspaces root holds no tsconfig, no ESLint config and a `test` script that delegates.
+ * Read as a single package it reports the inverse of what the repository is, and `bootstrap` acts
+ * on that: a second test runner, a root config over the per-workspace ones, and a migration of a
+ * repository that is already TypeScript.
+ */
+const workspacesRoot = (): RepoFacts =>
+  facts({
+    packageJson: { name: "root", workspaces: ["packages/*"], scripts: { test: "yarn workspaces run test" } },
+    rootEntries: ["package.json"],
+    allFiles: ["package.json", "packages/a/package.json", "packages/a/tsconfig.json", "packages/a/eslint.config.mjs"],
+    workspacePackages: [{ dir: "packages/a", packageJson: { scripts: { test: "node --test ./tests/test_*.ts" } } }],
+    sourceFiles: [{ path: "packages/a/src/index.ts", ext: "ts", lines: 10 }],
+  });
+
 describe("diagnose", () => {
+  it("answers from the workspaces when the root holds none of the configuration", () => {
+    const result = diagnose(workspacesRoot());
+    assert.equal(result.tooling.eslint, "flat");
+    assert.equal(result.tooling.testRunner, "node:test");
+    assert.notEqual(result.language, "javascript");
+  });
+
+  it("does not report a workspaces monorepo as missing what its workspaces have", () => {
+    const ids = gapIds(workspacesRoot());
+    for (const absent of ["eslint", "typescript", "test-runner"]) {
+      assert.equal(ids.includes(absent), false, `reported \`${absent}\` missing`);
+    }
+  });
+
   it("survives a repository that has nothing at all", () => {
     const result = diagnose(facts());
     assert.equal(result.packageManager, "npm");

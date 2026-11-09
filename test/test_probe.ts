@@ -45,8 +45,8 @@ describe("findWeakRules", () => {
   });
 
   it("reports a rule ESLint did not mention at all", () => {
-    const rules = { ...allOn };
-    delete rules[HIGH_VALUE_RULES[0]?.name ?? ""];
+    const unmentioned = HIGH_VALUE_RULES[0]?.name ?? "";
+    const rules = Object.fromEntries(Object.entries(allOn).filter(([name]) => name !== unmentioned));
     const weak = findWeakRules({ rules });
     assert.equal(weak.length, 1);
     assert.equal(weak[0]?.state, "off");
@@ -76,7 +76,7 @@ describe("findMissingStrictness", () => {
     assert.ok(names.includes("exactOptionalPropertyTypes"));
   });
 
-  it("reports nothing once they are all on", () => {
+  it("reports nothing once they are all at the value that makes them strict", () => {
     const compilerOptions = {
       noUncheckedIndexedAccess: true,
       exactOptionalPropertyTypes: true,
@@ -84,6 +84,8 @@ describe("findMissingStrictness", () => {
       noFallthroughCasesInSwitch: true,
       noImplicitOverride: true,
       noPropertyAccessFromIndexSignature: true,
+      noUncheckedSideEffectImports: true,
+      allowUnreachableCode: false,
     };
     assert.deepEqual(findMissingStrictness({ compilerOptions }), []);
   });
@@ -91,6 +93,24 @@ describe("findMissingStrictness", () => {
   it("treats a flag set to false as off, not as configured", () => {
     const missing = findMissingStrictness({ compilerOptions: { noImplicitReturns: false } });
     assert.ok(missing.some((entry) => entry.flag.name === "noImplicitReturns"));
+  });
+
+  it("reads a permissive flag the other way round: `true` is the loose setting", () => {
+    // allowUnreachableCode is the one flag whose strict value is false, so `true` has to read as
+    // missing and `false` as satisfied — the opposite of every other entry in the list.
+    const loose = findMissingStrictness({ compilerOptions: { allowUnreachableCode: true } });
+    assert.ok(loose.some((entry) => entry.flag.name === "allowUnreachableCode"));
+
+    const strict = findMissingStrictness({ compilerOptions: { allowUnreachableCode: false } });
+    assert.equal(
+      strict.some((entry) => entry.flag.name === "allowUnreachableCode"),
+      false,
+    );
+  });
+
+  it("reports a permissive flag that is simply absent, since the compiler default is loose", () => {
+    const missing = findMissingStrictness({ compilerOptions: { strict: true } });
+    assert.ok(missing.some((entry) => entry.flag.name === "allowUnreachableCode"));
   });
 
   it("reports nothing when tsc could not be asked", () => {
@@ -183,7 +203,7 @@ describe("probeTsconfig through a solution-style root", () => {
   const SOURCE = "export const value: number = 1;\n";
   const strictOf = async (dir: string): Promise<unknown> => {
     const probes = await gatherProbes(dir, [{ path: "src/main.ts", ext: "ts", lines: 1 }]);
-    return probes.tsconfig?.["compilerOptions"];
+    return probes.tsconfig?.compilerOptions;
   };
 
   /**
