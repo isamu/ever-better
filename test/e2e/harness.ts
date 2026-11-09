@@ -19,13 +19,13 @@ export const run = (command: string, args: readonly string[], cwd: string): Prom
     child.stdout.on("data", (chunk: Buffer) => out.push(chunk));
     child.stderr.on("data", (chunk: Buffer) => err.push(chunk));
     child.on("error", reject);
-    child.on("close", (code) =>
+    child.on("close", (code) => {
       resolve({
         code: code ?? 1,
         stdout: Buffer.concat(out).toString("utf8"),
         stderr: Buffer.concat(err).toString("utf8"),
-      }),
-    );
+      });
+    });
   });
 
 export const everBetter = (args: readonly string[], cwd: string): Promise<Run> => run(process.execPath, [cli, ...args], cwd);

@@ -19,7 +19,10 @@ export const countLines = async (filePath: string): Promise<number> =>
     });
     stream.on("error", reject);
     stream.on("close", () => {
-      if (lastByte === null) return resolve(0);
+      if (lastByte === null) {
+        resolve(0);
+        return;
+      }
       // A final line with no trailing newline still counts; a file ending in one does not gain an
       // empty line after it.
       resolve(lastByte === NEWLINE ? newlines : newlines + 1);

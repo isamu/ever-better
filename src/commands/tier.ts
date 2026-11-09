@@ -182,7 +182,7 @@ const removeSuperseded = async (cwd: string, keep: string): Promise<string | nul
   for (const name of stale) {
     const target = path.join(cwd, name);
     const source = await readFile(target, "utf8").catch(() => null);
-    if (source === null || !source.startsWith(GENERATED_MARKER)) continue;
+    if (!source?.startsWith(GENERATED_MARKER)) continue;
     await rm(target, { force: true });
     removed.push(name);
   }

@@ -12,7 +12,9 @@ export const strictnessReport = (costs: readonly FlagCost[]): StrictnessResult =
   const free = freeFlags(costs);
   const priced = pricedFlags(costs);
   const lines = [
-    free.length > 0 ? `Enabled at zero cost: ${free.join(", ")}` : "Nothing was free to enable.",
+    // "Set", not "Enabled": a permissive flag like allowUnreachableCode is made strict by writing
+    // `false`, and saying it was enabled would contradict the file the command just wrote.
+    free.length > 0 ? `Set at zero cost: ${free.join(", ")}` : "Nothing was free to enable.",
     ...(priced.length > 0 ? ["Priced and left off — each is a task, not a flag flip:"] : []),
     ...describePriced(priced),
   ];

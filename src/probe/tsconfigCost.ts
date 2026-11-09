@@ -1,5 +1,6 @@
 import { rm, writeFile } from "node:fs/promises";
 import path from "node:path";
+import type { StrictnessFlag } from "./effectiveTsconfig.ts";
 import { countTypeErrors } from "../typeErrorCount.ts";
 import { exec } from "../util/exec.ts";
 
@@ -16,13 +17,13 @@ const PROBE_CONFIG = "tsconfig.ever-better-probe.json";
  * between "error" and "TS1234" — so counting them without it silently returns zero, and a flag
  * with six errors is reported as free. That happened here before it was caught.
  */
-const measureFlagCost = async (cwd: string, flag: string): Promise<number | null> => {
+const measureFlagCost = async (cwd: string, flag: StrictnessFlag): Promise<number | null> => {
   const configPath = path.join(cwd, PROBE_CONFIG);
   const tsc = path.join(cwd, "node_modules", "typescript", "bin", "tsc");
   try {
     // Extending the real config is what makes this a measurement rather than a guess: a flag
     // passed on the command line resolves differently from the same flag in the project.
-    await writeFile(configPath, `${JSON.stringify({ extends: "./tsconfig.json", compilerOptions: { [flag]: true } }, null, 2)}\n`, "utf8");
+    await writeFile(configPath, `${JSON.stringify({ extends: "./tsconfig.json", compilerOptions: { [flag.name]: flag.value } }, null, 2)}\n`, "utf8");
     const result = await exec(process.execPath, [tsc, "--noEmit", "--pretty", "false", "-p", PROBE_CONFIG], cwd);
     return countTypeErrors(result);
   } catch {
@@ -33,10 +34,10 @@ const measureFlagCost = async (cwd: string, flag: string): Promise<number | null
 };
 
 /** Prices every strictness flag that is currently off. Sequential — tsc is not cheap. */
-export const measureStrictnessCosts = async (cwd: string, offFlags: readonly string[]): Promise<FlagCost[]> => {
+export const measureStrictnessCosts = async (cwd: string, offFlags: readonly StrictnessFlag[]): Promise<FlagCost[]> => {
   const costs: FlagCost[] = [];
   for (const flag of offFlags) {
-    costs.push({ flag, errors: await measureFlagCost(cwd, flag) });
+    costs.push({ flag: flag.name, errors: await measureFlagCost(cwd, flag) });
   }
   return costs;
 };

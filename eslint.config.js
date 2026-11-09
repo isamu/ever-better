@@ -20,7 +20,9 @@ export default tseslint.config(
   },
 
   js.configs.recommended,
-  tseslint.configs.recommendedTypeChecked,
+  tseslint.configs.strictTypeChecked,
+  // The two are disjoint; typescript-eslint's own advice is to use both.
+  tseslint.configs.stylisticTypeChecked,
   sonarjs.configs.recommended,
   // Last: it switches off every rule that would argue with the formatter.
   prettierRecommended,
@@ -39,6 +41,26 @@ export default tseslint.config(
       "@typescript-eslint/consistent-type-assertions": ["error", { assertionStyle: "never" }],
       "@typescript-eslint/no-unused-vars": ["error", { argsIgnorePattern: "^__" }],
       "@typescript-eslint/prefer-readonly": "error",
+      // The other doors out of the type system. `@ts-expect-error` survives only with a written
+      // reason, because it is the one that fails loudly when it stops being needed.
+      "@typescript-eslint/ban-ts-comment": [
+        "error",
+        {
+          "ts-ignore": true,
+          "ts-nocheck": true,
+          "ts-check": false,
+          "ts-expect-error": "allow-with-description",
+          minimumDescriptionLength: 10,
+        },
+      ],
+      // strictTypeChecked forbids `${aNumber}`. Almost everything this tool emits is a rendered
+      // report built from counts, so that reading costs a `String()` wrapper per count and finds
+      // nothing — the generator therefore emits this same option, or the claim above is false.
+      "@typescript-eslint/restrict-template-expressions": ["error", { allowNumber: true }],
+      // Direction, not strength: this codebase states object shapes as `type`, so point the rule
+      // at that instead of rewriting every one. The generator keeps the default, which is right
+      // for a repo whose idiom it cannot know.
+      "@typescript-eslint/consistent-type-definitions": ["error", "type"],
       "no-console": "off",
     },
   },
