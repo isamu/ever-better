@@ -11,6 +11,11 @@ export type ShownConfig = {
 export type StrictnessFlag = {
   name: string;
   why: string;
+  /**
+   * The setting that makes this flag strict. Not always `true`: `allowUnreachableCode` and its
+   * relatives are permissive when on, so the strict reading is to switch them off.
+   */
+  value: boolean;
 };
 
 /**
@@ -25,24 +30,38 @@ const STRICTNESS_FLAGS: readonly StrictnessFlag[] = [
   {
     name: "noUncheckedIndexedAccess",
     why: "without it `array[i]` is typed as present even when the array is empty",
+    value: true,
   },
   {
     name: "exactOptionalPropertyTypes",
     why: "without it `{ a?: string }` silently accepts an explicit undefined",
+    value: true,
   },
-  { name: "noImplicitReturns", why: "a branch that forgets to return yields undefined" },
-  { name: "noFallthroughCasesInSwitch", why: "a missing break falls into the next case" },
+  { name: "noImplicitReturns", why: "a branch that forgets to return yields undefined", value: true },
+  { name: "noFallthroughCasesInSwitch", why: "a missing break falls into the next case", value: true },
   {
     name: "noImplicitOverride",
     why: "a renamed base method leaves an override that overrides nothing",
+    value: true,
   },
   {
     name: "noPropertyAccessFromIndexSignature",
     why: "a typo on an index-signature type resolves instead of erroring",
+    value: true,
+  },
+  {
+    name: "noUncheckedSideEffectImports",
+    why: "a side-effect import of a module that does not resolve is accepted in silence",
+    value: true,
+  },
+  {
+    name: "allowUnreachableCode",
+    why: "code after a return or a throw compiles, and narrowing hides which branch died",
+    value: false,
   },
 ];
 
-const isEnabled = (value: unknown): boolean => value === true;
+const isAtWantedValue = (value: unknown, wanted: boolean): boolean => value === wanted;
 
 export type FlagVerdict = {
   flag: StrictnessFlag;
@@ -55,14 +74,14 @@ export type FlagVerdict = {
 export const findMissingStrictness = (shown: ShownConfig | null, wanted: readonly StrictnessFlag[] = STRICTNESS_FLAGS): FlagVerdict[] => {
   if (!shown) return [];
   const options = shown.compilerOptions ?? {};
-  return wanted.filter((flag) => !isEnabled(options[flag.name])).map((flag) => ({ flag }));
+  return wanted.filter((flag) => !isAtWantedValue(options[flag.name], flag.value)).map((flag) => ({ flag }));
 };
 
 /** `strict` itself being off makes every flag above moot — report that first, not six times. */
 export const isStrictOff = (shown: ShownConfig | null): boolean => {
   if (!shown) return false;
   const options = shown.compilerOptions ?? {};
-  return !isEnabled(options["strict"]) && !isEnabled(options["strictNullChecks"]);
+  return !isAtWantedValue(options["strict"], true) && !isAtWantedValue(options["strictNullChecks"], true);
 };
 
 const normalise = (filePath: string): string => filePath.replace(/^\.\//, "");
