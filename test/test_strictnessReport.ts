@@ -38,7 +38,7 @@ describe("strictnessReport", () => {
     assert.equal(
       report.message,
       [
-        "Enabled at zero cost: noImplicitReturns, noFallthroughCasesInSwitch",
+        "Set at zero cost: noImplicitReturns, noFallthroughCasesInSwitch",
         "Priced and left off — each is a task, not a flag flip:",
         "  noUncheckedIndexedAccess: 6 type errors — left off",
         "  noImplicitOverride: 1 type errors — left off",
@@ -47,7 +47,7 @@ describe("strictnessReport", () => {
   });
 
   it("enables a single free flag", () => {
-    assert.equal(strictnessReport([{ flag: "noImplicitReturns", errors: 0 }]).message, "Enabled at zero cost: noImplicitReturns");
+    assert.equal(strictnessReport([{ flag: "noImplicitReturns", errors: 0 }]).message, "Set at zero cost: noImplicitReturns");
   });
 
   it("says nothing was free when every flag costs something", () => {

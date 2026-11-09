@@ -636,11 +636,15 @@ include, and only the ones that cost nothing. Type errors have no suppression me
 `--suppress-all` cannot touch them — so a flag that costs 500 errors would leave you with a
 failing `typecheck` and no way to stage the work.
 
+Not every flag is strict when switched on: `allowUnreachableCode` is permissive that way round,
+so it is priced and written as `false`. A flag already named in your file is left alone either
+way — it is reported as still missing rather than overwritten.
+
 Each flag is priced by enabling it in a temporary config that extends yours and counting the
 errors. Measured on a real fixture:
 
 ```
-Enabled at zero cost: exactOptionalPropertyTypes, noImplicitReturns,
+Set at zero cost: exactOptionalPropertyTypes, noImplicitReturns,
                       noFallthroughCasesInSwitch, noImplicitOverride,
                       noPropertyAccessFromIndexSignature
 Priced and left off — each is a task, not a flag flip:
@@ -661,6 +665,7 @@ explaining why the other options are there:
     "noFallthroughCasesInSwitch": true,
     "noImplicitOverride": true,
     "noPropertyAccessFromIndexSignature": true,
+    "allowUnreachableCode": false,
     "target": "ES2022",
     "strict": true
   }
