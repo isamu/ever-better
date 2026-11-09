@@ -13,6 +13,10 @@
     "exactOptionalPropertyTypes": true,
     "noImplicitReturns": true,
     "noPropertyAccessFromIndexSignature": true,
+    "noUncheckedSideEffectImports": true,
+    // Permissive when on, so the strict reading is off. The one flag in the candidate list whose
+    // value is not `true`, which is why the list had to learn to carry a value at all.
+    "allowUnreachableCode": false,
     "verbatimModuleSyntax": true,
     "isolatedModules": true,
     // Imports are written with `.ts` extensions so `node --test test/*.ts` runs the sources
