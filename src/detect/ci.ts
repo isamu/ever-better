@@ -1,3 +1,4 @@
+import { COMMAND_SEPARATOR, tokensOf } from "./commandText.ts";
 import type { CiCoverage, WorkflowFile } from "../types.ts";
 
 // `latest` or a version (`22.04`, `13`, `2022`). Loosening the suffix to any word matched workflow
@@ -5,9 +6,6 @@ import type { CiCoverage, WorkflowFile } from "../types.ts";
 const RUNNER_PATTERN = /(?:ubuntu|macos|windows)-(?:latest|\d[\w.]*)/g;
 
 const PACKAGE_MANAGER = /^(?:yarn|npm|pnpm|bun)$/;
-
-/** `run: yarn install && yarn lint` is two commands, and only the second one runs lint. */
-const COMMAND_SEPARATOR = /&&|\|\||;/;
 
 const RUN_KEY = /^[ \t]*(?:-[ \t]+)?run:(.*)$/;
 
@@ -25,12 +23,11 @@ const isScript = (token: string | undefined, script: string): boolean => token !
  * running the whole tier.
  */
 const invokes = (command: string, script: string): boolean => {
-  const [head, ...rest] = command
-    .trim()
-    .split(/\s+/)
-    .filter((token) => token.length > 0);
+  const [head, ...rest] = tokensOf(command);
   if (head === undefined || !PACKAGE_MANAGER.test(head)) return false;
-  const args = rest[0] === "run" || rest[0] === "run-script" ? rest.slice(1) : rest;
+  // `yarn workspaces run lint` delegates to every package, which is still running the script.
+  const delegated = rest[0] === "workspaces" ? rest.slice(1) : rest;
+  const args = delegated[0] === "run" || delegated[0] === "run-script" ? delegated.slice(1) : delegated;
   return isScript(args[0], script);
 };
 
@@ -79,16 +76,24 @@ const mentions = (content: string, script: string): boolean =>
  * or a list, and all we need is "which runners does this repo actually exercise". Adding a YAML
  * parser to answer that would buy precision nobody uses and a dependency everybody pays for.
  */
-export const detectCi = (workflows: readonly WorkflowFile[]): CiCoverage => {
+/**
+ * `scriptNames` is what this repository calls the lint and typecheck gates. Asking for the literal
+ * names reported a repo whose script is `eslint` as having no lint in CI, which sends a reader to
+ * add a second step to a workflow that already has one.
+ */
+export const detectCi = (
+  workflows: readonly WorkflowFile[],
+  scriptNames: { lint: string; typecheck: string } = { lint: "lint", typecheck: "typecheck" },
+): CiCoverage => {
   const combined = workflows.map((workflow) => workflow.content).join("\n");
   const runners = [...new Set(combined.match(RUNNER_PATTERN) ?? [])].sort((a, b) => a.localeCompare(b));
   return {
     present: workflows.length > 0,
     runners,
-    runsLint: mentions(combined, "lint"),
+    runsLint: mentions(combined, scriptNames.lint),
     runsTest: mentions(combined, "test"),
     runsBuild: mentions(combined, "build"),
-    runsTypecheck: mentions(combined, "typecheck"),
+    runsTypecheck: mentions(combined, scriptNames.typecheck),
     // The baseline is only a ratchet if something rejects a regression. A repo can have thorough
     // CI and still enforce nothing, which looks identical from the outside.
     runsEverBetterCheck: /ever-better\s+check/.test(combined),

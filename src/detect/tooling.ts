@@ -1,5 +1,7 @@
 import type { EslintSetup, PackageJson, ScriptCoverage, TestRunner, ToolingPresence } from "../types.ts";
 import { ESLINT_CONFIG_NAMES } from "../eslintConfigNames.ts";
+import { basename, commandOf, tokensOf } from "./commandText.ts";
+import { scriptNameFor } from "./scriptJobs.ts";
 
 const LEGACY_CONFIG_PREFIX = ".eslintrc";
 
@@ -8,20 +10,6 @@ const SECRET_SCANNER_COMMANDS = new Set(["gitleaks", "trufflehog", "detect-secre
 
 /** The actions that run one, `owner/repo` lowercased, matched against a `uses:` value. */
 const SECRET_SCANNER_ACTIONS = new Set(["gitleaks/gitleaks-action", "trufflesecurity/trufflehog", "gitguardian/ggshield-action", "yelp/detect-secrets"]);
-
-/** Tokens that can stand in front of the real command without changing what it is. */
-const RUNNERS = new Set(["-", "npx", "sudo", "env", "yarn", "pnpm", "bunx", "bun", "run"]);
-
-/** `FOO=bar gitleaks git .` — an assignment prefix is not the command either. */
-const isAssignment = (token: string): boolean => /^[A-Za-z_]\w*=/.test(token);
-
-const commandOf = (tokens: readonly string[]): string | null => {
-  const [head, ...rest] = tokens;
-  if (head === undefined) return null;
-  return RUNNERS.has(head) || isAssignment(head) ? commandOf(rest) : head;
-};
-
-const basename = (command: string): string => command.split("/").at(-1) ?? command;
 
 /**
  * `uses:` has to be the line's own key rather than text that merely contains it. `run: echo "uses:
@@ -44,12 +32,7 @@ const RUN_KEY = /^[ \t]*(?:-[ \t]+)?run:(.*)$/;
 
 const runsCommand = (line: string): boolean => {
   const body = RUN_KEY.exec(line)?.[1] ?? line;
-  const command = commandOf(
-    body
-      .trim()
-      .split(/\s+/)
-      .filter((token) => token.length > 0),
-  );
+  const command = commandOf(tokensOf(body));
   return command !== null && SECRET_SCANNER_COMMANDS.has(basename(command));
 };
 
@@ -188,10 +171,11 @@ export const hasScript = (packageJson: PackageJson | null, name: string): boolea
 export const detectScripts = (packageJson: PackageJson | null): ScriptCoverage => {
   const has = (name: string): boolean => hasScript(packageJson, name);
   return {
-    lint: has("lint"),
+    // By what the script runs, not by its name: a `lint` script is the gate whatever it is called.
+    lint: scriptNameFor(packageJson, "lint") !== null,
     format: has("format"),
     build: has("build"),
-    typecheck: has("typecheck"),
+    typecheck: scriptNameFor(packageJson, "typecheck") !== null,
     test: has("test"),
   };
 };
