@@ -71,8 +71,9 @@ describe("buildWorklist", () => {
       frozenAt: NOW.toISOString(),
     };
     const drain = buildWorklist(frozen).find((item) => item.label.startsWith("P3"));
-    assert.equal(drain?.done, false);
-    assert.match(drain?.detail ?? "", /3 violations/);
+    assert.ok(drain);
+    assert.equal(drain.done, false);
+    assert.match(drain.detail ?? "", /3 violations/);
   });
 
   it("marks drain done when the backlog reaches zero", () => {

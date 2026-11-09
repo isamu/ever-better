@@ -45,8 +45,8 @@ describe("findWeakRules", () => {
   });
 
   it("reports a rule ESLint did not mention at all", () => {
-    const rules = { ...allOn };
-    delete rules[HIGH_VALUE_RULES[0]?.name ?? ""];
+    const unmentioned = HIGH_VALUE_RULES[0]?.name ?? "";
+    const rules = Object.fromEntries(Object.entries(allOn).filter(([name]) => name !== unmentioned));
     const weak = findWeakRules({ rules });
     assert.equal(weak.length, 1);
     assert.equal(weak[0]?.state, "off");
@@ -183,7 +183,7 @@ describe("probeTsconfig through a solution-style root", () => {
   const SOURCE = "export const value: number = 1;\n";
   const strictOf = async (dir: string): Promise<unknown> => {
     const probes = await gatherProbes(dir, [{ path: "src/main.ts", ext: "ts", lines: 1 }]);
-    return probes.tsconfig?.["compilerOptions"];
+    return probes.tsconfig?.compilerOptions;
   };
 
   /**

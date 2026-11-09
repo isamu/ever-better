@@ -21,7 +21,14 @@ export type BaselineMode = "observe" | "freeze" | "rebaseline";
 
 const statePath = (cwd: string): string => path.join(cwd, STATE_DIR, STATE_FILE);
 
-const isState = (value: unknown): value is State =>
+/**
+ * A state file as it comes off disk, which is NOT a finished `State`: 0.1.0 wrote files without the
+ * fields `migrate` fills, and they still have to load. Typing the parse result as `State` made
+ * those fills read as dead code while they were the only thing keeping an old file readable.
+ */
+type StoredState = Omit<State, "diagnosedAt" | "diagnosedCommit" | "log"> & Partial<Pick<State, "diagnosedAt" | "diagnosedCommit" | "log">>;
+
+const isStoredState = (value: unknown): value is StoredState =>
   typeof value === "object" && value !== null && "version" in value && value.version === 1 && "rules" in value && "counters" in value;
 
 export const emptyState = (): State => ({
@@ -39,7 +46,7 @@ export const emptyState = (): State => ({
 });
 
 /** 0.1.0 wrote neither `log` nor the diagnosis provenance; fill them rather than rejecting. */
-const migrate = (state: State): State => ({
+const migrate = (state: StoredState): State => ({
   ...state,
   diagnosedAt: state.diagnosedAt ?? null,
   diagnosedCommit: state.diagnosedCommit ?? null,
@@ -49,7 +56,7 @@ const migrate = (state: State): State => ({
 export const readState = async (cwd: string): Promise<State | null> => {
   try {
     const parsed: unknown = JSON.parse(await readFile(statePath(cwd), "utf8"));
-    return isState(parsed) ? migrate(parsed) : null;
+    return isStoredState(parsed) ? migrate(parsed) : null;
   } catch {
     return null;
   }
@@ -73,10 +80,10 @@ const MAX_LOG_ENTRIES = 200;
 
 export const appendLog = (state: State, entry: Omit<LogEntry, "at">): State => ({
   ...state,
-  log: [...(state.log ?? []), { ...entry, at: new Date().toISOString() }].slice(-MAX_LOG_ENTRIES),
+  log: [...state.log, { ...entry, at: new Date().toISOString() }].slice(-MAX_LOG_ENTRIES),
 });
 
-export const logOfKind = (state: State, kind: LogKind): LogEntry[] => (state.log ?? []).filter((entry) => entry.kind === kind);
+export const logOfKind = (state: State, kind: LogKind): LogEntry[] => state.log.filter((entry) => entry.kind === kind);
 
 export const withPhase = (state: State, phase: Phase): State => ({ ...state, phase });
 

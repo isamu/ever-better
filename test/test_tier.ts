@@ -168,7 +168,9 @@ describe("renderTierConfig", () => {
 
   it("escapes every metacharacter minimatch reads", () => {
     const rendered = renderTierConfig(tierList([failing("a(b)c{d}e!f+g@h|i*j?k.js", "no-var")]), "eslint-tier.config.mjs");
-    "(){}!+@|*?".split("").forEach((meta) => assert.ok(rendered.includes(`\\\\${meta}`), `${meta} is not escaped`));
+    "(){}!+@|*?".split("").forEach((meta) => {
+      assert.ok(rendered.includes(`\\\\${meta}`), `${meta} is not escaped`);
+    });
   });
 
   it("is empty and valid with nothing to excuse", () => {
