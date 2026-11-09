@@ -3,6 +3,7 @@ import path from "node:path";
 import { exec } from "./util/exec.ts";
 import { countLines } from "./util/lines.ts";
 import { gatherProbes } from "./probe/gather.ts";
+import { generatedDirs, isGenerated, type TsconfigText } from "./detect/generated.ts";
 import { workspaceDirs } from "./detect/workspaces.ts";
 import type { PackageJson, RepoFacts, SourceFile, WorkflowFile, WorkspacePackage } from "./types.ts";
 
@@ -57,12 +58,41 @@ const listFiles = async (cwd: string): Promise<string[]> => {
 const sourcePathsOf = (files: readonly string[]): string[] =>
   files.filter((file) => SOURCE_EXTENSIONS.has(extensionOf(file)) && !CONFIG_FILE_PATTERN.test(file));
 
+const TSCONFIG_PATTERN = /(^|\/)tsconfig[^/]*\.json$/;
+
+const readTsconfigTexts = async (cwd: string, files: readonly string[]): Promise<TsconfigText[]> =>
+  Promise.all(
+    files
+      .filter((file) => TSCONFIG_PATTERN.test(file))
+      .map(async (file) => ({
+        dir: path.posix.dirname(file) === "." ? "" : path.posix.dirname(file),
+        text: await readFile(path.join(cwd, file), "utf8").catch(() => ""),
+      })),
+  );
+
+/**
+ * Compiler output is not source, and a repository that commits it — graphai keeps `lib/` in git —
+ * had the emitted copy of every file counted beside the file. Every tsconfig is asked, not only the
+ * root one, because in a monorepo each package declares its own `outDir`.
+ */
+const partitionSources = async (cwd: string, files: readonly string[]): Promise<{ counted: string[]; generated: string[] }> => {
+  const dirs = generatedDirs(await readTsconfigTexts(cwd, files));
+  const sources = sourcePathsOf(files);
+  return {
+    counted: sources.filter((file) => !isGenerated(dirs, file)),
+    generated: sources.filter((file) => isGenerated(dirs, file)),
+  };
+};
+
 /**
  * Which paths this tool treats as source. Exported so a caller that only needs the list — the
  * import graph, say — does not pay for `gatherFacts`, which also counts every line and shells out
  * to `eslint --print-config` and `tsc --showConfig`. Two entry points, one definition.
  */
-export const listSourcePaths = async (cwd: string): Promise<string[]> => sourcePathsOf(await listFiles(cwd));
+export const listSourcePaths = async (cwd: string): Promise<string[]> => {
+  const files = await listFiles(cwd);
+  return (await partitionSources(cwd, files)).counted;
+};
 
 const readPackageJson = async (cwd: string): Promise<PackageJson | null> => {
   try {
@@ -98,7 +128,8 @@ const readWorkspacePackages = async (cwd: string, dirs: readonly string[]): Prom
 /** The only function in the codebase that touches the filesystem for detection purposes. */
 export const gatherFacts = async (cwd: string): Promise<RepoFacts> => {
   const files = await listFiles(cwd);
-  const sourceFiles = await Promise.all(sourcePathsOf(files).map((file) => toSourceFile(cwd, file)));
+  const sources = await partitionSources(cwd, files);
+  const sourceFiles = await Promise.all(sources.counted.map((file) => toSourceFile(cwd, file)));
   const packageJson = await readPackageJson(cwd);
   return {
     cwd,
@@ -107,6 +138,7 @@ export const gatherFacts = async (cwd: string): Promise<RepoFacts> => {
     packageJson,
     workspacePackages: await readWorkspacePackages(cwd, workspaceDirs(packageJson, files)),
     sourceFiles,
+    generatedSources: sources.generated,
     workflows: await readWorkflows(cwd, files),
     probes: await gatherProbes(cwd, sourceFiles),
   };

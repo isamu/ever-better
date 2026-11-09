@@ -273,6 +273,7 @@ export const diagnose = (facts: RepoFacts): Diagnosis => {
     scripts: detectScripts(facts.packageJson),
     ci: detectCi(facts.workflows),
     sizes: summarizeSizes(facts.sourceFiles),
+    generatedSources: facts.generatedSources.length,
   };
   const gaps = [...GAP_DETECTORS.flatMap((detect) => detect(partial)), ...frameworkGaps(partial, facts), ...effectiveRuleGaps(facts), ...strictnessGaps(facts)];
   return { ...partial, gaps };
