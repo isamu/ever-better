@@ -53,6 +53,8 @@ export type RepoFacts = {
   allFiles: string[];
   packageJson: PackageJson | null;
   sourceFiles: SourceFile[];
+  /** Emitted files, excluded from every count. Non-empty only where output is committed. */
+  generatedSources: string[];
   workflows: WorkflowFile[];
 };
 
@@ -109,6 +111,8 @@ export type Diagnosis = {
   scripts: ScriptCoverage;
   ci: CiCoverage;
   sizes: SizeDistribution;
+  /** How many emitted files the census left out, so a shrunken total is explained rather than odd. */
+  generatedSources: number;
   gaps: Gap[];
 };
 
