@@ -79,6 +79,18 @@ export default tseslint.config(
 
   {
     rules: {
+      // No preset in typescript-eslint carries these four, so each has to be named on its own.
+      // They are forward guarantees rather than repairs — the generator does not emit them yet,
+      // and running them here before shipping them is the order this repository argues for.
+      "@typescript-eslint/switch-exhaustiveness-check": "error",
+      "@typescript-eslint/require-array-sort-compare": "error",
+      "@typescript-eslint/default-param-last": "error",
+      "@typescript-eslint/no-loop-func": "error",
+    },
+  },
+
+  {
+    rules: {
       "max-lines": ["error", { max: 300, skipBlankLines: true, skipComments: true }],
       "max-lines-per-function": ["error", { max: 60, skipBlankLines: true, skipComments: true }],
       complexity: ["error", 15],
