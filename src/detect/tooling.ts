@@ -138,16 +138,35 @@ export const detectTestRunner = (packageJson: PackageJson | null): TestRunner =>
 };
 
 /**
+ * A workspaces root delegates — `yarn workspaces run test` names no runner — so "none" at the root
+ * is not an answer about the repository until the workspaces have been asked.
+ */
+export const detectTestRunnerAcross = (root: PackageJson | null, workspaces: readonly (PackageJson | null)[]): TestRunner => {
+  const atRoot = detectTestRunner(root);
+  if (atRoot !== "none") return atRoot;
+  return workspaces.map((packageJson) => detectTestRunner(packageJson)).find((runner) => runner !== "none") ?? "none";
+};
+
+/**
  * A tool can be wired up without being a dependency — mulmoterminal downloads a pinned jscpd
  * binary inside its workflow. Reporting that repo as having no duplication scan was wrong, and a
  * false "you are missing this" is how a diagnosis stops being trusted.
  */
-export const detectTooling = (rootEntries: readonly string[], packageJson: PackageJson | null, workflowText = ""): ToolingPresence => {
+export const detectTooling = (
+  rootEntries: readonly string[],
+  packageJson: PackageJson | null,
+  workflowText = "",
+  workspaceEntries: readonly string[] = [],
+): ToolingPresence => {
+  // Presence is a question about the repository: a workspaces root holds none of these, and asking
+  // it alone reported a monorepo as having no ESLint and no TypeScript. The package manager and the
+  // agent instruction files below stay root-only, because for those the root is the answer.
+  const entries = [...rootEntries, ...workspaceEntries];
   const wiredUp = (name: string, configFile: string): boolean =>
-    hasDependency(packageJson, name) || rootEntries.includes(configFile) || workflowText.includes(name);
+    hasDependency(packageJson, name) || entries.includes(configFile) || workflowText.includes(name);
   return {
-    eslint: detectEslintSetup(rootEntries),
-    prettier: hasDependency(packageJson, "prettier") || rootEntries.some((entry) => entry.startsWith(".prettierrc")),
+    eslint: detectEslintSetup(entries),
+    prettier: hasDependency(packageJson, "prettier") || entries.some((entry) => entry.startsWith(".prettierrc")),
     testRunner: detectTestRunner(packageJson),
     knip: wiredUp("knip", "knip.json"),
     jscpd: wiredUp("jscpd", ".jscpd.json"),

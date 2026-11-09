@@ -32,14 +32,17 @@ export const applyStrictness = async (cwd: string, sourceFiles: readonly SourceF
     };
   }
 
-  const off = findMissingStrictness(probes.tsconfig).map((entry) => entry.flag.name);
+  const off = findMissingStrictness(probes.tsconfig).map((entry) => entry.flag);
   if (off.length === 0) return { applied: [], priced: [], message: "Strictness already maximal." };
 
   const report = strictnessReport(await measureStrictnessCosts(cwd, off));
 
   if (report.applied.length > 0) {
     const configPath = path.join(cwd, TSCONFIG);
-    const updated = addCompilerOptions(await readFile(configPath, "utf8"), report.applied, COMMENT);
+    // The report carries names because that is what it prints; the writer needs the value each
+    // flag has to be set to, so the flags themselves are matched back up here.
+    const applied = off.filter((flag) => report.applied.includes(flag.name));
+    const updated = addCompilerOptions(await readFile(configPath, "utf8"), applied, COMMENT);
     if (updated) await writeFile(configPath, updated, "utf8");
   }
 

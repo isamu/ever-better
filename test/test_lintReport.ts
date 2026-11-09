@@ -44,10 +44,11 @@ describe("buildLintReport", () => {
       [],
     );
     const section = report.sections[0];
-    assert.equal(section?.title.startsWith("Backlog"), true);
-    assert.deepEqual(section?.areas, ["src", "test"]);
+    assert.ok(section);
+    assert.equal(section.title.startsWith("Backlog"), true);
+    assert.deepEqual(section.areas, ["src", "test"]);
     assert.deepEqual(
-      section?.rows.map((row) => [row.rule, row.total, row.counts]),
+      section.rows.map((row) => [row.rule, row.total, row.counts]),
       [
         ["max-lines", 7, [7, 0]],
         ["complexity", 5, [1, 4]],

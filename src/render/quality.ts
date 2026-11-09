@@ -88,7 +88,7 @@ const carriedOver = (state: State): string[] => {
 const logRow = (entry: LogEntry): string => `| ${entry.at.slice(0, 10)} | ${shortCommit(entry.commit)} | ${entry.kind} | ${entry.rule ?? ""} | ${entry.text} |`;
 
 const workLog = (state: State): string[] => {
-  const entries = (state.log ?? []).slice(-LOG_ENTRIES_SHOWN).reverse();
+  const entries = state.log.slice(-LOG_ENTRIES_SHOWN).reverse();
   if (entries.length === 0) return [];
   return ["## Work log", "", "| Date | Commit | Kind | Rule | What |", "| --- | --- | --- | --- | --- |", ...entries.map(logRow), ""];
 };
