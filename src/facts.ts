@@ -3,7 +3,8 @@ import path from "node:path";
 import { exec } from "./util/exec.ts";
 import { countLines } from "./util/lines.ts";
 import { gatherProbes } from "./probe/gather.ts";
-import type { PackageJson, RepoFacts, SourceFile, WorkflowFile } from "./types.ts";
+import { workspaceDirs } from "./detect/workspaces.ts";
+import type { PackageJson, RepoFacts, SourceFile, WorkflowFile, WorkspacePackage } from "./types.ts";
 
 const SOURCE_EXTENSIONS = new Set(["ts", "tsx", "mts", "cts", "js", "jsx", "mjs", "cjs", "vue", "svelte", "astro"]);
 
@@ -91,15 +92,20 @@ const readWorkflows = async (cwd: string, files: readonly string[]): Promise<Wor
 
 const rootEntriesOf = (files: readonly string[]): string[] => files.filter((file) => !file.includes("/"));
 
+const readWorkspacePackages = async (cwd: string, dirs: readonly string[]): Promise<WorkspacePackage[]> =>
+  Promise.all(dirs.map(async (dir) => ({ dir, packageJson: await readPackageJson(path.join(cwd, dir)) })));
+
 /** The only function in the codebase that touches the filesystem for detection purposes. */
 export const gatherFacts = async (cwd: string): Promise<RepoFacts> => {
   const files = await listFiles(cwd);
   const sourceFiles = await Promise.all(sourcePathsOf(files).map((file) => toSourceFile(cwd, file)));
+  const packageJson = await readPackageJson(cwd);
   return {
     cwd,
     rootEntries: rootEntriesOf(files),
     allFiles: files,
-    packageJson: await readPackageJson(cwd),
+    packageJson,
+    workspacePackages: await readWorkspacePackages(cwd, workspaceDirs(packageJson, files)),
     sourceFiles,
     workflows: await readWorkflows(cwd, files),
     probes: await gatherProbes(cwd, sourceFiles),
