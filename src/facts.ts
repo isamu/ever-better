@@ -4,6 +4,7 @@ import { exec } from "./util/exec.ts";
 import { countLines } from "./util/lines.ts";
 import { gatherProbes } from "./probe/gather.ts";
 import { generatedDirs, isGenerated, type TsconfigText } from "./detect/generated.ts";
+import { censusFiles, type GitListing } from "./detect/untracked.ts";
 import { workspaceDirs } from "./detect/workspaces.ts";
 import type { PackageJson, RepoFacts, SourceFile, WorkflowFile, WorkspacePackage } from "./types.ts";
 
@@ -21,18 +22,21 @@ const isIgnored = (relativePath: string): boolean => relativePath.split("/").som
 
 const extensionOf = (relativePath: string): string => path.extname(relativePath).slice(1).toLowerCase();
 
-/**
- * `git ls-files -co --exclude-standard` is the whole gitignore engine for free: tracked files plus
- * untracked ones git would keep, minus everything ignored. Hand-rolling that produced a source
- * count that included every build artifact.
- */
-const listGitFiles = async (cwd: string): Promise<string[] | null> => {
+const gitPaths = async (cwd: string, args: readonly string[]): Promise<string[] | null> => {
   try {
-    const result = await exec("git", ["ls-files", "-z", "-co", "--exclude-standard"], cwd);
+    const result = await exec("git", ["ls-files", "-z", ...args], cwd);
     if (result.code !== 0) return null;
     return result.stdout.split("\0").filter((entry) => entry.length > 0);
   } catch {
     return null;
+  }
+};
+
+const hasCommits = async (cwd: string): Promise<boolean> => {
+  try {
+    return (await exec("git", ["rev-parse", "--verify", "--quiet", "HEAD"], cwd)).code === 0;
+  } catch {
+    return false;
   }
 };
 
@@ -49,10 +53,17 @@ const walkFiles = async (cwd: string, relativeDir: string): Promise<string[]> =>
   return nested.flat();
 };
 
-const listFiles = async (cwd: string): Promise<string[]> => {
-  const tracked = await listGitFiles(cwd);
-  const all = tracked ?? (await walkFiles(cwd, ""));
-  return all.filter((relativePath) => !isIgnored(relativePath));
+/**
+ * `git ls-files -co --exclude-standard` is the whole gitignore engine for free: tracked files plus
+ * untracked ones git would keep, minus everything ignored. Hand-rolling that produced a source
+ * count that included every build artifact. The untracked part is listed separately because the
+ * census treats it differently from everything else that reads this.
+ */
+const listWorkingCopy = async (cwd: string): Promise<GitListing> => {
+  const listed = await gitPaths(cwd, ["-co", "--exclude-standard"]);
+  if (!listed) return { all: (await walkFiles(cwd, "")).filter((file) => !isIgnored(file)), untracked: [], hasCommits: false };
+  const untracked = (await gitPaths(cwd, ["-o", "--exclude-standard"])) ?? [];
+  return { all: listed.filter((file) => !isIgnored(file)), untracked, hasCommits: await hasCommits(cwd) };
 };
 
 const sourcePathsOf = (files: readonly string[]): string[] =>
@@ -75,12 +86,14 @@ const readTsconfigTexts = async (cwd: string, files: readonly string[]): Promise
  * had the emitted copy of every file counted beside the file. Every tsconfig is asked, not only the
  * root one, because in a monorepo each package declares its own `outDir`.
  */
-const partitionSources = async (cwd: string, files: readonly string[]): Promise<{ counted: string[]; generated: string[] }> => {
-  const dirs = generatedDirs(await readTsconfigTexts(cwd, files));
-  const sources = sourcePathsOf(files);
+const partitionSources = async (cwd: string, listing: GitListing): Promise<{ counted: string[]; generated: string[]; untracked: string[] }> => {
+  const dirs = generatedDirs(await readTsconfigTexts(cwd, listing.all));
+  const census = censusFiles(listing);
+  const sources = sourcePathsOf(census.counted);
   return {
     counted: sources.filter((file) => !isGenerated(dirs, file)),
-    generated: sources.filter((file) => isGenerated(dirs, file)),
+    generated: [...sources, ...sourcePathsOf(census.leftOut)].filter((file) => isGenerated(dirs, file)),
+    untracked: sourcePathsOf(census.leftOut).filter((file) => !isGenerated(dirs, file)),
   };
 };
 
@@ -89,10 +102,7 @@ const partitionSources = async (cwd: string, files: readonly string[]): Promise<
  * import graph, say — does not pay for `gatherFacts`, which also counts every line and shells out
  * to `eslint --print-config` and `tsc --showConfig`. Two entry points, one definition.
  */
-export const listSourcePaths = async (cwd: string): Promise<string[]> => {
-  const files = await listFiles(cwd);
-  return (await partitionSources(cwd, files)).counted;
-};
+export const listSourcePaths = async (cwd: string): Promise<string[]> => (await partitionSources(cwd, await listWorkingCopy(cwd))).counted;
 
 const readPackageJson = async (cwd: string): Promise<PackageJson | null> => {
   try {
@@ -127,8 +137,9 @@ const readWorkspacePackages = async (cwd: string, dirs: readonly string[]): Prom
 
 /** The only function in the codebase that touches the filesystem for detection purposes. */
 export const gatherFacts = async (cwd: string): Promise<RepoFacts> => {
-  const files = await listFiles(cwd);
-  const sources = await partitionSources(cwd, files);
+  const listing = await listWorkingCopy(cwd);
+  const files = [...listing.all];
+  const sources = await partitionSources(cwd, listing);
   const sourceFiles = await Promise.all(sources.counted.map((file) => toSourceFile(cwd, file)));
   const packageJson = await readPackageJson(cwd);
   return {
@@ -139,6 +150,7 @@ export const gatherFacts = async (cwd: string): Promise<RepoFacts> => {
     workspacePackages: await readWorkspacePackages(cwd, workspaceDirs(packageJson, files)),
     sourceFiles,
     generatedSources: sources.generated,
+    untrackedSources: sources.untracked,
     workflows: await readWorkflows(cwd, files),
     probes: await gatherProbes(cwd, sourceFiles),
   };

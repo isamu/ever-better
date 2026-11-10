@@ -65,6 +65,8 @@ export type RepoFacts = {
   sourceFiles: SourceFile[];
   /** Emitted files, excluded from every count. Non-empty only where output is committed. */
   generatedSources: string[];
+  /** Untracked source in a repository that has commits, excluded from every count. */
+  untrackedSources: string[];
   workflows: WorkflowFile[];
 };
 
@@ -123,6 +125,8 @@ export type Diagnosis = {
   sizes: SizeDistribution;
   /** How many emitted files the census left out, so a shrunken total is explained rather than odd. */
   generatedSources: number;
+  /** How many untracked files it left out: CI and other clones cannot see them. */
+  untrackedSources: number;
   gaps: Gap[];
 };
 
