@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { checkVerdict, observedState } from "../src/checkVerdict.ts";
-import type { RuleCounts } from "../src/eslintRunner.ts";
+import type { ErrorLocation, RuleCounts } from "../src/eslintRunner.ts";
 import { emptyState, findRegressions, WARNINGS_COUNTER } from "../src/state.ts";
 import type { State } from "../src/types.ts";
 
@@ -42,6 +42,46 @@ describe("checkVerdict", () => {
   it("fails on a rule or counter above its ceiling, naming each with its growth", () => {
     const result = checkVerdict(stateWith({ a: [1, 3], b: [2, 2] }, { [WARNINGS_COUNTER]: [4, 5] }), {});
     assert.deepEqual(result, { ok: false, message: `Counts grew past their ceiling:\n  a: 1 -> 3 (+2)\n  ${WARNINGS_COUNTER}: 4 -> 5 (+1)` });
+  });
+});
+
+describe("checkVerdict, error locations", () => {
+  const location = (line: number, ruleId: string | null = "no-var"): ErrorLocation => ({
+    file: "src/a.ts",
+    line,
+    column: 3,
+    ruleId,
+    message: "Unexpected\n  var.",
+  });
+
+  it("says where each error is, under the per-rule summary", () => {
+    const result = checkVerdict(stateWith({}), { "no-var": 1, "(parse error)": 1 }, [location(4), location(9, null)]);
+    assert.deepEqual(result, {
+      ok: false,
+      message: [
+        "2 unsuppressed error(s) — these are new since the baseline:",
+        "  1  no-var",
+        "  1  (parse error)",
+        "",
+        "Where they are:",
+        "  src/a.ts:4:3  no-var  Unexpected var.",
+        "  src/a.ts:9:3  (parse error)  Unexpected var.",
+      ].join("\n"),
+    });
+  });
+
+  it("names how many the formatter's cap left out, and where to find them", () => {
+    const result = checkVerdict(stateWith({}), { "no-var": 3 }, [location(1)]);
+    assert.match(result.message, /\n {2}… and 2 more — run `eslint \.` for the full list$/);
+  });
+
+  it("prints only the summary when no locations came back", () => {
+    assert.equal(checkVerdict(stateWith({}), { "no-var": 1 }, []).message, "1 unsuppressed error(s) — these are new since the baseline:\n  1  no-var");
+  });
+
+  it("leaves a pass and a ceiling regression exactly as they were", () => {
+    assert.deepEqual(checkVerdict(stateWith({ a: [1, 1] }), {}, [location(1)]), { ok: true, message: "Clean. 1 grandfathered violations left to drain." });
+    assert.deepEqual(checkVerdict(stateWith({ a: [1, 2] }), {}, [location(1)]), { ok: false, message: "Counts grew past their ceiling:\n  a: 1 -> 2 (+1)" });
   });
 });
 
