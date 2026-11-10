@@ -12,6 +12,7 @@ const facts = (overrides: Partial<RepoFacts> = {}): RepoFacts => ({
   workspacePackages: [],
   sourceFiles: [],
   generatedSources: [],
+  untrackedSources: [],
   workflows: [],
   probes: { rules: null, tsconfig: null },
   ...overrides,

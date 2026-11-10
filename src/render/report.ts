@@ -29,6 +29,7 @@ const ciLine = (diagnosis: Diagnosis): string => {
 const sizeLines = (diagnosis: Diagnosis): string[] => [
   `  source files      ${diagnosis.sizes.total}`,
   ...(diagnosis.generatedSources > 0 ? [`  generated         ${diagnosis.generatedSources} (not counted)`] : []),
+  ...(diagnosis.untrackedSources > 0 ? [`  untracked         ${diagnosis.untrackedSources} (not counted)`] : []),
   `  over ${DEFAULT_FILE_LINE_LIMIT} lines     ${diagnosis.sizes.overFileLimit}`,
   ...diagnosis.sizes.largest.slice(0, 3).map((file) => `                      ${file.lines}  ${file.path}`),
 ];

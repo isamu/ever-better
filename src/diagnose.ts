@@ -278,6 +278,7 @@ export const diagnose = (facts: RepoFacts): Diagnosis => {
     }),
     sizes: summarizeSizes(facts.sourceFiles),
     generatedSources: facts.generatedSources.length,
+    untrackedSources: facts.untrackedSources.length,
   };
   const gaps = [...GAP_DETECTORS.flatMap((detect) => detect(partial)), ...frameworkGaps(partial, facts), ...effectiveRuleGaps(facts), ...strictnessGaps(facts)];
   return { ...partial, gaps };
