@@ -1,7 +1,7 @@
 import { relative } from "node:path";
 
 import { runRuleCounts, suppressAll, totalOf } from "../eslintRunner.ts";
-import type { RuleCounts } from "../eslintRunner.ts";
+import type { EslintArgs, RuleCounts } from "../eslintRunner.ts";
 import { writeQualityFile } from "../qualityFile.ts";
 import { applyRuleCounts, emptyState, readState, setCounter, WARNINGS_COUNTER, withPhase, writeState } from "../state.ts";
 import type { State } from "../types.ts";
@@ -11,6 +11,7 @@ export type FreezeOptions = {
   cwd: string;
   /** Allows a ceiling to move UP. Only correct when a rule was deliberately reconfigured. */
   force: boolean;
+  eslintArgs?: EslintArgs;
 };
 
 /**
@@ -47,8 +48,8 @@ export const runFreeze = async (options: FreezeOptions): Promise<string> => {
     ].join("\n");
   }
 
-  await suppressAll(options.cwd);
-  const counts = await runRuleCounts(options.cwd);
+  await suppressAll(options.cwd, options.eslintArgs);
+  const counts = await runRuleCounts(options.cwd, options.eslintArgs);
   const mode = options.force ? "rebaseline" : "freeze";
 
   const frozen: State = {

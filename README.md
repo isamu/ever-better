@@ -197,6 +197,21 @@ the per-rule summary, capped, then how many more there are and to run `eslint .`
 `check` already fails on everything `eslint .` would, so a gate that ran `eslint .` beside it only to
 see the locations can drop it and lint once.
 
+#### Options for ESLint
+
+`check`, `freeze`, `prune`, `report` and `tier` forward what follows `--` to every ESLint run they
+start:
+
+```bash
+ever-better check --no-write -- --concurrency=auto
+```
+
+`--concurrency` is CLI-only — it cannot be set in `eslint.config.js` — and with type-aware rules it
+decides whether the slowest step of the gate uses one core or several. It is the only option
+accepted: most ESLint flags change what is counted (`--quiet` drops warnings, `--rule` and `--config`
+change what is enforced, `--format` replaces the formatter the counts come from), so anything not on
+the list is refused before ESLint runs.
+
 ### `next`
 
 ```bash

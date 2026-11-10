@@ -16,6 +16,7 @@ import { runReport } from "./commands/report.ts";
 import { runSecrets } from "./commands/secrets.ts";
 import { runStatus } from "./commands/status.ts";
 import { runTier } from "./commands/tier.ts";
+import { argsAfterTerminator, parseEslintPassThrough } from "./eslintPassThrough.ts";
 
 const USAGE = `ever-better — make a codebase that can only get better
 
@@ -49,6 +50,11 @@ Options
   --all             migrate: rename every JavaScript file in one pass
   --fan-in          next: also count how many files import each one (reads every source file)
   --check           tier: compare against the ledger and write nothing (for CI)
+
+ESLint options
+  check, freeze, prune, report and tier forward what follows \`--\` to ESLint.
+  Only --concurrency=<n|auto|off> is accepted; anything else could change what is counted.
+    ever-better check --no-write -- --concurrency=auto
 `;
 
 const OPTIONS = {
@@ -85,6 +91,8 @@ type Flags = {
   check: boolean;
   rule: string | undefined;
   rest: string[];
+  /** After `--`. Raw until a linting command has checked it. */
+  eslintArgs: string[];
 };
 
 type Outcome = { output: string; ok: boolean; code?: number };
@@ -93,11 +101,11 @@ type Outcome = { output: string; ok: boolean; code?: number };
 const ALWAYS_OK: Record<string, (flags: Flags) => Promise<string>> = {
   diagnose: (flags) => runDiagnose({ cwd: flags.cwd, json: flags.json, write: flags.write }),
   bootstrap: (flags) => runBootstrap({ cwd: flags.cwd, dryRun: flags.dryRun, nodeVersion: flags.node }),
-  freeze: (flags) => runFreeze({ cwd: flags.cwd, force: flags.force }),
-  prune: (flags) => runPrune({ cwd: flags.cwd }),
+  freeze: (flags) => runFreeze({ cwd: flags.cwd, force: flags.force, eslintArgs: flags.eslintArgs }),
+  prune: (flags) => runPrune({ cwd: flags.cwd, eslintArgs: flags.eslintArgs }),
   status: (flags) => runStatus({ cwd: flags.cwd, json: flags.json }),
   next: (flags) => runNext({ cwd: flags.cwd, json: flags.json, fanIn: flags.fanIn }),
-  report: (flags) => runReport({ cwd: flags.cwd, json: flags.json }),
+  report: (flags) => runReport({ cwd: flags.cwd, json: flags.json, eslintArgs: flags.eslintArgs }),
   catalog: (flags) => runCatalog({ cwd: flags.cwd }),
   migrate: (flags) => runMigrate({ cwd: flags.cwd, file: flags.file ?? null, all: flags.all }),
   "emit-diff": (flags) => runEmitDiff({ cwd: flags.cwd, against: flags.against }),
@@ -112,16 +120,16 @@ const dispatchLog = async (flags: Flags): Promise<Outcome> => {
   return { output: await runLog({ cwd: flags.cwd, kind: flags.kind, text, ...rule }), ok: true };
 };
 
-const dispatch = async (command: string, flags: Flags): Promise<Outcome> => {
+const dispatchCommand = async (command: string, flags: Flags): Promise<Outcome> => {
   const alwaysOk = ALWAYS_OK[command];
   if (alwaysOk) return { output: await alwaysOk(flags), ok: true };
   if (command === "log") return dispatchLog(flags);
   if (command === "check") {
-    const result = await runCheck({ cwd: flags.cwd, write: !flags.noWrite });
+    const result = await runCheck({ cwd: flags.cwd, write: !flags.noWrite, eslintArgs: flags.eslintArgs });
     return { output: result.message, ok: result.ok };
   }
   if (command === "tier") {
-    const result = await runTier({ cwd: flags.cwd, check: flags.check });
+    const result = await runTier({ cwd: flags.cwd, check: flags.check, eslintArgs: flags.eslintArgs });
     return { output: result.message, ok: result.ok };
   }
   if (command === "secrets") {
@@ -133,11 +141,22 @@ const dispatch = async (command: string, flags: Flags): Promise<Outcome> => {
   return { output: `Unknown command: ${command}\n\n${USAGE}`, ok: false };
 };
 
+const LINTING_COMMANDS = new Set(["check", "freeze", "prune", "report", "tier"]);
+
+/** Refused before anything runs: `freeze` half-done because ESLint rejected an argument is worse than not starting. */
+const dispatch = async (command: string, flags: Flags): Promise<Outcome> => {
+  if (!LINTING_COMMANDS.has(command)) return dispatchCommand(command, flags);
+  const passThrough = parseEslintPassThrough(flags.eslintArgs);
+  if (!passThrough.ok) return { output: passThrough.message, ok: false };
+  return dispatchCommand(command, { ...flags, eslintArgs: passThrough.args });
+};
+
 const main = async (): Promise<number> => {
-  const { values, positionals } = parseArgs({
+  const { values, positionals, tokens } = parseArgs({
     args: process.argv.slice(2),
     options: OPTIONS,
     allowPositionals: true,
+    tokens: true,
   });
 
   const command = positionals[0];
@@ -162,6 +181,7 @@ const main = async (): Promise<number> => {
     check: values.check,
     rule: values.rule,
     rest: positionals.slice(1),
+    eslintArgs: argsAfterTerminator(tokens),
   };
 
   const { output, ok, code } = await dispatch(command, flags);

@@ -129,6 +129,18 @@ describe("lifecycle", { timeout: TIMEOUT_MS }, () => {
     assert.match(result.stdout, /Clean\./);
   });
 
+  it("forwards --concurrency to ESLint and gives the same verdict", async () => {
+    const result = await everBetter(["check", "--", "--concurrency=2"], repo);
+    assert.equal(result.code, 0, result.stdout + result.stderr);
+    assert.match(result.stdout, /Clean\./);
+  });
+
+  it("refuses an argument that could change the counts, before ESLint runs", async () => {
+    const result = await everBetter(["check", "--", "--quiet"], repo);
+    assert.equal(result.code, 1, "an argument off the list must fail the command");
+    assert.match(result.stdout, /Refusing to pass `--quiet` to ESLint/);
+  });
+
   it("rejects a violation added after the freeze", async () => {
     await writeFile(path.join(repo, "src", "new.ts"), "export const sneaky = (x: any) => x;\n");
     const result = await everBetter(["check"], repo);

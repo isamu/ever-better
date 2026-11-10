@@ -1,6 +1,6 @@
 import { appendFile } from "node:fs/promises";
 import process from "node:process";
-import { runRuleCounts, type RuleCounts } from "../eslintRunner.ts";
+import { runRuleCounts, type EslintArgs, type RuleCounts } from "../eslintRunner.ts";
 import { buildLintReport } from "../lintReport.ts";
 import { renderLintReport } from "../render/lintReport.ts";
 import { readSuppressions } from "../suppressionsFile.ts";
@@ -8,6 +8,7 @@ import { readSuppressions } from "../suppressionsFile.ts";
 export type ReportOptions = {
   cwd: string;
   json: boolean;
+  eslintArgs?: EslintArgs;
 };
 
 /**
@@ -30,16 +31,16 @@ const appendToStepSummary = async (markdown: string): Promise<void> => {
  * ratchet file holds. The reason travels with it — "no warnings" and "nobody looked" have to read
  * differently.
  */
-const lint = async (cwd: string): Promise<{ counts: RuleCounts | null; failure: string | null }> => {
+const lint = async (cwd: string, eslintArgs: EslintArgs | undefined): Promise<{ counts: RuleCounts | null; failure: string | null }> => {
   try {
-    return { counts: await runRuleCounts(cwd), failure: null };
+    return { counts: await runRuleCounts(cwd, eslintArgs), failure: null };
   } catch (error) {
     return { counts: null, failure: error instanceof Error ? (error.message.split("\n")[0] ?? "unknown error") : String(error) };
   }
 };
 
 export const runReport = async (options: ReportOptions): Promise<string> => {
-  const { counts, failure } = await lint(options.cwd);
+  const { counts, failure } = await lint(options.cwd, options.eslintArgs);
   const report = buildLintReport(counts, await readSuppressions(options.cwd), failure);
   if (options.json) return JSON.stringify(report, null, 2);
   const markdown = renderLintReport(report);
