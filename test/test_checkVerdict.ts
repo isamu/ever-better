@@ -79,6 +79,13 @@ describe("checkVerdict, error locations", () => {
     assert.equal(checkVerdict(stateWith({}), { "no-var": 1 }, []).message, "1 unsuppressed error(s) — these are new since the baseline:\n  1  no-var");
   });
 
+  it("does not let a file or message from the linted code drive the terminal", () => {
+    const hostile: ErrorLocation = { file: "src/\u001b[2Ka.ts", line: 1, column: 1, ruleId: null, message: "Unexpected character '\u001b'\r\u001b[1GClean." };
+    const result = checkVerdict(stateWith({}), { "(parse error)": 1 }, [hostile]);
+    const lastLine = result.message.split("\n").at(-1);
+    assert.equal(lastLine, "  src/\\x1b[2Ka.ts:1:1  (parse error)  Unexpected character '\\x1b' \\x1b[1GClean.");
+  });
+
   it("leaves a pass and a ceiling regression exactly as they were", () => {
     assert.deepEqual(checkVerdict(stateWith({ a: [1, 1] }), {}, [location(1)]), { ok: true, message: "Clean. 1 grandfathered violations left to drain." });
     assert.deepEqual(checkVerdict(stateWith({ a: [1, 2] }), {}, [location(1)]), { ok: false, message: "Counts grew past their ceiling:\n  a: 1 -> 2 (+1)" });

@@ -29,6 +29,11 @@ no unsuppressed errors to locate.
   CLI. That keeps `checkVerdict` pure over strings, and `/` keeps the output identical on Windows.
 - **A parse error is listed too**, as `(parse error)`, because it is an unsuppressed error and fails
   the gate the same way.
+- **A path or message from the linted code is made printable before it is printed**
+  (`src/util/terminalText.ts`): a parse error can quote the offending source character, so a file in
+  a pull request could otherwise put an ESC sequence or a carriage return into the CI log and make a
+  failing gate read as clean. `freeze`'s parse-error sample goes through the same function. Rule ids
+  are not escaped — they come from the plugins the repository configures, not from file content.
 - **`unattributed` is left as it is.** `freeze` reads it, and after `--suppress-all` it is the same
   set; folding the two together is a separate change.
 - **`tier --check` is out of scope.** It gates a different ledger and reports through its own path.

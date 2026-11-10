@@ -1,4 +1,5 @@
 import { totalOf, type ErrorLocation, type RuleCounts } from "./eslintRunner.ts";
+import { printableLine } from "./util/terminalText.ts";
 import { applyRuleCounts, findRegressions, setCounter, totalViolations, WARNINGS_COUNTER } from "./state.ts";
 import type { State } from "./types.ts";
 
@@ -16,7 +17,7 @@ const worst = (counts: Readonly<Record<string, number>>): string[] =>
     .map(([rule, count]) => `  ${count}  ${rule}`);
 
 const locationLine = ({ file, line, column, ruleId, message }: ErrorLocation): string =>
-  `  ${file}:${line}:${column}  ${ruleId ?? "(parse error)"}  ${message.replace(/\s+/g, " ").trim()}`;
+  `  ${printableLine(file)}:${line}:${column}  ${ruleId ?? "(parse error)"}  ${printableLine(message)}`;
 
 /** The formatter caps the list, so what it left out is the error total minus what it sent. */
 const whereTheyAre = (locations: readonly ErrorLocation[], errorTotal: number): string[] => {
