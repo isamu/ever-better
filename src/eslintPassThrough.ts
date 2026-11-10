@@ -12,8 +12,8 @@ const CONCURRENCY = "--concurrency";
 /**
  * ESLint's own rule (`validateConcurrency` in its `lib/cli.js`): `auto`, `off`, or anything `Number`
  * reads as a positive integer. Matching it exactly means a value is refused here only when ESLint
- * would refuse it too — halfway through `freeze`. A number is forwarded as `Number` reads it, so
- * `04` reaches ESLint as `4` and nothing but digits, `auto` or `off` ever does.
+ * would refuse it too — halfway through `freeze`. A number is forwarded as `String(Number(value))`,
+ * so `04` reaches ESLint as `4` and `1e21` as `1e+21`, which ESLint's rule accepts in turn.
  */
 const concurrencyValue = (value: string): string | null => {
   if (value === "auto" || value === "off") return value;

@@ -36,8 +36,8 @@ forward or the reason it was refused.
 - **The value is checked by ESLint's own rule** (`validateConcurrency` in its `lib/cli.js`: `auto`,
   `off`, or anything `Number` reads as a positive integer), so a typo is reported by `ever-better`
   rather than as an ESLint failure halfway through `freeze`, and nothing ESLint accepts is refused.
-  A number is forwarded as `Number` reads it (`04` becomes `4`), so only digits, `auto` or `off`
-  reach ESLint. Both `--concurrency=N` and `--concurrency N` are accepted.
+  A number is forwarded as `String(Number(value))` — `04` becomes `4`, `1e21` becomes `1e+21` — which
+  ESLint's rule accepts in turn. Both `--concurrency=N` and `--concurrency N` are accepted.
   Giving it twice is refused rather than guessing which one wins.
 - **`printConfig` and `canLint` do not get it.** They read one file; there is nothing to parallelise.
 - **`log` is unchanged.** It reads its text from positionals, and `--` there still means "the rest

@@ -31,6 +31,7 @@ describe("parseEslintPassThrough", () => {
     assert.deepEqual(accepted(["--concurrency=04"]), ["--concurrency=4"]);
     assert.deepEqual(accepted(["--concurrency", "4.0"]), ["--concurrency=4"]);
     assert.deepEqual(accepted(["--concurrency= 8 "]), ["--concurrency=8"]);
+    assert.deepEqual(accepted(["--concurrency=1e21"]), ["--concurrency=1e+21"]);
   });
 
   it("refuses a value ESLint would not take, naming it", () => {
