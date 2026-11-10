@@ -1,5 +1,36 @@
 # ChangeLog
 
+## 1.1.0 — 2026-11-10
+
+Two additions to `check`'s day-to-day use, both from user reports: a failing run now says where the errors are, and ESLint's `--concurrency` can be passed through. `diagnose` reads Yarn workspaces monorepos correctly, and the configuration `bootstrap` generates gains two strictness candidates and one rule option.
+
+### Commands
+
+- **A failing `check` says where** (#112, #111). Under the per-rule summary, each unsuppressed error is listed as `file:line:column`, rule and message — capped, followed by how many more there are and a pointer to `eslint .`. Only unsuppressed errors are listed, never warnings or suppressed findings, so the formatter's output stays bounded. A passing run and a ceiling regression print what they printed before. Paths and messages from linted files have control characters shown as `\xNN`, so a file cannot rewrite the terminal or CI log; `freeze`'s parse-error sample goes through the same function. A gate that ran `eslint .` beside `check` only to see the locations can drop it.
+- **ESLint options after `--`** (#115, part of #110). `check`, `freeze`, `prune`, `report` and `tier` forward what follows `--` to every ESLint run they start: `ever-better check --no-write -- --concurrency=auto`. Only `--concurrency` is accepted, validated with ESLint's own rule; anything else is refused before ESLint runs, because most ESLint flags change what is counted. `--cache` is not accepted yet.
+
+### Detection
+
+- **Yarn workspaces monorepos** (#106, #103). Presence of ESLint, TypeScript and a test runner is answered from the root and the workspaces, not the root alone, so a monorepo that keeps its configuration one directory down is no longer reported as having none.
+- **The lint gate is found by what it runs** (#107, #104). A script that runs eslint under another name (`eslint`, not `lint`) no longer produces "missing package scripts: lint" and "CI does not run lint".
+- **Compiler output is not counted as source** (#108, part of #105). A directory a tsconfig names as `outDir` is excluded from the file census, so committed build output no longer makes a TypeScript repository look like a JavaScript one. Untracked files are still counted; that half of #105 stays open.
+
+### Generated configuration
+
+- **Two more strictness candidates** (#101, #99): `noUncheckedSideEffectImports` and `allowUnreachableCode: false`. A flag can now be strict when set to `false`. The strictness report says "Set at zero cost" rather than "Enabled at zero cost".
+- **`restrict-template-expressions` keeps `allowNumber`** in the generated type-aware tier (#100, #98), matching what this repository runs.
+
+### Internal
+
+- This repository now runs the full type-aware tier it generates (#100), and four type-aware rules no preset carries (#109, #102): `switch-exhaustiveness-check`, `require-array-sort-compare`, `default-param-last`, `no-loop-func`. The generator does not emit those four yet.
+
+### Dependencies
+
+- `minimatch` forced to 11 via `resolutions` for GHSA-g3hv-75wg-m249 (#114). Dev dependencies only; ever-better has no runtime dependencies.
+- Dependency updates (#113), eslint group (#94, #97), dev group (#95), `brace-expansion` (#90), `smol-toml` (#91).
+
+📦 [`ever-better@1.1.0`](https://www.npmjs.com/package/ever-better/v/1.1.0)
+
 ## 1.0.0 — 2026-10-17
 
 No command or flag was added or removed since 0.5.0. This release tightens how the drain loop verifies its own work, moves three decisions out of code that needed real ESLint or tsc into pure, tested modules, and brings the plugin manifest's version, which had stayed at 0.4.0, in line with the package.
