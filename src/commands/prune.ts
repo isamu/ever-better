@@ -1,10 +1,11 @@
-import { pruneSuppressions, runRuleCounts } from "../eslintRunner.ts";
+import { pruneSuppressions, runRuleCounts, type EslintArgs } from "../eslintRunner.ts";
 import { writeQualityFile } from "../qualityFile.ts";
 import { applyRuleCounts, emptyState, readState, totalViolations, writeState } from "../state.ts";
 import { readSuppressionTotal } from "../suppressionsFile.ts";
 
 export type PruneOptions = {
   cwd: string;
+  eslintArgs?: EslintArgs;
 };
 
 /**
@@ -16,10 +17,10 @@ export const runPrune = async (options: PruneOptions): Promise<string> => {
   // Measured against the suppressions FILE, not the ledger: a `check` run since the fix has
   // already lowered the ledger, so comparing that would report every prune as a no-op.
   const before = await readSuppressionTotal(options.cwd);
-  await pruneSuppressions(options.cwd);
+  await pruneSuppressions(options.cwd, options.eslintArgs);
   const after = await readSuppressionTotal(options.cwd);
 
-  const counts = await runRuleCounts(options.cwd);
+  const counts = await runRuleCounts(options.cwd, options.eslintArgs);
   const state = applyRuleCounts((await readState(options.cwd)) ?? emptyState(), counts.suppressed, "freeze");
   await writeState(options.cwd, state);
   await writeQualityFile(options.cwd, state);

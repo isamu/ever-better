@@ -126,12 +126,15 @@ const runEslint = async (cwd: string, args: readonly string[], label: string, en
   return result;
 };
 
-export const runRuleCounts = async (cwd: string): Promise<RuleCounts> => {
+/** Validated by `parseEslintPassThrough` — only arguments that cannot change what is counted. */
+export type EslintArgs = readonly string[];
+
+export const runRuleCounts = async (cwd: string, eslintArgs: EslintArgs = []): Promise<RuleCounts> => {
   // Without `--pass-on-unpruned-suppressions`, ESLint exits fatally the moment a suppressed
   // violation is FIXED, because the suppression it left behind is now unused. That would turn
   // every act of draining into a red build — the exact opposite of the incentive this tool exists
   // to create. `ever-better prune` is how stale entries are reclaimed, deliberately.
-  const args = [".", "--format", formatterPath(), "--pass-on-unpruned-suppressions"];
+  const args = [".", ...eslintArgs, "--format", formatterPath(), "--pass-on-unpruned-suppressions"];
   const result = await runEslint(cwd, args, "eslint");
   return parseCounts(result.stdout, result.stderr);
 };
@@ -140,8 +143,8 @@ export const runRuleCounts = async (cwd: string): Promise<RuleCounts> => {
  * `--suppress-all` is the whole ratchet, and it is ESLint's, not ours: it records today's
  * violations per file and per rule, stays silent about them, and reports anything new as an error.
  */
-export const suppressAll = async (cwd: string): Promise<void> => {
-  await runEslint(cwd, [".", "--suppress-all"], "eslint --suppress-all");
+export const suppressAll = async (cwd: string, eslintArgs: EslintArgs = []): Promise<void> => {
+  await runEslint(cwd, [".", ...eslintArgs, "--suppress-all"], "eslint --suppress-all");
 };
 
 /**
@@ -152,8 +155,8 @@ export const suppressAll = async (cwd: string): Promise<void> => {
  * this sets it. Forcing those rules back with a CLI `--rule` was tried first and is wrong: `--rule`
  * is global, so a type-aware rule lands on files outside the type program and ESLint aborts.
  */
-export const suppressInto = async (cwd: string, location: string): Promise<void> => {
-  await runEslint(cwd, [".", "--suppress-all", "--suppressions-location", location], "eslint --suppress-all", { [TIER_RECOMPUTE_ENV]: "1" });
+export const suppressInto = async (cwd: string, location: string, eslintArgs: EslintArgs = []): Promise<void> => {
+  await runEslint(cwd, [".", ...eslintArgs, "--suppress-all", "--suppressions-location", location], "eslint --suppress-all", { [TIER_RECOMPUTE_ENV]: "1" });
 };
 
 /**
@@ -196,6 +199,6 @@ export const canLint = async (cwd: string, filePath: string): Promise<boolean> =
 };
 
 /** Drops suppressions for violations that no longer exist, which is how the ceiling comes down. */
-export const pruneSuppressions = async (cwd: string): Promise<void> => {
-  await runEslint(cwd, [".", "--prune-suppressions"], "eslint --prune-suppressions");
+export const pruneSuppressions = async (cwd: string, eslintArgs: EslintArgs = []): Promise<void> => {
+  await runEslint(cwd, [".", ...eslintArgs, "--prune-suppressions"], "eslint --prune-suppressions");
 };

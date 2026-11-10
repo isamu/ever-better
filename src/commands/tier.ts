@@ -2,7 +2,7 @@ import { mkdir, mkdtemp, readFile, rename, rm, writeFile } from "node:fs/promise
 import { tmpdir } from "node:os";
 import path from "node:path";
 import process from "node:process";
-import { runRuleCounts, suppressInto } from "../eslintRunner.ts";
+import { runRuleCounts, suppressInto, type EslintArgs } from "../eslintRunner.ts";
 import {
   GENERATED_MARKER,
   hasTierImport,
@@ -27,6 +27,7 @@ export type TierOptions = {
   cwd: string;
   /** Compare and report, write nothing. What CI runs: a gate may not edit the repository it gates. */
   check?: boolean;
+  eslintArgs?: EslintArgs;
 };
 
 export type TierResult = {
@@ -62,7 +63,7 @@ const readLedger = async (cwd: string): Promise<Ledger | null> => {
  * Sharing one meant a concurrent delete produced an EMPTY failing set, and an empty failing set
  * publishes an empty list.
  */
-const failingSet = async (cwd: string): Promise<TierEntry[]> => {
+const failingSet = async (cwd: string, eslintArgs: EslintArgs | undefined): Promise<TierEntry[]> => {
   // Outside the repository, and a fresh directory per run. Outside, because `--check` is what CI
   // runs and a gate that writes into the tree it is gating is not read-only — a read-only checkout
   // would fail it before it compared anything. Fresh, because `--suppress-all` MERGES into whatever
@@ -72,7 +73,7 @@ const failingSet = async (cwd: string): Promise<TierEntry[]> => {
   const dir = await mkdtemp(path.join(tmpdir(), "ever-better-tier-"));
   const scratch = path.join(dir, "suppressions.json");
   try {
-    await suppressInto(cwd, scratch);
+    await suppressInto(cwd, scratch, eslintArgs);
     const text = await readFile(scratch, "utf8").catch(() => null);
     // ESLint exited without leaving its output. Reading that as "nothing is failing" would publish
     // an empty list off a scan that never happened.
@@ -215,10 +216,10 @@ const healMissing = async (cwd: string, config: EslintConfig): Promise<void> => 
  * After a successful `tier` — or a `--check` that found no regression — every failing pair is one
  * the list excuses, so any error under a listed rule means that rule is not being downgraded.
  */
-const notInForce = async (cwd: string, entries: readonly TierEntry[]): Promise<string[]> => {
+const notInForce = async (cwd: string, entries: readonly TierEntry[], eslintArgs: EslintArgs | undefined): Promise<string[]> => {
   const listed = new Set(ruleNames(entries));
   if (listed.size === 0) return [];
-  const counts = await runRuleCounts(cwd);
+  const counts = await runRuleCounts(cwd, eslintArgs);
   return Object.entries(counts.errors)
     .filter(([rule, count]) => count > 0 && listed.has(rule))
     .map(([rule]) => rule)
@@ -344,7 +345,7 @@ const take = async (options: TierOptions): Promise<TierResult> => {
   // anyway, so writing one first heals it.
   await healMissing(options.cwd, config);
 
-  const now = await failingSet(options.cwd);
+  const now = await failingSet(options.cwd, options.eslintArgs);
   const regressed = refused(ledger, now);
   if (regressed.length > 0) return refusal(regressed);
 
@@ -356,7 +357,7 @@ const take = async (options: TierOptions): Promise<TierResult> => {
   await writeAtomic(path.join(options.cwd, tierConfigName), renderTierConfig(now, tierConfigName));
   const wiring = await wireConfig(options.cwd, config, tierConfigName);
   if (!wiring.wired) return unwired(config.name, tierConfigName, tierImportLine(tierConfigName));
-  const inert = await notInForce(options.cwd, now);
+  const inert = await notInForce(options.cwd, now, options.eslintArgs);
   if (inert.length > 0) return notWired(config.name, inert);
   await mkdir(path.join(options.cwd, STATE_DIR), { recursive: true });
   await writeAtomic(path.join(options.cwd, LEDGER), `${JSON.stringify(now, null, 2)}\n`);
@@ -393,13 +394,13 @@ const checkTier = async (options: TierOptions): Promise<TierResult> => {
   if (ledger === null) return { ok: false, message: INVALID_LEDGER };
   if (!ledger.present) return { ok: false, message: NO_LEDGER };
 
-  const now = await failingSet(options.cwd);
+  const now = await failingSet(options.cwd, options.eslintArgs);
   const regressed = refused(ledger, now);
   if (regressed.length > 0) return refusal(regressed);
 
   // Only once the failing set is within the list: before that, an error under a listed rule is just
   // the regression above, and reporting it as a wiring problem would name the wrong cause.
-  const inert = await notInForce(options.cwd, ledger.entries);
+  const inert = await notInForce(options.cwd, ledger.entries, options.eslintArgs);
   if (inert.length > 0) return notApplied(inert);
 
   const cleared = drained(ledger.entries, now);
