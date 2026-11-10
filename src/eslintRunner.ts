@@ -21,6 +21,11 @@ export type RuleCounts = {
    */
   unattributed?: { file: string; line: number; message: string }[];
   /**
+   * Where the unsuppressed errors are, capped by the formatter. Optional for the same reason
+   * `areas` is: a reader degrades to the rule totals rather than failing.
+   */
+  locations?: ErrorLocation[];
+  /**
    * The same three buckets broken down by top-level directory, which is the only place the shape of
    * the debt is visible: `state.rules` holds suppressed violations per rule, and warnings — which
    * ESLint cannot suppress and which therefore never drain — reach the ledger as a single total.
@@ -31,6 +36,9 @@ export type RuleCounts = {
   areas?: AreaCounts;
   files: number;
 };
+
+/** `file` is relative to where ESLint ran, with `/` separators on every platform. `ruleId` is null for a parse error. */
+export type ErrorLocation = { file: string; line: number; column: number; ruleId: string | null; message: string };
 
 /** Area to rule to count. Bounded by areas x rules, so it never grows with the violation count. */
 type AreaCounts = {

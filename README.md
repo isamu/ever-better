@@ -192,6 +192,11 @@ lower the ceiling, or `--force` if a rule was genuinely reconfigured.
 The CI gate. Fails when there are unsuppressed violations, or when any recorded count rose above
 its ceiling. Add it to the workflow after `lint`.
 
+A failure on unsuppressed errors says where they are — `file:line:column`, rule and message under
+the per-rule summary, capped, then how many more there are and to run `eslint .` for the rest.
+`check` already fails on everything `eslint .` would, so a gate that ran `eslint .` beside it only to
+see the locations can drop it and lint once.
+
 ### `next`
 
 ```bash

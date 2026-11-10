@@ -22,5 +22,5 @@ export const runCheck = async (options: CheckOptions): Promise<CheckResult> => {
     await writeQualityFile(options.cwd, state);
   }
 
-  return checkVerdict(state, counts.errors);
+  return checkVerdict(state, counts.errors, counts.locations);
 };

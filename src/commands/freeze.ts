@@ -5,6 +5,7 @@ import type { RuleCounts } from "../eslintRunner.ts";
 import { writeQualityFile } from "../qualityFile.ts";
 import { applyRuleCounts, emptyState, readState, setCounter, WARNINGS_COUNTER, withPhase, writeState } from "../state.ts";
 import type { State } from "../types.ts";
+import { printableLine } from "../util/terminalText.ts";
 
 export type FreezeOptions = {
   cwd: string;
@@ -26,7 +27,7 @@ const unsuppressedReport = (counts: RuleCounts, cwd: string): string[] => {
   const total = totalOf(counts.errors);
   if (total === 0) return [];
   const byCount = Object.entries(counts.errors).sort(([, a], [, b]) => b - a);
-  const samples = (counts.unattributed ?? []).map(({ file, line, message }) => `  ${relative(cwd, file)}:${line}  ${message}`);
+  const samples = (counts.unattributed ?? []).map(({ file, line, message }) => `  ${printableLine(relative(cwd, file))}:${line}  ${printableLine(message)}`);
   return [
     `WARNING: ${total} error(s) could not be suppressed and will fail CI:`,
     ...byCount.map(([rule, count]) => `  ${count}  ${rule}`),

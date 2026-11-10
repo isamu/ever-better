@@ -134,6 +134,7 @@ describe("lifecycle", { timeout: TIMEOUT_MS }, () => {
     const result = await everBetter(["check"], repo);
     assert.equal(result.code, 1, "a new violation must fail the gate");
     assert.match(result.stdout, /unsuppressed error/);
+    assert.match(result.stdout, /^ {2}src\/new\.ts:1:\d+ {2}\S+/m, "the failure does not say where the new violation is");
   });
 
   it("passes again once the new violation is gone", async () => {
