@@ -33,9 +33,11 @@ forward or the reason it was refused.
 - **`--concurrency` only, for now.** `--cache` skips files, and whether a cached run reports the same
   per-file suppressed counts as a full one has not been measured against real ESLint. It belongs in
   the list once it has been, in its own change.
-- **The value is checked too** — a positive integer, `auto` or `off`, as ESLint documents — so a
-  typo is reported by `ever-better` rather than as an ESLint failure halfway through `freeze`.
-  Both `--concurrency=N` and `--concurrency N` are accepted and forwarded as `--concurrency=N`.
+- **The value is checked by ESLint's own rule** (`validateConcurrency` in its `lib/cli.js`: `auto`,
+  `off`, or anything `Number` reads as a positive integer), so a typo is reported by `ever-better`
+  rather than as an ESLint failure halfway through `freeze`, and nothing ESLint accepts is refused.
+  A number is forwarded as `Number` reads it (`04` becomes `4`), so only digits, `auto` or `off`
+  reach ESLint. Both `--concurrency=N` and `--concurrency N` are accepted.
   Giving it twice is refused rather than guessing which one wins.
 - **`printConfig` and `canLint` do not get it.** They read one file; there is nothing to parallelise.
 - **`log` is unchanged.** It reads its text from positionals, and `--` there still means "the rest
@@ -43,6 +45,8 @@ forward or the reason it was refused.
 
 ## Verification
 
+- the rule against real ESLint: a set of values, the odd ones included (`04`, `0x4`, `1e1`, an
+  overflowing digit string), passed to ESLint 10 and to `parseEslintPassThrough` agree on every one
 - the rule, in both directions: each accepted form, and a refusal for an unknown flag, a missing or
   malformed value, a repeat, a bare positional, and the arguments the issue names
 - the CLI split: positionals before `--` stay with the command, those after go to the rule

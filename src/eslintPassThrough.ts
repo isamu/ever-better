@@ -9,8 +9,17 @@
  */
 const CONCURRENCY = "--concurrency";
 
-/** What ESLint documents: a thread count, `auto` to choose, `off` for none. */
-const isConcurrencyValue = (value: string): boolean => /^[1-9]\d*$/.test(value) || value === "auto" || value === "off";
+/**
+ * ESLint's own rule (`validateConcurrency` in its `lib/cli.js`): `auto`, `off`, or anything `Number`
+ * reads as a positive integer. Matching it exactly means a value is refused here only when ESLint
+ * would refuse it too — halfway through `freeze`. A number is forwarded as `Number` reads it, so
+ * `04` reaches ESLint as `4` and nothing but digits, `auto` or `off` ever does.
+ */
+const concurrencyValue = (value: string): string | null => {
+  if (value === "auto" || value === "off") return value;
+  const threads = Number(value);
+  return Number.isInteger(threads) && threads >= 1 ? String(threads) : null;
+};
 
 export type PassThrough = { ok: true; args: string[] } | { ok: false; message: string };
 
@@ -33,13 +42,12 @@ export const parseEslintPassThrough = (args: readonly string[]): PassThrough => 
   if (args.length === 0) return { ok: true, args: [] };
   const split = splitConcurrency(args, 0);
   if (!split) return refused(`Refusing to pass \`${args[0] ?? ""}\` to ESLint.`);
-  if (split.value === undefined || !isConcurrencyValue(split.value)) {
-    return refused(`${CONCURRENCY} needs a positive integer, auto or off — got \`${split.value ?? "nothing"}\`.`);
-  }
+  const value = split.value === undefined ? null : concurrencyValue(split.value);
+  if (value === null) return refused(`${CONCURRENCY} needs a positive integer, auto or off — got \`${split.value ?? "nothing"}\`.`);
   const rest = args.slice(split.consumed);
   if (rest.some((arg) => arg === CONCURRENCY || arg.startsWith(`${CONCURRENCY}=`))) return refused(`${CONCURRENCY} was given more than once.`);
   if (rest.length > 0) return refused(`Refusing to pass \`${rest[0] ?? ""}\` to ESLint.`);
-  return { ok: true, args: [`${CONCURRENCY}=${split.value}`] };
+  return { ok: true, args: [`${CONCURRENCY}=${value}`] };
 };
 
 /** The part of a `parseArgs` token that says where `--` is and what came after it. */

@@ -27,8 +27,14 @@ describe("parseEslintPassThrough", () => {
     assert.deepEqual(accepted(["--concurrency", "off"]), ["--concurrency=off"]);
   });
 
+  it("accepts every number ESLint accepts, forwarded as ESLint reads it", () => {
+    assert.deepEqual(accepted(["--concurrency=04"]), ["--concurrency=4"]);
+    assert.deepEqual(accepted(["--concurrency", "4.0"]), ["--concurrency=4"]);
+    assert.deepEqual(accepted(["--concurrency= 8 "]), ["--concurrency=8"]);
+  });
+
   it("refuses a value ESLint would not take, naming it", () => {
-    ["0", "-1", "1.5", "04", "AUTO", "", "two"].forEach((value) => {
+    ["0", "-1", "1.5", "AUTO", "", " ", "two", "NaN", "Infinity", "9".repeat(400), "--fix"].forEach((value) => {
       assert.match(refusal([`--concurrency=${value}`]), /--concurrency needs a positive integer, auto or off/);
     });
     assert.match(refusal(["--concurrency"]), /got `nothing`/);
