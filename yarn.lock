@@ -873,9 +873,9 @@ keyv@^5.6.0:
     "@keyv/serialize" "^1.1.1"
 
 knip@^6.44.2:
-  version "6.44.2"
-  resolved "https://registry.yarnpkg.com/knip/-/knip-6.44.2.tgz#3d4e9ebf7c729e155244f5a4155000d5c98a121d"
-  integrity sha512-6URO7pnqtOnyvSsXfW6+8C9j1lfcicxUCysXO0RgMtHTZ96HqCXh29op8iabeQW5JeIc8dJWwzSdJVWDokeScQ==
+  version "6.45.0"
+  resolved "https://registry.yarnpkg.com/knip/-/knip-6.45.0.tgz#312a2265e302c81bdbbe97b9b818844957ccd0a7"
+  integrity sha512-ywPAhxiJGPWD/1V5dVYawA6el74q4vgX8omkeyl0MbA1CCkdjxrvWXXVqM20a5wQWcl1NbC9ImLHYsbFEbD0Xg==
   dependencies:
     formatly "^0.11.4"
     get-tsconfig "4.14.3"
@@ -883,12 +883,11 @@ knip@^6.44.2:
     oxc-parser "^0.156.0"
     oxc-resolver "11.24.2"
     picomatch "^4.0.7"
-    smol-toml "^1.9.0"
+    smol-toml "^1.9.1"
     strip-json-comments "5.0.3"
     tinyglobby "^0.2.17"
-    unbash "^6.0.1"
+    unbash "^6.0.4"
     yaml "^2.9.1"
-    zod "^4.6.5"
 
 levn@^0.4.1:
   version "0.4.1"
@@ -1101,7 +1100,7 @@ shebang-regex@^3.0.0:
   resolved "https://registry.yarnpkg.com/shebang-regex/-/shebang-regex-3.0.0.tgz#ae16f1644d873ecad843b0307b143362d4c42172"
   integrity sha512-7++dFhtcx3353uBaq8DDR4NuxBetBzC7ZQOhmTQInHEd6bSrXdiEyzCvG07Z44UYdLShWUyXt5M/yhz8ekcb1A==
 
-smol-toml@^1.9.0:
+smol-toml@^1.9.1:
   version "1.9.1"
   resolved "https://registry.yarnpkg.com/smol-toml/-/smol-toml-1.9.1.tgz#1262834a084c3ce2985900450956a580f95cf243"
   integrity sha512-j7WyPdf0CJoutMzMoPLF/bVXHtKZIT9Rb4eGeEbWw8X2t5oirjPgpL+OpaENZrILYaXqYwnVH+qgUwVbl+pUJQ==
@@ -1159,7 +1158,7 @@ typescript-eslint@^8.72.2:
   resolved "https://registry.yarnpkg.com/typescript/-/typescript-6.0.3.tgz#90251dc007916e972786cb94d74d15b185577d21"
   integrity sha512-y2TvuxSZPDyQakkFRPZHKFm+KKVqIisdg9/CZwm9ftvKXLP8NRWj38/ODjNbr43SsoXqNuAisEf1GdCxqWcdBw==
 
-unbash@^6.0.1:
+unbash@^6.0.4:
   version "6.0.4"
   resolved "https://registry.yarnpkg.com/unbash/-/unbash-6.0.4.tgz#f3993524853a81bc5610eaf83a6b3e9639d23c88"
   integrity sha512-t3OptUArewg9OpYGDskTSlxhyLDahfmZ4d36hE44Efb1y3HRLLpzsVqwH+AwBVymP4t7pP71xN+nnduudn2awA==
@@ -1202,8 +1201,3 @@ yocto-queue@^0.1.0:
   version "0.1.0"
   resolved "https://registry.yarnpkg.com/yocto-queue/-/yocto-queue-0.1.0.tgz#0294eb3dee05028d31ee1a5fa2c556a6aaf10a1b"
   integrity sha512-rVksvsnNCdJ/ohGc6xgPwyN8eheCxsiLM8mxuE/t/mOVqJewPuO1miLpTHQiRgTKCLexL4MeAFVagts7HmNZ2Q==
-
-zod@^4.6.5:
-  version "4.6.7"
-  resolved "https://registry.yarnpkg.com/zod/-/zod-4.6.7.tgz#e806cf64a7f4e37635ce9f2f52c04c3766f75e5b"
-  integrity sha512-g8W2D2kU6a8untc053fX1uVBKzM7yqAxW/3zwk83+6RyF2+SKOuV+c0wBDhUwzV1PaGapmZH+rmcUzPf+3CGwg==
